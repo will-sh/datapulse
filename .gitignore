@@ -3,8 +3,6 @@
 # python
 .venv/
 __pycache__/
-*.pyc
-
 /.pnp
 .pnp.*
 .yarn/*
