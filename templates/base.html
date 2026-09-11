@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ settings.app_title }}{% endblock %}</title>
+  <meta name="description" content="基于 PostHog 的 DataPulse 演示应用，实时采集并展示用户行为事件。">
+  <link rel="stylesheet" href="/static/css/styles.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header">
+      <div class="header-inner">
+        <a href="/" class="logo" data-track="nav_logo_clicked">
+          <span class="logo-icon">◉</span>
+          <span>DataPulse</span>
+        </a>
+
+        <nav class="nav-desktop">
+          <a href="/" class="nav-link{% if active_path == '/' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"首页","href":"/"}'>首页</a>
+          <a href="/features" class="nav-link{% if active_path == '/features' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"功能","href":"/features"}'>功能</a>
+          <a href="/playground" class="nav-link{% if active_path == '/playground' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"行为实验室","href":"/playground"}'>行为实验室</a>
+          <a href="/pricing" class="nav-link{% if active_path == '/pricing' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"定价","href":"/pricing"}'>定价</a>
+        </nav>
+
+        <a href="/playground" class="btn btn-primary btn-sm" data-track="cta_header_clicked">开始体验</a>
+      </div>
+    </header>
+
+    <main class="main-content">
+      {% block content %}{% endblock %}
+    </main>
+
+    <aside id="event-panel" class="event-panel expanded">
+      <div class="event-panel-header">
+        <div class="event-panel-title">
+          <span class="event-panel-icon">◎</span>
+          <span class="event-panel-label">事件采集面板</span>
+          <span id="posthog-badge" class="badge badge-secondary">本地模式</span>
+        </div>
+        <div class="event-panel-actions">
+          <button type="button" id="clear-events-btn" class="btn-icon" aria-label="清空事件">⌫</button>
+          <button type="button" id="toggle-panel-btn" class="btn-icon" aria-label="收起面板">▼</button>
+        </div>
+      </div>
+      <div id="event-panel-body" class="event-panel-body">
+        <div id="event-count" class="event-count">已采集 0 条事件 · 配置 PostHog Key 后可同步到云端</div>
+        <div id="event-list" class="event-list">
+          <p class="event-empty">在页面上操作，事件会实时出现在这里</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    window.DATAPULSE_CONFIG = {
+      posthogKey: {{ settings.posthog_key | tojson }},
+      posthogHost: {{ settings.posthog_host | tojson }},
+      posthogEnabled: {{ settings.posthog_enabled | tojson }},
+      pagePath: {{ active_path | tojson }}
+    };
+  </script>
+  {% if settings.posthog_enabled %}
+  <script src="https://cdn.jsdelivr.net/npm/posthog-js@1/dist/posthog.min.js"></script>
+  {% endif %}
+  <script src="/static/js/analytics.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

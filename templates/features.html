@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <span class="badge badge-primary">功能展示</span>
+  <h1>DataPulse 核心能力</h1>
+  <p class="page-desc">
+    点击功能卡片标记感兴趣项，每次操作都会触发
+    <code>feature_interest_toggled</code> 事件。
+  </p>
+</div>
+
+<div class="feature-grid">
+  {% for feature in features %}
+  <div class="card feature-card" data-feature-id="{{ feature.id }}">
+    <div class="feature-icon">{{ loop.index }}</div>
+    <h2 class="feature-title">{{ feature.title }}</h2>
+    <p class="feature-desc">{{ feature.description }}</p>
+    <button
+      type="button"
+      class="btn btn-outline feature-toggle"
+      data-feature-id="{{ feature.id }}"
+      data-feature-title="{{ feature.title }}"
+    >
+      标记感兴趣
+    </button>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const interested = new Set();
+
+    document.querySelectorAll(".feature-toggle").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.featureId;
+        const title = btn.dataset.featureTitle;
+        const card = btn.closest(".feature-card");
+        const wasInterested = interested.has(id);
+
+        if (wasInterested) {
+          interested.delete(id);
+          btn.textContent = "标记感兴趣";
+          btn.classList.remove("btn-primary");
+          btn.classList.add("btn-outline");
+          card.classList.remove("feature-active");
+        } else {
+          interested.add(id);
+          btn.textContent = "已标记感兴趣";
+          btn.classList.remove("btn-outline");
+          btn.classList.add("btn-primary");
+          card.classList.add("feature-active");
+        }
+
+        DataPulse.trackEvent("feature_interest_toggled", {
+          feature_id: id,
+          feature_title: title,
+          interested: !wasInterested,
+        });
+      });
+    });
+  });
+</script>
+{% endblock %}

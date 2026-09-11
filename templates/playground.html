@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <span class="badge badge-primary">行为实验室</span>
+  <h1>交互式事件采集</h1>
+  <p class="page-desc">
+    在下方尝试不同操作，观察右侧事件面板的实时反馈。
+  </p>
+</div>
+
+<div class="tabs">
+  <div class="tabs-list">
+    <button type="button" class="tab-trigger active" data-tab="events">自定义事件</button>
+    <button type="button" class="tab-trigger" data-tab="form">表单提交</button>
+    <button type="button" class="tab-trigger" data-tab="identity">用户识别</button>
+  </div>
+
+  <div class="tab-content active" data-tab-content="events">
+    <div class="card">
+      <h2>一键触发事件</h2>
+      <p class="card-subtitle">模拟产品中的常见用户行为</p>
+      <div class="button-row">
+        <button type="button" class="btn btn-primary" data-track="button_clicked" data-track-props='{"button":"primary_action"}'>主要操作</button>
+        <button type="button" class="btn btn-outline" data-track="button_clicked" data-track-props='{"button":"secondary_action"}'>次要操作</button>
+        <button type="button" class="btn btn-secondary" data-track="feature_used" data-track-props='{"feature":"export","format":"csv"}'>导出数据</button>
+        <button type="button" class="btn btn-destructive" data-track="account_action" data-track-props='{"action":"delete_requested"}'>删除账户（模拟）</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" data-tab-content="form">
+    <div class="card">
+      <h2>订阅表单</h2>
+      <p class="card-subtitle">提交后触发 <code>demo_form_submitted</code> 事件</p>
+      <form id="demo-form" class="form-row">
+        <input type="email" id="demo-email" placeholder="your@email.com" required class="input">
+        <button type="submit" class="btn btn-primary">提交</button>
+      </form>
+      <p id="form-success" class="form-success hidden">表单已提交，事件已采集！</p>
+    </div>
+  </div>
+
+  <div class="tab-content" data-tab-content="identity">
+    <div class="card">
+      <h2>用户识别</h2>
+      <p class="card-subtitle">调用 PostHog identify，将匿名用户关联到具体 ID</p>
+      <div class="form-row">
+        <input type="text" id="user-id-input" placeholder="用户 ID（留空自动生成）" class="input">
+        <button type="button" id="identify-btn" class="btn btn-primary">识别用户</button>
+      </div>
+      <p id="current-user" class="user-id-display hidden"></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const tabs = document.querySelectorAll(".tab-trigger");
+    const contents = document.querySelectorAll(".tab-content");
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const value = tab.dataset.tab;
+        tabs.forEach((t) => t.classList.remove("active"));
+        contents.forEach((c) => c.classList.remove("active"));
+        tab.classList.add("active");
+        document.querySelector(`[data-tab-content="${value}"]`).classList.add("active");
+        DataPulse.trackEvent("playground_tab_changed", { tab: value });
+      });
+    });
+
+    document.getElementById("demo-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const email = document.getElementById("demo-email").value;
+      DataPulse.trackEvent("demo_form_submitted", {
+        email,
+        has_email: Boolean(email),
+      });
+      const success = document.getElementById("form-success");
+      success.classList.remove("hidden");
+      setTimeout(() => success.classList.add("hidden"), 3000);
+    });
+
+    document.getElementById("identify-btn").addEventListener("click", () => {
+      const input = document.getElementById("user-id-input");
+      const id = input.value || `demo-user-${Date.now()}`;
+      const email = document.getElementById("demo-email").value;
+      DataPulse.identifyUser(id, { email: email || undefined, plan: "demo" });
+      input.value = id;
+      const display = document.getElementById("current-user");
+      display.textContent = `当前用户 ID：${id}`;
+      display.classList.remove("hidden");
+    });
+  });
+</script>
+{% endblock %}

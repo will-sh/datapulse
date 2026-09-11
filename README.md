@@ -10,45 +10,59 @@
 - **用户识别** — PostHog `identify` 演示
 - **本地事件面板** — 未配置 PostHog 时也可完整演示
 
-## 快速开始
+## 快速开始（FastAPI）
 
 ```bash
-npm install
-npm run dev
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8080
 ```
 
-访问 [http://localhost:4317](http://localhost:4317)
+访问 [http://127.0.0.1:8080](http://127.0.0.1:8080)
+
+## CAI Application 部署
+
+在 Cloudera AI Workbench 中创建 Application 时，使用启动脚本：
+
+```bash
+scripts/cai-start-application.sh
+```
+
+脚本会读取 `CDSW_READONLY_PORT` 环境变量，并在 `127.0.0.1` 上启动 uvicorn。推荐使用 PBJ Workbench Python 3.11 runtime。
 
 ## 配置 PostHog（可选）
 
 1. 在 [PostHog](https://posthog.com) 注册并创建项目
 2. 复制 Project API Key
-3. 创建 `.env.local`：
+3. 设置环境变量：
 
 ```env
-NEXT_PUBLIC_POSTHOG_KEY=phc_your_project_api_key_here
-NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+POSTHOG_KEY=phc_your_project_api_key_here
+POSTHOG_HOST=https://us.i.posthog.com
 ```
 
-4. 重启开发服务器
+4. 重启应用
 
 配置后，事件面板会显示「PostHog 已连接」，数据同步到 PostHog 后台的 Live Events。
 
 ## 项目结构
 
 ```
-src/
-  app/              # 页面路由
-  components/       # UI 组件
-  context/          # 事件日志 Context
-  lib/analytics.ts  # 统一事件采集 API
-  providers/        # PostHog Provider
-instrumentation-client.ts  # PostHog 客户端初始化
+app/
+  main.py           # FastAPI 路由
+  config.py         # 环境变量配置
+templates/          # Jinja2 页面模板
+static/
+  css/styles.css    # 样式
+  js/analytics.js   # 事件采集与 PostHog 集成
+scripts/
+  cai-start-application.sh  # CAI Application 启动脚本
+src/                # 原 Next.js 实现（保留参考）
 ```
 
 ## 技术栈
 
-- Next.js 16 (App Router)
-- TypeScript
-- Tailwind CSS + shadcn/ui
-- PostHog (`posthog-js` + `@posthog/react`)
+- FastAPI + Jinja2
+- PostHog (`posthog-js` CDN)
+- 原 Next.js 16 实现保留在 `src/` 目录供参考

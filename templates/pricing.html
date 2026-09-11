@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header page-header-center">
+  <span class="badge badge-primary">定价方案</span>
+  <h1>选择适合你的方案</h1>
+  <p class="page-desc">
+    点击选择方案，触发 <code>plan_selected</code> 转化事件
+  </p>
+</div>
+
+<div class="pricing-grid">
+  {% for plan in plans %}
+  <div class="card pricing-card{% if plan.popular %} pricing-popular{% endif %}" data-plan-id="{{ plan.id }}">
+    {% if plan.popular %}
+    <span class="badge badge-primary">最受欢迎</span>
+    {% endif %}
+    <h2>{{ plan.name }}</h2>
+    <p class="plan-desc">{{ plan.description }}</p>
+    <p class="plan-price">{{ plan.price }}</p>
+    <ul class="plan-features">
+      {% for feature in plan.features %}
+      <li>✓ {{ feature }}</li>
+      {% endfor %}
+    </ul>
+    <button
+      type="button"
+      class="btn btn-primary btn-block plan-select"
+      data-plan-id="{{ plan.id }}"
+      data-plan-name="{{ plan.name }}"
+    >
+      选择方案
+    </button>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    let selectedPlan = null;
+
+    document.querySelectorAll(".plan-select").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const planId = btn.dataset.planId;
+        const planName = btn.dataset.planName;
+
+        document.querySelectorAll(".pricing-card").forEach((card) => {
+          card.classList.remove("plan-selected");
+        });
+        document.querySelectorAll(".plan-select").forEach((b) => {
+          b.textContent = "选择方案";
+        });
+
+        selectedPlan = planId;
+        btn.closest(".pricing-card").classList.add("plan-selected");
+        btn.textContent = "已选择";
+
+        DataPulse.trackEvent("plan_selected", {
+          plan_id: planId,
+          plan_name: planName,
+        });
+      });
+    });
+  });
+</script>
+{% endblock %}

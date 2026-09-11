@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero-grid">
+  <div class="hero-content">
+    <div class="badge-row">
+      <span class="pill pill-indigo">基于 PostHog 的用户行为分析 Demo</span>
+      <span class="pill pill-emerald">无需 API Key，本地模式即可体验</span>
+    </div>
+    <h1 class="hero-title">
+      DataPulse
+      <span class="hero-accent">洞察每一次用户互动</span>
+    </h1>
+    <p class="hero-desc">
+      DataPulse 是一个轻量级行为分析应用演示。点击按钮、切换页面、提交表单——
+      所有互动都会实时出现在右下角的事件面板中。没有 PostHog 账号也没关系，本地模式已覆盖全部演示功能。
+    </p>
+    <div class="hero-actions">
+      <a href="/playground" class="btn btn-primary" data-track="hero_cta_clicked" data-track-props='{"target":"playground"}'>
+        进入行为实验室 →
+      </a>
+      <a href="/features" class="btn btn-outline" data-track="hero_secondary_clicked">了解功能</a>
+    </div>
+  </div>
+
+  <div class="hero-card card">
+    <p class="card-subtitle">支持采集的行为类型</p>
+    <div class="highlight-list">
+      <div class="highlight-item"><span class="highlight-icon">👆</span><span>点击追踪</span></div>
+      <div class="highlight-item"><span class="highlight-icon">📊</span><span>页面浏览</span></div>
+      <div class="highlight-item"><span class="highlight-icon">⚡</span><span>自定义事件</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="metrics-grid">
+  <div class="card metric-card">
+    <p class="metric-label">页面浏览</p>
+    <p id="metric-pageviews" class="metric-value">0</p>
+  </div>
+  <div class="card metric-card">
+    <p class="metric-label">自定义事件</p>
+    <p id="metric-custom" class="metric-value">0</p>
+  </div>
+  <div class="card metric-card">
+    <p class="metric-label">采集状态</p>
+    <p id="metric-status" class="metric-status">本地面板</p>
+    <p id="metric-session" class="metric-sub">会话约 1 分钟</p>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    DataPulse.updateHomeMetrics();
+  });
+</script>
+{% endblock %}
