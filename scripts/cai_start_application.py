@@ -1,1 +1,1 @@
-import os,subprocess,sys;from pathlib import Path as P;R=P(__file__).resolve().parent.parent;V=R/".venv";p=os.environ["CDSW_READONLY_PORT"];((V/"bin"/"python").exists()) or (subprocess.check_call([sys.executable,"-m","venv",str(V)]),subprocess.check_call([str(V/"bin"/"pip"),"install","-q","-r",str(R/"requirements.txt")],env={**os.environ,"PIP_USER":"0"}));raise SystemExit(subprocess.call([str(V/"bin"/"python"),"-m","uvicorn","app.main:app","--host","127.0.0.1","--port",p]))
+exec(open(__file__.replace("cai_start_application.py", "cai_start_application_impl.py")).read())
