@@ -1,29 +1,10 @@
-import os
-import subprocess
-import sys
+import os, subprocess, sys
 from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
-VENV = ROOT / ".venv"
-REQ = ROOT / "requirements.txt"
-port = os.environ["CDSW_READONLY_PORT"]
-host = "127.0.0.1"
-if not (VENV / "bin" / "python").exists():
-    subprocess.check_call([sys.executable, "-m", "venv", str(VENV)])
-    subprocess.check_call(
-        [str(VENV / "bin" / "pip"), "install", "-q", "-r", str(REQ)],
-        env={**os.environ, "PIP_USER": "0"},
-    )
-raise SystemExit(
-    subprocess.call(
-        [
-            str(VENV / "bin" / "python"),
-            "-m",
-            "uvicorn",
-            "app.main:app",
-            "--host",
-            host,
-            "--port",
-            port,
-        ]
-    )
-)
+R = Path(__file__).resolve().parent.parent
+V = R / ".venv"
+P = os.environ["CDSW_READONLY_PORT"]
+H = "127.0.0.1"
+if not (V / "bin" / "python").exists():
+    subprocess.check_call([sys.executable, "-m", "venv", str(V)])
+    subprocess.check_call([str(V / "bin" / "pip"), "install", "-q", "-r", str(R / "requirements.txt")], env={**os.environ, "PIP_USER": "0"})
+raise SystemExit(subprocess.call([str(V / "bin" / "python"), "-m", "uvicorn", "app.main:app", "--host", H, "--port", P]))
