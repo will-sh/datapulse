@@ -8,9 +8,13 @@ HOST="127.0.0.1"
 VENV_DIR=".venv"
 
 echo "Installing Python dependencies..."
-python3 -m venv "${VENV_DIR}"
+if [ ! -x "${VENV_DIR}/bin/python" ]; then
+  python3 -m venv "${VENV_DIR}"
+  PIP_USER=0 "${VENV_DIR}/bin/pip" install -q -r requirements.txt
+else
+  echo "Reusing existing ${VENV_DIR}"
+fi
 source "${VENV_DIR}/bin/activate"
-PIP_USER=0 pip install -q -r requirements.txt
 
 echo "Starting DataPulse on ${HOST}:${PORT}..."
 exec python -m uvicorn app.main:app --host "${HOST}" --port "${PORT}"
