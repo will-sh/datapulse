@@ -15,8 +15,13 @@ export function HeroSection() {
   return (
     <section className="grid gap-10 lg:grid-cols-[1.2fr_1fr] lg:items-center">
       <div className="space-y-6">
-        <div className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300">
-          基于 PostHog 的用户行为分析 Demo
+        <div className="flex flex-wrap gap-2">
+          <div className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300">
+            基于 PostHog 的用户行为分析 Demo
+          </div>
+          <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300">
+            无需 API Key，本地模式即可体验
+          </div>
         </div>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
           DataPulse
@@ -26,7 +31,7 @@ export function HeroSection() {
         </h1>
         <p className="max-w-xl text-lg text-muted-foreground">
           DataPulse 是一个轻量级行为分析应用演示。点击按钮、切换页面、提交表单——
-          所有互动都会被采集并展示在实时事件面板中，也可同步至 PostHog 后台。
+          所有互动都会实时出现在右下角的事件面板中。没有 PostHog 账号也没关系，本地模式已覆盖全部演示功能。
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
