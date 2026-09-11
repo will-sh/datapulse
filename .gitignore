@@ -3,6 +3,10 @@
 # python
 .venv/
 __pycache__/
+*.pyc
+
+# dependencies
+/node_modules
 /.pnp
 .pnp.*
 .yarn/*
