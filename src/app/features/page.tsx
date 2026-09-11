@@ -19,7 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { trackEvent } from "@/lib/analytics";
+import { useAnalytics } from "@/context/event-log-context";
 
 const features = [
   {
@@ -61,6 +61,7 @@ const features = [
 ];
 
 export default function FeaturesPage() {
+  const { trackEvent } = useAnalytics();
   const [interested, setInterested] = useState<string[]>([]);
 
   function toggleInterest(id: string, title: string) {

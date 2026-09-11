@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { identifyUser, trackEvent } from "@/lib/analytics";
+import { useAnalytics } from "@/context/event-log-context";
 
 export default function PlaygroundPage() {
+  const { trackEvent, identifyUser } = useAnalytics();
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState("");
   const [submitted, setSubmitted] = useState(false);

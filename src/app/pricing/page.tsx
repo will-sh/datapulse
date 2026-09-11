@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { trackEvent } from "@/lib/analytics";
+import { useAnalytics } from "@/context/event-log-context";
 
 const plans = [
   {
@@ -41,6 +41,7 @@ const plans = [
 ];
 
 export default function PricingPage() {
+  const { trackEvent } = useAnalytics();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   function selectPlan(planId: string, planName: string) {

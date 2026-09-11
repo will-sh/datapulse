@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Activity } from "lucide-react";
 
-import { trackEvent } from "@/lib/analytics";
+import { useAnalytics } from "@/context/event-log-context";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -16,6 +16,7 @@ const navItems = [
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const { trackEvent } = useAnalytics();
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">

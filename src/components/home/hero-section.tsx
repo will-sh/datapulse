@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, BarChart3, MousePointerClick, Zap } from "lucide-react";
 
-import { trackEvent } from "@/lib/analytics";
+import { useAnalytics } from "@/context/event-log-context";
 
 const highlights = [
   { icon: MousePointerClick, label: "点击追踪" },
@@ -12,6 +12,8 @@ const highlights = [
 ];
 
 export function HeroSection() {
+  const { trackEvent } = useAnalytics();
+
   return (
     <section className="grid gap-10 lg:grid-cols-[1.2fr_1fr] lg:items-center">
       <div className="space-y-6">
