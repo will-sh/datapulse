@@ -1,0 +1,2181 @@
+# feat: support client-side instrumentation
+
+- State: merged
+- Author: gaojude
+- Created: 2025-03-07T20:39:47Z
+- Updated: 2025-04-05T00:05:45Z
+- Repository: vercel/next.js
+- Number: #76916
+- +214 -0 in 26 files
+- Merged: 2025-03-14T12:18:10Z
+- Merge commit: 7de4c0728ba8c09d27e1d681026e9e868361f773
+- Reviewers: feedthejim
+
+## Labels
+
+- type: next
+- created-by: Next.js team
+- Turbopack
+- locked
+- tests
+
+---
+
+Some analytics APIs need to run before any Next.js code executes. Previously, we implemented `instrumentation.ts` to handle this on the server side. Now, we're introducing `instrumentation-client.ts` for client-side functionality. When placed at the project root, this script will be bundled into the initial JavaScript chunk and executed synchronously before hydration begins. 
+ 
+Closes NDX-934
+
+## Timeline
+
+- ijjk added label "created-by: Next.js team"
+
+- ijjk added label "tests"
+
+- ijjk added label "Turbopack"
+
+- ijjk added label "type: next"
+
+- Renamed from "instrumentation client" to "[Draft]"
+
+**gaojude** commented on 2025-03-07T20:40:05Z:
+
+> * **#76916** 👈 (View in Graphite) 
+> * `canary`
+> 
+> 
+> 
+> 
+> This stack of pull requests is managed by Graphite. Learn more about stacking.
+> 
+
+- gaojude head_ref_force_pushed
+
+**ijjk** commented on 2025-03-07T20:49:14Z:
+
+> ## Tests Passed
+> 
+> 
+
+**ijjk** commented on 2025-03-07T20:54:59Z:
+
+> # Stats from current PR
+> 
+> 
+> Default Build (Increase detected ⚠️) 
+> 
+> 
+> 
+> 
+> General Overall increase ⚠️ 
+> 
+> | | vercel/next.js canary | vercel/next.js 03-07-instrumentation_client | Change |
+> | - | - | - | - |
+> | buildDuration | 15.9s | 14.3s | N/A |
+> | buildDurationCached | 13.5s | 11.6s | N/A |
+> | nodeModulesSize | 390 MB | 390 MB | ⚠️ +17.8 kB |
+> | nextStartRea..uration (ms) | 407ms | 407ms | ✓ |
+> 
+> 
+> 
+> 
+> Client Bundles (main, webpack) 
+> 
+> | | vercel/next.js canary | vercel/next.js 03-07-instrumentation_client | Change |
+> | - | - | - | - |
+> | 6867.HASH.js gzip | 168 B | 169 B | N/A |
+> | 8987-HASH.js gzip | 45.9 kB | 45.6 kB | N/A |
+> | 9484-HASH.js gzip | 5.46 kB | 5.43 kB | N/A |
+> | bccd1874-HASH.js gzip | 53.2 kB | 53.2 kB | N/A |
+> | framework-HASH.js gzip | 57.3 kB | 57.3 kB | ✓ |
+> | main-app-HASH.js gzip | 242 B | 242 B | ✓ |
+> | main-HASH.js gzip | 34.1 kB | 33.8 kB | N/A |
+> | webpack-HASH.js gzip | 1.71 kB | 1.71 kB | N/A |
+> | Overall change | 57.5 kB | 57.5 kB | ✓ |
+> 
+> 
+> 
+> 
+> Legacy Client Bundles (polyfills) 
+> 
+> | | vercel/next.js canary | vercel/next.js 03-07-instrumentation_client | Change |
+> | - | - | - | - |
+> | polyfills-HASH.js gzip | 39.4 kB | 39.4 kB | ✓ |
+> | Overall change | 39.4 kB | 39.4 kB | ✓ |
+> 
+> 
+> 
+> 
+> Client Pages 
+> 
+> | | vercel/next.js canary | vercel/next.js 03-07-instrumentation_client | Change |
+> | - | - | - | - |
+> | _app-HASH.js gzip | 194 B | 194 B | ✓ |
+> | _error-HASH.js gzip | 191 B | 192 B | N/A |
+> | amp-HASH.js gzip | 514 B | 512 B | N/A |
+> | css-HASH.js gzip | 343 B | 341 B | N/A |
+> | dynamic-HASH.js gzip | 1.84 kB | 1.84 kB | ✓ |
+> | edge-ssr-HASH.js gzip | 265 B | 264 B | N/A |
+> | head-HASH.js gzip | 364 B | 361 B | N/A |
+> | hooks-HASH.js gzip | 392 B | 393 B | N/A |
+> | image-HASH.js gzip | 4.67 kB | 4.66 kB | N/A |
+> | index-HASH.js gzip | 266 B | 265 B | N/A |
+> | link-HASH.js gzip | 2.35 kB | 2.35 kB | N/A |
+> | routerDirect..HASH.js gzip | 327 B | 327 B | ✓ |
+> | script-HASH.js gzip | 397 B | 397 B | ✓ |
+> | withRouter-HASH.js gzip | 322 B | 326 B | N/A |
+> | 1afbb74e6ecf..834.css gzip | 106 B | 106 B | ✓ |
+> | Overall change | 2.86 kB | 2.86 kB | ✓ |
+> 
+> 
+> 
+> 
+> Client Build Manifests 
+> 
+> | | vercel/next.js canary | vercel/next.js 03-07-instrumentation_client | Change |
+> | - | - | - | - |
+> | _buildManifest.js gzip | 753 B | 752 B | N/A |
+> | Overall change | 0 B | 0 B | ✓ |
+> 
+> 
+> 
+> 
+> Rendered Page Sizes 
+> 
+> | | vercel/next.js canary | vercel/next.js 03-07-instrumentation_client | Change |
+> | - | - | - | - |
+> | index.html gzip | 523 B | 522 B | N/A |
+> | link.html gzip | 537 B | 536 B | N/A |
+> | withRouter.html gzip | 521 B | 518 B | N/A |
+> | Overall change | 0 B | 0 B | ✓ |
+> 
+> 
+> 
+> 
+> Edge SSR bundle Size 
+> 
+> | | vercel/next.js canary | vercel/next.js 03-07-instrumentation_client | Change |
+> | - | - | - | - |
+> | edge-ssr.js gzip | 133 kB | 133 kB | N/A |
+> | page.js gzip | 216 kB | 216 kB | N/A |
+> | Overall change | 0 B | 0 B | ✓ |
+> 
+> 
+> 
+> 
+> Middleware size 
+> 
+> | | vercel/next.js canary | vercel/next.js 03-07-instrumentation_client | Change |
+> | - | - | - | - |
+> | middleware-b..fest.js gzip | 674 B | 678 B | N/A |
+> | middleware-r..fest.js gzip | 156 B | 156 B | ✓ |
+> | middleware.js gzip | 31.5 kB | 31.5 kB | N/A |
+> | edge-runtime..pack.js gzip | 844 B | 844 B | ✓ |
+> | Overall change | 1 kB | 1 kB | ✓ |
+> 
+> 
+> 
+> 
+> Next Runtimes 
+> 
+> | | vercel/next.js canary | vercel/next.js 03-07-instrumentation_client | Change |
+> | - | - | - | - |
+> | app-page-exp...dev.js gzip | 371 kB | 371 kB | ✓ |
+> | app-page-exp..prod.js gzip | 141 kB | 141 kB | ✓ |
+> | app-page-tur..prod.js gzip | 154 kB | 154 kB | ✓ |
+> | app-page-tur..prod.js gzip | 150 kB | 150 kB | ✓ |
+> | app-page.run...dev.js gzip | 360 kB | 360 kB | ✓ |
+> | app-page.run..prod.js gzip | 137 kB | 137 kB | ✓ |
+> | app-route-ex...dev.js gzip | 39.5 kB | 39.5 kB | ✓ |
+> | app-route-ex..prod.js gzip | 25.8 kB | 25.8 kB | ✓ |
+> | app-route-tu..prod.js gzip | 25.8 kB | 25.8 kB | ✓ |
+> | app-route-tu..prod.js gzip | 25.6 kB | 25.6 kB | ✓ |
+> | app-route.ru...dev.js gzip | 39.2 kB | 39.2 kB | ✓ |
+> | app-route.ru..prod.js gzip | 25.5 kB | 25.5 kB | ✓ |
+> | dist_client_...dev.js gzip | 356 B | 356 B | ✓ |
+> | dist_client_...dev.js gzip | 349 B | 349 B | ✓ |
+> | pages-api-tu..prod.js gzip | 9.76 kB | 9.76 kB | ✓ |
+> | pages-api.ru...dev.js gzip | 11.9 kB | 11.9 kB | ✓ |
+> | pages-api.ru..prod.js gzip | 9.75 kB | 9.75 kB | ✓ |
+> | pages-turbo...prod.js gzip | 22.1 kB | 22.1 kB | ✓ |
+> | pages.runtim...dev.js gzip | 31.7 kB | 31.7 kB | ✓ |
+> | pages.runtim..prod.js gzip | 22.1 kB | 22.1 kB | ✓ |
+> | server.runti..prod.js gzip | 61.9 kB | 61.9 kB | ✓ |
+> | Overall change | 1.66 MB | 1.66 MB | ✓ |
+> 
+> 
+> 
+> 
+> build cache Overall increase ⚠️ 
+> 
+> | | vercel/next.js canary | vercel/next.js 03-07-instrumentation_client | Change |
+> | - | - | - | - |
+> | 0.pack gzip | 2.15 MB | 2.15 MB | ⚠️ +2.84 kB |
+> | index.pack gzip | 75.5 kB | 75.9 kB | ⚠️ +364 B |
+> | Overall change | 2.22 MB | 2.22 MB | ⚠️ +3.2 kB |
+> 
+> 
+> 
+> 
+> Diff details 
+> 
+> 
+> Diff for page.js 
+> 
+> Diff too large to display
+> 
+> 
+> Diff for middleware.js 
+> 
+> Diff too large to display
+> 
+> 
+> Diff for edge-ssr.js 
+> 
+> ```diff
+> failed to diff
+> ```
+> 
+> 
+> Diff for amp-HASH.js 
+> 
+> ```diff
+> @@ -1,34 +1,7 @@
+> (self["webpackChunk_N_E"] = self["webpackChunk_N_E"] || []).push([
+> [5034],
+> {
+> - /***/ 5061: /***/ (
+> - module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - module.exports = __webpack_require__(8457);
+> -
+> - /***/
+> - },
+> -
+> - /***/ 5086: /***/ (
+> - __unused_webpack_module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - (window.__NEXT_P = window.__NEXT_P || []).push([
+> - "/amp",
+> - function () {
+> - return __webpack_require__(8661);
+> - },
+> - ]);
+> - if (false) {
+> - }
+> -
+> - /***/
+> - },
+> -
+> - /***/ 8457: /***/ (module, exports, __webpack_require__) => {
+> + /***/ 3305: /***/ (module, exports, __webpack_require__) => {
+> "use strict";
+> 
+> Object.defineProperty(exports, "__esModule", {
+> @@ -44,8 +17,8 @@
+> const _react = /*#__PURE__*/ _interop_require_default._(
+> __webpack_require__(4109)
+> );
+> - const _ampcontextsharedruntime = __webpack_require__(799);
+> - const _ampmode = __webpack_require__(2023);
+> + const _ampcontextsharedruntime = __webpack_require__(399);
+> + const _ampmode = __webpack_require__(4951);
+> function useAmp() {
+> // Don't assign the context value to a variable to save bytes
+> return (0, _ampmode.isInAmpMode)(
+> @@ -67,7 +40,17 @@
+> /***/
+> },
+> 
+> - /***/ 8661: /***/ (
+> + /***/ 3963: /***/ (
+> + module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + module.exports = __webpack_require__(3305);
+> +
+> + /***/
+> + },
+> +
+> + /***/ 4727: /***/ (
+> __unused_webpack_module,
+> __webpack_exports__,
+> __webpack_require__
+> @@ -80,7 +63,7 @@
+> /* harmony export */
+> });
+> /* harmony import */ var next_amp__WEBPACK_IMPORTED_MODULE_0__ =
+> - __webpack_require__(5061);
+> + __webpack_require__(3963);
+> /* harmony import */ var next_amp__WEBPACK_IMPORTED_MODULE_0___default =
+> /*#__PURE__*/ __webpack_require__.n(
+> next_amp__WEBPACK_IMPORTED_MODULE_0__
+> @@ -97,13 +80,30 @@
+> 
+> /***/
+> },
+> +
+> + /***/ 7931: /***/ (
+> + __unused_webpack_module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + (window.__NEXT_P = window.__NEXT_P || []).push([
+> + "/amp",
+> + function () {
+> + return __webpack_require__(4727);
+> + },
+> + ]);
+> + if (false) {
+> + }
+> +
+> + /***/
+> + },
+> },
+> /******/ (__webpack_require__) => {
+> // webpackRuntimeModules
+> /******/ var __webpack_exec__ = (moduleId) =>
+> __webpack_require__((__webpack_require__.s = moduleId));
+> /******/ __webpack_require__.O(0, [636, 6593, 8792], () =>
+> - __webpack_exec__(5086)
+> + __webpack_exec__(7931)
+> );
+> /******/ var __webpack_exports__ = __webpack_require__.O();
+> /******/ _N_E = __webpack_exports__;
+> ```
+> 
+> 
+> Diff for css-HASH.js 
+> 
+> ```diff
+> @@ -1,7 +1,24 @@
+> (self["webpackChunk_N_E"] = self["webpackChunk_N_E"] || []).push([
+> [9813],
+> {
+> - /***/ 1368: /***/ (
+> + /***/ 1313: /***/ (
+> + __unused_webpack_module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + (window.__NEXT_P = window.__NEXT_P || []).push([
+> + "/css",
+> + function () {
+> + return __webpack_require__(5110);
+> + },
+> + ]);
+> + if (false) {
+> + }
+> +
+> + /***/
+> + },
+> +
+> + /***/ 5110: /***/ (
+> __unused_webpack_module,
+> __webpack_exports__,
+> __webpack_require__
+> @@ -15,7 +32,7 @@
+> /* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__ =
+> __webpack_require__(8017);
+> /* harmony import */ var _css_module_css__WEBPACK_IMPORTED_MODULE_1__ =
+> - __webpack_require__(7165);
+> + __webpack_require__(8027);
+> /* harmony import */ var _css_module_css__WEBPACK_IMPORTED_MODULE_1___default =
+> /*#__PURE__*/ __webpack_require__.n(
+> _css_module_css__WEBPACK_IMPORTED_MODULE_1__
+> @@ -35,24 +52,7 @@
+> /***/
+> },
+> 
+> - /***/ 1487: /***/ (
+> - __unused_webpack_module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - (window.__NEXT_P = window.__NEXT_P || []).push([
+> - "/css",
+> - function () {
+> - return __webpack_require__(1368);
+> - },
+> - ]);
+> - if (false) {
+> - }
+> -
+> - /***/
+> - },
+> -
+> - /***/ 7165: /***/ (module) => {
+> + /***/ 8027: /***/ (module) => {
+> // extracted by mini-css-extract-plugin
+> module.exports = { helloWorld: "css_helloWorld__aUdUq" };
+> 
+> @@ -64,7 +64,7 @@
+> /******/ var __webpack_exec__ = (moduleId) =>
+> __webpack_require__((__webpack_require__.s = moduleId));
+> /******/ __webpack_require__.O(0, [636, 6593, 8792], () =>
+> - __webpack_exec__(1487)
+> + __webpack_exec__(1313)
+> );
+> /******/ var __webpack_exports__ = __webpack_require__.O();
+> /******/ _N_E = __webpack_exports__;
+> ```
+> 
+> 
+> Diff for dynamic-HASH.js 
+> 
+> ```diff
+> @@ -1,51 +1,63 @@
+> (self["webpackChunk_N_E"] = self["webpackChunk_N_E"] || []).push([
+> [2291],
+> {
+> - /***/ 71: /***/ (
+> + /***/ 252: /***/ (
+> __unused_webpack_module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - (window.__NEXT_P = window.__NEXT_P || []).push([
+> - "/dynamic",
+> - function () {
+> - return __webpack_require__(8546);
+> - },
+> - ]);
+> - if (false) {
+> - }
+> -
+> - /***/
+> - },
+> -
+> - /***/ 6251: /***/ (
+> - __unused_webpack_module,
+> - exports,
+> + __webpack_exports__,
+> __webpack_require__
+> ) => {
+> "use strict";
+> - /* __next_internal_client_entry_do_not_use__ cjs */
+> - Object.defineProperty(exports, "__esModule", {
+> - value: true,
+> - });
+> - Object.defineProperty(exports, "LoadableContext", {
+> - enumerable: true,
+> - get: function () {
+> - return LoadableContext;
+> - },
+> + __webpack_require__.r(__webpack_exports__);
+> + /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+> + /* harmony export */ __N_SSP: () => /* binding */ __N_SSP,
+> + /* harmony export */ default: () => __WEBPACK_DEFAULT_EXPORT__,
+> + /* harmony export */
+> });
+> - const _interop_require_default = __webpack_require__(1532);
+> - const _react = /*#__PURE__*/ _interop_require_default._(
+> - __webpack_require__(4109)
+> + /* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__ =
+> + __webpack_require__(8017);
+> + /* harmony import */ var next_dynamic__WEBPACK_IMPORTED_MODULE_1__ =
+> + __webpack_require__(3760);
+> + /* harmony import */ var next_dynamic__WEBPACK_IMPORTED_MODULE_1___default =
+> + /*#__PURE__*/ __webpack_require__.n(
+> + next_dynamic__WEBPACK_IMPORTED_MODULE_1__
+> + );
+> +
+> + const DynamicHello = next_dynamic__WEBPACK_IMPORTED_MODULE_1___default()(
+> + () =>
+> + __webpack_require__
+> + .e(/* import() */ 6397)
+> + .then(__webpack_require__.bind(__webpack_require__, 6397))
+> + .then((mod) => mod.Hello),
+> + {
+> + loadableGenerated: {
+> + webpack: () => [/*require.resolve*/ 6397],
+> + },
+> + }
+> );
+> - const LoadableContext = _react.default.createContext(null);
+> - if (false) {
+> - } //# sourceMappingURL=loadable-context.shared-runtime.js.map
+> + const Page = () =>
+> + /*#__PURE__*/ (0, react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(
+> + react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.Fragment,
+> + {
+> + children: [
+> + /*#__PURE__*/ (0,
+> + react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("p", {
+> + children: "testing next/dynamic size",
+> + }),
+> + /*#__PURE__*/ (0,
+> + react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(
+> + DynamicHello,
+> + {}
+> + ),
+> + ],
+> + }
+> + );
+> + var __N_SSP = true;
+> + /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = Page;
+> 
+> /***/
+> },
+> 
+> - /***/ 6609: /***/ (
+> + /***/ 2369: /***/ (
+> __unused_webpack_module,
+> exports,
+> __webpack_require__
+> @@ -87,7 +99,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+> const _react = /*#__PURE__*/ _interop_require_default._(
+> __webpack_require__(4109)
+> );
+> - const _loadablecontextsharedruntime = __webpack_require__(6251);
+> + const _loadablecontextsharedruntime = __webpack_require__(3787);
+> function resolve(obj) {
+> return obj && obj.default ? obj.default : obj;
+> }
+> @@ -322,7 +334,61 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+> /***/
+> },
+> 
+> - /***/ 7270: /***/ (module, exports, __webpack_require__) => {
+> + /***/ 3760: /***/ (
+> + module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + module.exports = __webpack_require__(8998);
+> +
+> + /***/
+> + },
+> +
+> + /***/ 3787: /***/ (
+> + __unused_webpack_module,
+> + exports,
+> + __webpack_require__
+> + ) => {
+> + "use strict";
+> + /* __next_internal_client_entry_do_not_use__ cjs */
+> + Object.defineProperty(exports, "__esModule", {
+> + value: true,
+> + });
+> + Object.defineProperty(exports, "LoadableContext", {
+> + enumerable: true,
+> + get: function () {
+> + return LoadableContext;
+> + },
+> + });
+> + const _interop_require_default = __webpack_require__(1532);
+> + const _react = /*#__PURE__*/ _interop_require_default._(
+> + __webpack_require__(4109)
+> + );
+> + const LoadableContext = _react.default.createContext(null);
+> + if (false) {
+> + } //# sourceMappingURL=loadable-context.shared-runtime.js.map
+> +
+> + /***/
+> + },
+> +
+> + /***/ 8449: /***/ (
+> + __unused_webpack_module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + (window.__NEXT_P = window.__NEXT_P || []).push([
+> + "/dynamic",
+> + function () {
+> + return __webpack_require__(252);
+> + },
+> + ]);
+> + if (false) {
+> + }
+> +
+> + /***/
+> + },
+> +
+> + /***/ 8998: /***/ (module, exports, __webpack_require__) => {
+> "use strict";
+> 
+> Object.defineProperty(exports, "__esModule", {
+> @@ -355,7 +421,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+> __webpack_require__(4109)
+> );
+> const _loadablesharedruntime = /*#__PURE__*/ _interop_require_default._(
+> - __webpack_require__(6609)
+> + __webpack_require__(2369)
+> );
+> const isServerSide = "object" === "undefined";
+> // Normalize loader to return the module as form { default: Component } for `React.lazy`.
+> @@ -455,79 +521,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+> 
+> /***/
+> },
+> -
+> - /***/ 8546: /***/ (
+> - __unused_webpack_module,
+> - __webpack_exports__,
+> - __webpack_require__
+> - ) => {
+> - "use strict";
+> - __webpack_require__.r(__webpack_exports__);
+> - /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+> - /* harmony export */ __N_SSP: () => /* binding */ __N_SSP,
+> - /* harmony export */ default: () => __WEBPACK_DEFAULT_EXPORT__,
+> - /* harmony export */
+> - });
+> - /* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__ =
+> - __webpack_require__(8017);
+> - /* harmony import */ var next_dynamic__WEBPACK_IMPORTED_MODULE_1__ =
+> - __webpack_require__(9330);
+> - /* harmony import */ var next_dynamic__WEBPACK_IMPORTED_MODULE_1___default =
+> - /*#__PURE__*/ __webpack_require__.n(
+> - next_dynamic__WEBPACK_IMPORTED_MODULE_1__
+> - );
+> -
+> - const DynamicHello = next_dynamic__WEBPACK_IMPORTED_MODULE_1___default()(
+> - () =>
+> - __webpack_require__
+> - .e(/* import() */ 6867)
+> - .then(__webpack_require__.bind(__webpack_require__, 6867))
+> - .then((mod) => mod.Hello),
+> - {
+> - loadableGenerated: {
+> - webpack: () => [/*require.resolve*/ 6867],
+> - },
+> - }
+> - );
+> - const Page = () =>
+> - /*#__PURE__*/ (0, react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(
+> - react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.Fragment,
+> - {
+> - children: [
+> - /*#__PURE__*/ (0,
+> - react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("p", {
+> - children: "testing next/dynamic size",
+> - }),
+> - /*#__PURE__*/ (0,
+> - react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(
+> - DynamicHello,
+> - {}
+> - ),
+> - ],
+> - }
+> - );
+> - var __N_SSP = true;
+> - /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = Page;
+> -
+> - /***/
+> - },
+> -
+> - /***/ 9330: /***/ (
+> - module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - module.exports = __webpack_require__(7270);
+> -
+> - /***/
+> - },
+> },
+> /******/ (__webpack_require__) => {
+> // webpackRuntimeModules
+> /******/ var __webpack_exec__ = (moduleId) =>
+> __webpack_require__((__webpack_require__.s = moduleId));
+> /******/ __webpack_require__.O(0, [636, 6593, 8792], () =>
+> - __webpack_exec__(71)
+> + __webpack_exec__(8449)
+> );
+> /******/ var __webpack_exports__ = __webpack_require__.O();
+> /******/ _N_E = __webpack_exports__;
+> ```
+> 
+> 
+> Diff for head-HASH.js 
+> 
+> ```diff
+> @@ -1,17 +1,7 @@
+> (self["webpackChunk_N_E"] = self["webpackChunk_N_E"] || []).push([
+> [5350],
+> {
+> - /***/ 4891: /***/ (
+> - module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - module.exports = __webpack_require__(6191);
+> -
+> - /***/
+> - },
+> -
+> - /***/ 6889: /***/ (
+> + /***/ 803: /***/ (
+> __unused_webpack_module,
+> __unused_webpack_exports,
+> __webpack_require__
+> @@ -19,7 +9,7 @@
+> (window.__NEXT_P = window.__NEXT_P || []).push([
+> "/head",
+> function () {
+> - return __webpack_require__(9659);
+> + return __webpack_require__(3281);
+> },
+> ]);
+> if (false) {
+> @@ -28,7 +18,7 @@
+> /***/
+> },
+> 
+> - /***/ 9659: /***/ (
+> + /***/ 3281: /***/ (
+> __unused_webpack_module,
+> __webpack_exports__,
+> __webpack_require__
+> @@ -43,7 +33,7 @@
+> /* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__ =
+> __webpack_require__(8017);
+> /* harmony import */ var next_head__WEBPACK_IMPORTED_MODULE_1__ =
+> - __webpack_require__(4891);
+> + __webpack_require__(9557);
+> /* harmony import */ var next_head__WEBPACK_IMPORTED_MODULE_1___default =
+> /*#__PURE__*/ __webpack_require__.n(
+> next_head__WEBPACK_IMPORTED_MODULE_1__
+> @@ -76,13 +66,23 @@
+> 
+> /***/
+> },
+> +
+> + /***/ 9557: /***/ (
+> + module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + module.exports = __webpack_require__(783);
+> +
+> + /***/
+> + },
+> },
+> /******/ (__webpack_require__) => {
+> // webpackRuntimeModules
+> /******/ var __webpack_exec__ = (moduleId) =>
+> __webpack_require__((__webpack_require__.s = moduleId));
+> /******/ __webpack_require__.O(0, [636, 6593, 8792], () =>
+> - __webpack_exec__(6889)
+> + __webpack_exec__(803)
+> );
+> /******/ var __webpack_exports__ = __webpack_require__.O();
+> /******/ _N_E = __webpack_exports__;
+> ```
+> 
+> 
+> Diff for image-HASH.js 
+> 
+> ```diff
+> @@ -1,64 +1,144 @@
+> (self["webpackChunk_N_E"] = self["webpackChunk_N_E"] || []).push([
+> [2983],
+> {
+> - /***/ 1442: /***/ (
+> + /***/ 212: /***/ (
+> + __unused_webpack_module,
+> + __webpack_exports__,
+> + __webpack_require__
+> + ) => {
+> + "use strict";
+> + // ESM COMPAT FLAG
+> + __webpack_require__.r(__webpack_exports__);
+> +
+> + // EXPORTS
+> + __webpack_require__.d(__webpack_exports__, {
+> + __N_SSP: () => /* binding */ __N_SSP,
+> + default: () => /* binding */ pages_image,
+> + });
+> +
+> + // EXTERNAL MODULE: ./node_modules/.pnpm/react@19.0.0/node_modules/react/jsx-runtime.js
+> + var jsx_runtime = __webpack_require__(8017);
+> + // EXTERNAL MODULE: ./node_modules/.pnpm/next@file+..+diff-repo+packages+next+next-packed.tgz_react-dom@19.0.0_react@19.0.0__react@19.0.0/node_modules/next/image.js
+> + var next_image = __webpack_require__(1468);
+> + var image_default = /*#__PURE__*/ __webpack_require__.n(next_image); // ./pages/nextjs.png
+> + /* harmony default export */ const nextjs = {
+> + src: "/_next/static/media/nextjs.cae0b805.png",
+> + height: 1347,
+> + width: 1626,
+> + blurDataURL:
+> + "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAHCAMAAAACh/xsAAAAD1BMVEX////x8fH6+vrb29vo6Oh8o70bAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAH0lEQVR4nGNgwARMjIyMjCAGCzMzMwsTRISJCcRABwAEcAAkLCQfgAAAAABJRU5ErkJggg==",
+> + blurWidth: 8,
+> + blurHeight: 7,
+> + }; // ./pages/image.js
+> + function ImagePage(props) {
+> + return /*#__PURE__*/ (0, jsx_runtime.jsxs)(jsx_runtime.Fragment, {
+> + children: [
+> + /*#__PURE__*/ (0, jsx_runtime.jsx)("h1", {
+> + children: "next/image example",
+> + }),
+> + /*#__PURE__*/ (0, jsx_runtime.jsx)(image_default(), {
+> + src: nextjs,
+> + placeholder: "blur",
+> + }),
+> + ],
+> + });
+> + }
+> + var __N_SSP = true;
+> + /* harmony default export */ const pages_image = ImagePage;
+> +
+> + /***/
+> + },
+> +
+> + /***/ 1468: /***/ (
+> module,
+> __unused_webpack_exports,
+> __webpack_require__
+> ) => {
+> - module.exports = __webpack_require__(3250);
+> + module.exports = __webpack_require__(2242);
+> +
+> + /***/
+> + },
+> +
+> + /***/ 1989: /***/ (
+> + __unused_webpack_module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + (window.__NEXT_P = window.__NEXT_P || []).push([
+> + "/image",
+> + function () {
+> + return __webpack_require__(212);
+> + },
+> + ]);
+> + if (false) {
+> + }
+> 
+> /***/
+> },
+> 
+> - /***/ 2170: /***/ (__unused_webpack_module, exports) => {
+> + /***/ 2242: /***/ (
+> + __unused_webpack_module,
+> + exports,
+> + __webpack_require__
+> + ) => {
+> "use strict";
+> 
+> Object.defineProperty(exports, "__esModule", {
+> value: true,
+> });
+> - Object.defineProperty(exports, "default", {
+> - enumerable: true,
+> - get: function () {
+> + 0 && 0;
+> + function _export(target, all) {
+> + for (var name in all)
+> + Object.defineProperty(target, name, {
+> + enumerable: true,
+> + get: all[name],
+> + });
+> + }
+> + _export(exports, {
+> + default: function () {
+> return _default;
+> },
+> + getImageProps: function () {
+> + return getImageProps;
+> + },
+> });
+> - const DEFAULT_Q = 75;
+> - function defaultLoader(param) {
+> - let { config, src, width, quality } = param;
+> - var _config_qualities;
+> - if (false) {
+> + const _interop_require_default = __webpack_require__(1532);
+> + const _getimgprops = __webpack_require__(4474);
+> + const _imagecomponent = __webpack_require__(6805);
+> + const _imageloader = /*#__PURE__*/ _interop_require_default._(
+> + __webpack_require__(9274)
+> + );
+> + function getImageProps(imgProps) {
+> + const { props } = (0, _getimgprops.getImgProps)(imgProps, {
+> + defaultLoader: _imageloader.default,
+> + // This is replaced by webpack define plugin
+> + imgConf: {
+> + deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+> + imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+> + path: "/_next/image",
+> + loader: "default",
+> + dangerouslyAllowSVG: false,
+> + unoptimized: false,
+> + },
+> + });
+> + // Normally we don't care about undefined props because we pass to JSX,
+> + // but this exported function could be used by the end user for anything
+> + // so we delete undefined props to clean it up a little.
+> + for (const [key, value] of Object.entries(props)) {
+> + if (value === undefined) {
+> + delete props[key];
+> + }
+> }
+> - const q =
+> - quality ||
+> - ((_config_qualities = config.qualities) == null
+> - ? void 0
+> - : _config_qualities.reduce((prev, cur) =>
+> - Math.abs(cur - DEFAULT_Q) < Math.abs(prev - DEFAULT_Q)
+> - ? cur
+> - : prev
+> - )) ||
+> - DEFAULT_Q;
+> - return (
+> - config.path +
+> - "?url=" +
+> - encodeURIComponent(src) +
+> - "&w=" +
+> - width +
+> - "&q=" +
+> - q +
+> - (src.startsWith("/_next/static/media/") && false ? 0 : "")
+> - );
+> + return {
+> + props,
+> + };
+> }
+> - // We use this to determine if the import is the default loader
+> - // or a custom loader defined by the user in next.config.js
+> - defaultLoader.__next_img_default = true;
+> - const _default = defaultLoader; //# sourceMappingURL=image-loader.js.map
+> + const _default = _imagecomponent.Image; //# sourceMappingURL=image-external.js.map
+> 
+> /***/
+> },
+> 
+> - /***/ 3041: /***/ (module, exports, __webpack_require__) => {
+> + /***/ 3937: /***/ (module, exports, __webpack_require__) => {
+> "use strict";
+> 
+> Object.defineProperty(exports, "__esModule", {
+> @@ -136,69 +216,7 @@
+> /***/
+> },
+> 
+> - /***/ 3250: /***/ (
+> - __unused_webpack_module,
+> - exports,
+> - __webpack_require__
+> - ) => {
+> - "use strict";
+> -
+> - Object.defineProperty(exports, "__esModule", {
+> - value: true,
+> - });
+> - 0 && 0;
+> - function _export(target, all) {
+> - for (var name in all)
+> - Object.defineProperty(target, name, {
+> - enumerable: true,
+> - get: all[name],
+> - });
+> - }
+> - _export(exports, {
+> - default: function () {
+> - return _default;
+> - },
+> - getImageProps: function () {
+> - return getImageProps;
+> - },
+> - });
+> - const _interop_require_default = __webpack_require__(1532);
+> - const _getimgprops = __webpack_require__(3546);
+> - const _imagecomponent = __webpack_require__(7634);
+> - const _imageloader = /*#__PURE__*/ _interop_require_default._(
+> - __webpack_require__(2170)
+> - );
+> - function getImageProps(imgProps) {
+> - const { props } = (0, _getimgprops.getImgProps)(imgProps, {
+> - defaultLoader: _imageloader.default,
+> - // This is replaced by webpack define plugin
+> - imgConf: {
+> - deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+> - imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+> - path: "/_next/image",
+> - loader: "default",
+> - dangerouslyAllowSVG: false,
+> - unoptimized: false,
+> - },
+> - });
+> - // Normally we don't care about undefined props because we pass to JSX,
+> - // but this exported function could be used by the end user for anything
+> - // so we delete undefined props to clean it up a little.
+> - for (const [key, value] of Object.entries(props)) {
+> - if (value === undefined) {
+> - delete props[key];
+> - }
+> - }
+> - return {
+> - props,
+> - };
+> - }
+> - const _default = _imagecomponent.Image; //# sourceMappingURL=image-external.js.map
+> -
+> - /***/
+> - },
+> -
+> - /***/ 3546: /***/ (
+> + /***/ 4474: /***/ (
+> __unused_webpack_module,
+> exports,
+> __webpack_require__
+> @@ -214,9 +232,9 @@
+> return getImgProps;
+> },
+> });
+> - const _warnonce = __webpack_require__(9615);
+> - const _imageblursvg = __webpack_require__(4503);
+> - const _imageconfig = __webpack_require__(1635);
+> + const _warnonce = __webpack_require__(4927);
+> + const _imageblursvg = __webpack_require__(9975);
+> + const _imageconfig = __webpack_require__(8195);
+> const VALID_LOADING_VALUES =
+> /* unused pure expression or super */ null && [
+> "lazy",
+> @@ -643,127 +661,7 @@
+> /***/
+> },
+> 
+> - /***/ 4503: /***/ (__unused_webpack_module, exports) => {
+> - "use strict";
+> - /**
+> - * A shared function, used on both client and server, to generate a SVG blur placeholder.
+> - */
+> - Object.defineProperty(exports, "__esModule", {
+> - value: true,
+> - });
+> - Object.defineProperty(exports, "getImageBlurSvg", {
+> - enumerable: true,
+> - get: function () {
+> - return getImageBlurSvg;
+> - },
+> - });
+> - function getImageBlurSvg(param) {
+> - let {
+> - widthInt,
+> - heightInt,
+> - blurWidth,
+> - blurHeight,
+> - blurDataURL,
+> - objectFit,
+> - } = param;
+> - const std = 20;
+> - const svgWidth = blurWidth ? blurWidth * 40 : widthInt;
+> - const svgHeight = blurHeight ? blurHeight * 40 : heightInt;
+> - const viewBox =
+> - svgWidth && svgHeight
+> - ? "viewBox='0 0 " + svgWidth + " " + svgHeight + "'"
+> - : "";
+> - const preserveAspectRatio = viewBox
+> - ? "none"
+> - : objectFit === "contain"
+> - ? "xMidYMid"
+> - : objectFit === "cover"
+> - ? "xMidYMid slice"
+> - : "none";
+> - return (
+> - "%3Csvg xmlns='http://www.w3.org/2000/svg' " +
+> - viewBox +
+> - "%3E%3Cfilter id='b' color-interpolation-filters='sRGB'%3E%3CfeGaussianBlur stdDeviation='" +
+> - std +
+> - "'/%3E%3CfeColorMatrix values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 100 -1' result='s'/%3E%3CfeFlood x='0' y='0' width='100%25' height='100%25'/%3E%3CfeComposite operator='out' in='s'/%3E%3CfeComposite in2='SourceGraphic'/%3E%3CfeGaussianBlur stdDeviation='" +
+> - std +
+> - "'/%3E%3C/filter%3E%3Cimage width='100%25' height='100%25' x='0' y='0' preserveAspectRatio='" +
+> - preserveAspectRatio +
+> - "' style='filter: url(%23b);' href='" +
+> - blurDataURL +
+> - "'/%3E%3C/svg%3E"
+> - );
+> - } //# sourceMappingURL=image-blur-svg.js.map
+> -
+> - /***/
+> - },
+> -
+> - /***/ 5016: /***/ (
+> - __unused_webpack_module,
+> - __webpack_exports__,
+> - __webpack_require__
+> - ) => {
+> - "use strict";
+> - // ESM COMPAT FLAG
+> - __webpack_require__.r(__webpack_exports__);
+> -
+> - // EXPORTS
+> - __webpack_require__.d(__webpack_exports__, {
+> - __N_SSP: () => /* binding */ __N_SSP,
+> - default: () => /* binding */ pages_image,
+> - });
+> -
+> - // EXTERNAL MODULE: ./node_modules/.pnpm/react@19.0.0/node_modules/react/jsx-runtime.js
+> - var jsx_runtime = __webpack_require__(8017);
+> - // EXTERNAL MODULE: ./node_modules/.pnpm/next@file+..+main-repo+packages+next+next-packed.tgz_react-dom@19.0.0_react@19.0.0__react@19.0.0/node_modules/next/image.js
+> - var next_image = __webpack_require__(1442);
+> - var image_default = /*#__PURE__*/ __webpack_require__.n(next_image); // ./pages/nextjs.png
+> - /* harmony default export */ const nextjs = {
+> - src: "/_next/static/media/nextjs.cae0b805.png",
+> - height: 1347,
+> - width: 1626,
+> - blurDataURL:
+> - "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAHCAMAAAACh/xsAAAAD1BMVEX////x8fH6+vrb29vo6Oh8o70bAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAH0lEQVR4nGNgwARMjIyMjCAGCzMzMwsTRISJCcRABwAEcAAkLCQfgAAAAABJRU5ErkJggg==",
+> - blurWidth: 8,
+> - blurHeight: 7,
+> - }; // ./pages/image.js
+> - function ImagePage(props) {
+> - return /*#__PURE__*/ (0, jsx_runtime.jsxs)(jsx_runtime.Fragment, {
+> - children: [
+> - /*#__PURE__*/ (0, jsx_runtime.jsx)("h1", {
+> - children: "next/image example",
+> - }),
+> - /*#__PURE__*/ (0, jsx_runtime.jsx)(image_default(), {
+> - src: nextjs,
+> - placeholder: "blur",
+> - }),
+> - ],
+> - });
+> - }
+> - var __N_SSP = true;
+> - /* harmony default export */ const pages_image = ImagePage;
+> -
+> - /***/
+> - },
+> -
+> - /***/ 6923: /***/ (
+> - __unused_webpack_module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - (window.__NEXT_P = window.__NEXT_P || []).push([
+> - "/image",
+> - function () {
+> - return __webpack_require__(5016);
+> - },
+> - ]);
+> - if (false) {
+> - }
+> -
+> - /***/
+> - },
+> -
+> - /***/ 7634: /***/ (module, exports, __webpack_require__) => {
+> + /***/ 6805: /***/ (module, exports, __webpack_require__) => {
+> "use strict";
+> /* __next_internal_client_entry_do_not_use__ cjs */
+> Object.defineProperty(exports, "__esModule", {
+> @@ -785,17 +683,17 @@
+> __webpack_require__(5775)
+> );
+> const _head = /*#__PURE__*/ _interop_require_default._(
+> - __webpack_require__(6191)
+> + __webpack_require__(783)
+> );
+> - const _getimgprops = __webpack_require__(3546);
+> - const _imageconfig = __webpack_require__(1635);
+> - const _imageconfigcontextsharedruntime = __webpack_require__(9685);
+> - const _warnonce = __webpack_require__(9615);
+> - const _routercontextsharedruntime = __webpack_require__(6460);
+> + const _getimgprops = __webpack_require__(4474);
+> + const _imageconfig = __webpack_require__(8195);
+> + const _imageconfigcontextsharedruntime = __webpack_require__(8629);
+> + const _warnonce = __webpack_require__(4927);
+> + const _routercontextsharedruntime = __webpack_require__(4860);
+> const _imageloader = /*#__PURE__*/ _interop_require_default._(
+> - __webpack_require__(2170)
+> + __webpack_require__(9274)
+> );
+> - const _usemergedref = __webpack_require__(3041);
+> + const _usemergedref = __webpack_require__(3937);
+> // This is replaced by webpack define plugin
+> const configEnv = {
+> deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+> @@ -1121,13 +1019,115 @@
+> 
+> /***/
+> },
+> +
+> + /***/ 9274: /***/ (__unused_webpack_module, exports) => {
+> + "use strict";
+> +
+> + Object.defineProperty(exports, "__esModule", {
+> + value: true,
+> + });
+> + Object.defineProperty(exports, "default", {
+> + enumerable: true,
+> + get: function () {
+> + return _default;
+> + },
+> + });
+> + const DEFAULT_Q = 75;
+> + function defaultLoader(param) {
+> + let { config, src, width, quality } = param;
+> + var _config_qualities;
+> + if (false) {
+> + }
+> + const q =
+> + quality ||
+> + ((_config_qualities = config.qualities) == null
+> + ? void 0
+> + : _config_qualities.reduce((prev, cur) =>
+> + Math.abs(cur - DEFAULT_Q) < Math.abs(prev - DEFAULT_Q)
+> + ? cur
+> + : prev
+> + )) ||
+> + DEFAULT_Q;
+> + return (
+> + config.path +
+> + "?url=" +
+> + encodeURIComponent(src) +
+> + "&w=" +
+> + width +
+> + "&q=" +
+> + q +
+> + (src.startsWith("/_next/static/media/") && false ? 0 : "")
+> + );
+> + }
+> + // We use this to determine if the import is the default loader
+> + // or a custom loader defined by the user in next.config.js
+> + defaultLoader.__next_img_default = true;
+> + const _default = defaultLoader; //# sourceMappingURL=image-loader.js.map
+> +
+> + /***/
+> + },
+> +
+> + /***/ 9975: /***/ (__unused_webpack_module, exports) => {
+> + "use strict";
+> + /**
+> + * A shared function, used on both client and server, to generate a SVG blur placeholder.
+> + */
+> + Object.defineProperty(exports, "__esModule", {
+> + value: true,
+> + });
+> + Object.defineProperty(exports, "getImageBlurSvg", {
+> + enumerable: true,
+> + get: function () {
+> + return getImageBlurSvg;
+> + },
+> + });
+> + function getImageBlurSvg(param) {
+> + let {
+> + widthInt,
+> + heightInt,
+> + blurWidth,
+> + blurHeight,
+> + blurDataURL,
+> + objectFit,
+> + } = param;
+> + const std = 20;
+> + const svgWidth = blurWidth ? blurWidth * 40 : widthInt;
+> + const svgHeight = blurHeight ? blurHeight * 40 : heightInt;
+> + const viewBox =
+> + svgWidth && svgHeight
+> + ? "viewBox='0 0 " + svgWidth + " " + svgHeight + "'"
+> + : "";
+> + const preserveAspectRatio = viewBox
+> + ? "none"
+> + : objectFit === "contain"
+> + ? "xMidYMid"
+> + : objectFit === "cover"
+> + ? "xMidYMid slice"
+> + : "none";
+> + return (
+> + "%3Csvg xmlns='http://www.w3.org/2000/svg' " +
+> + viewBox +
+> + "%3E%3Cfilter id='b' color-interpolation-filters='sRGB'%3E%3CfeGaussianBlur stdDeviation='" +
+> + std +
+> + "'/%3E%3CfeColorMatrix values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 100 -1' result='s'/%3E%3CfeFlood x='0' y='0' width='100%25' height='100%25'/%3E%3CfeComposite operator='out' in='s'/%3E%3CfeComposite in2='SourceGraphic'/%3E%3CfeGaussianBlur stdDeviation='" +
+> + std +
+> + "'/%3E%3C/filter%3E%3Cimage width='100%25' height='100%25' x='0' y='0' preserveAspectRatio='" +
+> + preserveAspectRatio +
+> + "' style='filter: url(%23b);' href='" +
+> + blurDataURL +
+> + "'/%3E%3C/svg%3E"
+> + );
+> + } //# sourceMappingURL=image-blur-svg.js.map
+> +
+> + /***/
+> + },
+> },
+> /******/ (__webpack_require__) => {
+> // webpackRuntimeModules
+> /******/ var __webpack_exec__ = (moduleId) =>
+> __webpack_require__((__webpack_require__.s = moduleId));
+> /******/ __webpack_require__.O(0, [636, 6593, 8792], () =>
+> - __webpack_exec__(6923)
+> + __webpack_exec__(1989)
+> );
+> /******/ var __webpack_exports__ = __webpack_require__.O();
+> /******/ _N_E = __webpack_exports__;
+> ```
+> 
+> 
+> Diff for index-HASH.js 
+> 
+> ```diff
+> @@ -1,24 +1,7 @@
+> (self["webpackChunk_N_E"] = self["webpackChunk_N_E"] || []).push([
+> [3332],
+> {
+> - /***/ 3767: /***/ (
+> - __unused_webpack_module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - (window.__NEXT_P = window.__NEXT_P || []).push([
+> - "/",
+> - function () {
+> - return __webpack_require__(6587);
+> - },
+> - ]);
+> - if (false) {
+> - }
+> -
+> - /***/
+> - },
+> -
+> - /***/ 6587: /***/ (
+> + /***/ 937: /***/ (
+> __unused_webpack_module,
+> __webpack_exports__,
+> __webpack_require__
+> @@ -36,13 +19,30 @@
+> 
+> /***/
+> },
+> +
+> + /***/ 3985: /***/ (
+> + __unused_webpack_module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + (window.__NEXT_P = window.__NEXT_P || []).push([
+> + "/",
+> + function () {
+> + return __webpack_require__(937);
+> + },
+> + ]);
+> + if (false) {
+> + }
+> +
+> + /***/
+> + },
+> },
+> /******/ (__webpack_require__) => {
+> // webpackRuntimeModules
+> /******/ var __webpack_exec__ = (moduleId) =>
+> __webpack_require__((__webpack_require__.s = moduleId));
+> /******/ __webpack_require__.O(0, [636, 6593, 8792], () =>
+> - __webpack_exec__(3767)
+> + __webpack_exec__(3985)
+> );
+> /******/ var __webpack_exports__ = __webpack_require__.O();
+> /******/ _N_E = __webpack_exports__;
+> ```
+> 
+> 
+> Diff for link-HASH.js 
+> 
+> ```diff
+> @@ -1,26 +1,133 @@
+> (self["webpackChunk_N_E"] = self["webpackChunk_N_E"] || []).push([
+> [4672],
+> {
+> - /***/ 1225: /***/ (module, exports, __webpack_require__) => {
+> + /***/ 1547: /***/ (
+> + __unused_webpack_module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + (window.__NEXT_P = window.__NEXT_P || []).push([
+> + "/link",
+> + function () {
+> + return __webpack_require__(9748);
+> + },
+> + ]);
+> + if (false) {
+> + }
+> +
+> + /***/
+> + },
+> +
+> + /***/ 3456: /***/ (module, exports, __webpack_require__) => {
+> "use strict";
+> 
+> Object.defineProperty(exports, "__esModule", {
+> value: true,
+> });
+> - Object.defineProperty(exports, "getDomainLocale", {
+> + Object.defineProperty(exports, "useIntersection", {
+> enumerable: true,
+> get: function () {
+> - return getDomainLocale;
+> + return useIntersection;
+> },
+> });
+> - const _normalizetrailingslash = __webpack_require__(7981);
+> - const basePath =
+> - /* unused pure expression or super */ null && (false || "");
+> - function getDomainLocale(path, locale, locales, domainLocales) {
+> - if (false) {
+> - } else {
+> - return false;
+> + const _react = __webpack_require__(4109);
+> + const _requestidlecallback = __webpack_require__(3919);
+> + const hasIntersectionObserver =
+> + typeof IntersectionObserver === "function";
+> + const observers = new Map();
+> + const idList = [];
+> + function createObserver(options) {
+> + const id = {
+> + root: options.root || null,
+> + margin: options.rootMargin || "",
+> + };
+> + const existing = idList.find(
+> + (obj) => obj.root === id.root && obj.margin === id.margin
+> + );
+> + let instance;
+> + if (existing) {
+> + instance = observers.get(existing);
+> + if (instance) {
+> + return instance;
+> + }
+> }
+> + const elements = new Map();
+> + const observer = new IntersectionObserver((entries) => {
+> + entries.forEach((entry) => {
+> + const callback = elements.get(entry.target);
+> + const isVisible =
+> + entry.isIntersecting || entry.intersectionRatio > 0;
+> + if (callback && isVisible) {
+> + callback(isVisible);
+> + }
+> + });
+> + }, options);
+> + instance = {
+> + id,
+> + observer,
+> + elements,
+> + };
+> + idList.push(id);
+> + observers.set(id, instance);
+> + return instance;
+> + }
+> + function observe(element, callback, options) {
+> + const { id, observer, elements } = createObserver(options);
+> + elements.set(element, callback);
+> + observer.observe(element);
+> + return function unobserve() {
+> + elements.delete(element);
+> + observer.unobserve(element);
+> + // Destroy observer when there's nothing left to watch:
+> + if (elements.size === 0) {
+> + observer.disconnect();
+> + observers.delete(id);
+> + const index = idList.findIndex(
+> + (obj) => obj.root === id.root && obj.margin === id.margin
+> + );
+> + if (index > -1) {
+> + idList.splice(index, 1);
+> + }
+> + }
+> + };
+> + }
+> + function useIntersection(param) {
+> + let { rootRef, rootMargin, disabled } = param;
+> + const isDisabled = disabled || !hasIntersectionObserver;
+> + const [visible, setVisible] = (0, _react.useState)(false);
+> + const elementRef = (0, _react.useRef)(null);
+> + const setElement = (0, _react.useCallback)((element) => {
+> + elementRef.current = element;
+> + }, []);
+> + (0, _react.useEffect)(() => {
+> + if (hasIntersectionObserver) {
+> + if (isDisabled || visible) return;
+> + const element = elementRef.current;
+> + if (element && element.tagName) {
+> + const unobserve = observe(
+> + element,
+> + (isVisible) => isVisible && setVisible(isVisible),
+> + {
+> + root: rootRef == null ? void 0 : rootRef.current,
+> + rootMargin,
+> + }
+> + );
+> + return unobserve;
+> + }
+> + } else {
+> + if (!visible) {
+> + const idleCallback = (0,
+> + _requestidlecallback.requestIdleCallback)(() => setVisible(true));
+> + return () =>
+> + (0, _requestidlecallback.cancelIdleCallback)(idleCallback);
+> + }
+> + }
+> + // eslint-disable-next-line react-hooks/exhaustive-deps
+> + }, [isDisabled, rootMargin, rootRef, visible, elementRef.current]);
+> + const resetVisible = (0, _react.useCallback)(() => {
+> + setVisible(false);
+> + }, []);
+> + return [setElement, visible, resetVisible];
+> }
+> if (
+> (typeof exports.default === "function" ||
+> @@ -32,58 +139,12 @@
+> });
+> Object.assign(exports.default, exports);
+> module.exports = exports.default;
+> - } //# sourceMappingURL=get-domain-locale.js.map
+> -
+> - /***/
+> - },
+> -
+> - /***/ 1241: /***/ (
+> - __unused_webpack_module,
+> - __webpack_exports__,
+> - __webpack_require__
+> - ) => {
+> - "use strict";
+> - __webpack_require__.r(__webpack_exports__);
+> - /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+> - /* harmony export */ __N_SSP: () => /* binding */ __N_SSP,
+> - /* harmony export */ default: () => __WEBPACK_DEFAULT_EXPORT__,
+> - /* harmony export */
+> - });
+> - /* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__ =
+> - __webpack_require__(8017);
+> - /* harmony import */ var next_link__WEBPACK_IMPORTED_MODULE_1__ =
+> - __webpack_require__(2665);
+> - /* harmony import */ var next_link__WEBPACK_IMPORTED_MODULE_1___default =
+> - /*#__PURE__*/ __webpack_require__.n(
+> - next_link__WEBPACK_IMPORTED_MODULE_1__
+> - );
+> -
+> - function aLink(props) {
+> - return /*#__PURE__*/ (0,
+> - react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", {
+> - children: [
+> - /*#__PURE__*/ (0,
+> - react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("h3", {
+> - children: "A Link page!",
+> - }),
+> - /*#__PURE__*/ (0,
+> - react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(
+> - next_link__WEBPACK_IMPORTED_MODULE_1___default(),
+> - {
+> - href: "/",
+> - children: "Go to /",
+> - }
+> - ),
+> - ],
+> - });
+> - }
+> - var __N_SSP = true;
+> - /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = aLink;
+> + } //# sourceMappingURL=use-intersection.js.map
+> 
+> /***/
+> },
+> 
+> - /***/ 1763: /***/ (module, exports, __webpack_require__) => {
+> + /***/ 3923: /***/ (module, exports, __webpack_require__) => {
+> "use strict";
+> /* __next_internal_client_entry_do_not_use__ cjs */
+> Object.defineProperty(exports, "__esModule", {
+> @@ -100,16 +161,16 @@
+> const _react = /*#__PURE__*/ _interop_require_default._(
+> __webpack_require__(4109)
+> );
+> - const _resolvehref = __webpack_require__(2513);
+> - const _islocalurl = __webpack_require__(9021);
+> - const _formaturl = __webpack_require__(8368);
+> - const _utils = __webpack_require__(9338);
+> - const _addlocale = __webpack_require__(7231);
+> - const _routercontextsharedruntime = __webpack_require__(6460);
+> - const _useintersection = __webpack_require__(5296);
+> - const _getdomainlocale = __webpack_require__(1225);
+> - const _addbasepath = __webpack_require__(6124);
+> - const _usemergedref = __webpack_require__(3041);
+> + const _resolvehref = __webpack_require__(8113);
+> + const _islocalurl = __webpack_require__(4525);
+> + const _formaturl = __webpack_require__(1776);
+> + const _utils = __webpack_require__(4794);
+> + const _addlocale = __webpack_require__(751);
+> + const _routercontextsharedruntime = __webpack_require__(4860);
+> + const _useintersection = __webpack_require__(3456);
+> + const _getdomainlocale = __webpack_require__(5257);
+> + const _addbasepath = __webpack_require__(5740);
+> + const _usemergedref = __webpack_require__(3937);
+> const prefetched = new Set();
+> function prefetch(router, href, as, options) {
+> if (false) {
+> @@ -462,17 +523,7 @@
+> /***/
+> },
+> 
+> - /***/ 2665: /***/ (
+> - module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - module.exports = __webpack_require__(1763);
+> -
+> - /***/
+> - },
+> -
+> - /***/ 3041: /***/ (module, exports, __webpack_require__) => {
+> + /***/ 3937: /***/ (module, exports, __webpack_require__) => {
+> "use strict";
+> 
+> Object.defineProperty(exports, "__esModule", {
+> @@ -550,133 +601,26 @@
+> /***/
+> },
+> 
+> - /***/ 5025: /***/ (
+> - __unused_webpack_module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - (window.__NEXT_P = window.__NEXT_P || []).push([
+> - "/link",
+> - function () {
+> - return __webpack_require__(1241);
+> - },
+> - ]);
+> - if (false) {
+> - }
+> -
+> - /***/
+> - },
+> -
+> - /***/ 5296: /***/ (module, exports, __webpack_require__) => {
+> + /***/ 5257: /***/ (module, exports, __webpack_require__) => {
+> "use strict";
+> 
+> Object.defineProperty(exports, "__esModule", {
+> value: true,
+> });
+> - Object.defineProperty(exports, "useIntersection", {
+> + Object.defineProperty(exports, "getDomainLocale", {
+> enumerable: true,
+> get: function () {
+> - return useIntersection;
+> + return getDomainLocale;
+> },
+> });
+> - const _react = __webpack_require__(4109);
+> - const _requestidlecallback = __webpack_require__(8015);
+> - const hasIntersectionObserver =
+> - typeof IntersectionObserver === "function";
+> - const observers = new Map();
+> - const idList = [];
+> - function createObserver(options) {
+> - const id = {
+> - root: options.root || null,
+> - margin: options.rootMargin || "",
+> - };
+> - const existing = idList.find(
+> - (obj) => obj.root === id.root && obj.margin === id.margin
+> - );
+> - let instance;
+> - if (existing) {
+> - instance = observers.get(existing);
+> - if (instance) {
+> - return instance;
+> - }
+> + const _normalizetrailingslash = __webpack_require__(7213);
+> + const basePath =
+> + /* unused pure expression or super */ null && (false || "");
+> + function getDomainLocale(path, locale, locales, domainLocales) {
+> + if (false) {
+> + } else {
+> + return false;
+> }
+> - const elements = new Map();
+> - const observer = new IntersectionObserver((entries) => {
+> - entries.forEach((entry) => {
+> - const callback = elements.get(entry.target);
+> - const isVisible =
+> - entry.isIntersecting || entry.intersectionRatio > 0;
+> - if (callback && isVisible) {
+> - callback(isVisible);
+> - }
+> - });
+> - }, options);
+> - instance = {
+> - id,
+> - observer,
+> - elements,
+> - };
+> - idList.push(id);
+> - observers.set(id, instance);
+> - return instance;
+> - }
+> - function observe(element, callback, options) {
+> - const { id, observer, elements } = createObserver(options);
+> - elements.set(element, callback);
+> - observer.observe(element);
+> - return function unobserve() {
+> - elements.delete(element);
+> - observer.unobserve(element);
+> - // Destroy observer when there's nothing left to watch:
+> - if (elements.size === 0) {
+> - observer.disconnect();
+> - observers.delete(id);
+> - const index = idList.findIndex(
+> - (obj) => obj.root === id.root && obj.margin === id.margin
+> - );
+> - if (index > -1) {
+> - idList.splice(index, 1);
+> - }
+> - }
+> - };
+> - }
+> - function useIntersection(param) {
+> - let { rootRef, rootMargin, disabled } = param;
+> - const isDisabled = disabled || !hasIntersectionObserver;
+> - const [visible, setVisible] = (0, _react.useState)(false);
+> - const elementRef = (0, _react.useRef)(null);
+> - const setElement = (0, _react.useCallback)((element) => {
+> - elementRef.current = element;
+> - }, []);
+> - (0, _react.useEffect)(() => {
+> - if (hasIntersectionObserver) {
+> - if (isDisabled || visible) return;
+> - const element = elementRef.current;
+> - if (element && element.tagName) {
+> - const unobserve = observe(
+> - element,
+> - (isVisible) => isVisible && setVisible(isVisible),
+> - {
+> - root: rootRef == null ? void 0 : rootRef.current,
+> - rootMargin,
+> - }
+> - );
+> - return unobserve;
+> - }
+> - } else {
+> - if (!visible) {
+> - const idleCallback = (0,
+> - _requestidlecallback.requestIdleCallback)(() => setVisible(true));
+> - return () =>
+> - (0, _requestidlecallback.cancelIdleCallback)(idleCallback);
+> - }
+> - }
+> - // eslint-disable-next-line react-hooks/exhaustive-deps
+> - }, [isDisabled, rootMargin, rootRef, visible, elementRef.current]);
+> - const resetVisible = (0, _react.useCallback)(() => {
+> - setVisible(false);
+> - }, []);
+> - return [setElement, visible, resetVisible];
+> }
+> if (
+> (typeof exports.default === "function" ||
+> @@ -688,7 +632,63 @@
+> });
+> Object.assign(exports.default, exports);
+> module.exports = exports.default;
+> - } //# sourceMappingURL=use-intersection.js.map
+> + } //# sourceMappingURL=get-domain-locale.js.map
+> +
+> + /***/
+> + },
+> +
+> + /***/ 9748: /***/ (
+> + __unused_webpack_module,
+> + __webpack_exports__,
+> + __webpack_require__
+> + ) => {
+> + "use strict";
+> + __webpack_require__.r(__webpack_exports__);
+> + /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+> + /* harmony export */ __N_SSP: () => /* binding */ __N_SSP,
+> + /* harmony export */ default: () => __WEBPACK_DEFAULT_EXPORT__,
+> + /* harmony export */
+> + });
+> + /* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__ =
+> + __webpack_require__(8017);
+> + /* harmony import */ var next_link__WEBPACK_IMPORTED_MODULE_1__ =
+> + __webpack_require__(9835);
+> + /* harmony import */ var next_link__WEBPACK_IMPORTED_MODULE_1___default =
+> + /*#__PURE__*/ __webpack_require__.n(
+> + next_link__WEBPACK_IMPORTED_MODULE_1__
+> + );
+> +
+> + function aLink(props) {
+> + return /*#__PURE__*/ (0,
+> + react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", {
+> + children: [
+> + /*#__PURE__*/ (0,
+> + react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("h3", {
+> + children: "A Link page!",
+> + }),
+> + /*#__PURE__*/ (0,
+> + react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(
+> + next_link__WEBPACK_IMPORTED_MODULE_1___default(),
+> + {
+> + href: "/",
+> + children: "Go to /",
+> + }
+> + ),
+> + ],
+> + });
+> + }
+> + var __N_SSP = true;
+> + /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = aLink;
+> +
+> + /***/
+> + },
+> +
+> + /***/ 9835: /***/ (
+> + module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + module.exports = __webpack_require__(3923);
+> 
+> /***/
+> },
+> @@ -698,7 +698,7 @@
+> /******/ var __webpack_exec__ = (moduleId) =>
+> __webpack_require__((__webpack_require__.s = moduleId));
+> /******/ __webpack_require__.O(0, [636, 6593, 8792], () =>
+> - __webpack_exec__(5025)
+> + __webpack_exec__(1547)
+> );
+> /******/ var __webpack_exports__ = __webpack_require__.O();
+> /******/ _N_E = __webpack_exports__;
+> ```
+> 
+> 
+> Diff for routerDirect-HASH.js 
+> 
+> ```diff
+> @@ -1,17 +1,7 @@
+> (self["webpackChunk_N_E"] = self["webpackChunk_N_E"] || []).push([
+> [188],
+> {
+> - /***/ 760: /***/ (
+> - module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - module.exports = __webpack_require__(8326);
+> -
+> - /***/
+> - },
+> -
+> - /***/ 2713: /***/ (
+> + /***/ 179: /***/ (
+> __unused_webpack_module,
+> __unused_webpack_exports,
+> __webpack_require__
+> @@ -19,7 +9,7 @@
+> (window.__NEXT_P = window.__NEXT_P || []).push([
+> "/routerDirect",
+> function () {
+> - return __webpack_require__(8217);
+> + return __webpack_require__(9819);
+> },
+> ]);
+> if (false) {
+> @@ -28,7 +18,17 @@
+> /***/
+> },
+> 
+> - /***/ 8217: /***/ (
+> + /***/ 3022: /***/ (
+> + module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + module.exports = __webpack_require__(1606);
+> +
+> + /***/
+> + },
+> +
+> + /***/ 9819: /***/ (
+> __unused_webpack_module,
+> __webpack_exports__,
+> __webpack_require__
+> @@ -43,7 +43,7 @@
+> /* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__ =
+> __webpack_require__(8017);
+> /* harmony import */ var next_router__WEBPACK_IMPORTED_MODULE_1__ =
+> - __webpack_require__(760);
+> + __webpack_require__(3022);
+> /* harmony import */ var next_router__WEBPACK_IMPORTED_MODULE_1___default =
+> /*#__PURE__*/ __webpack_require__.n(
+> next_router__WEBPACK_IMPORTED_MODULE_1__
+> @@ -68,7 +68,7 @@
+> /******/ var __webpack_exec__ = (moduleId) =>
+> __webpack_require__((__webpack_require__.s = moduleId));
+> /******/ __webpack_require__.O(0, [636, 6593, 8792], () =>
+> - __webpack_exec__(2713)
+> + __webpack_exec__(179)
+> );
+> /******/ var __webpack_exports__ = __webpack_require__.O();
+> /******/ _N_E = __webpack_exports__;
+> ```
+> 
+> 
+> Diff for script-HASH.js 
+> 
+> ```diff
+> @@ -1,17 +1,34 @@
+> (self["webpackChunk_N_E"] = self["webpackChunk_N_E"] || []).push([
+> [1209],
+> {
+> - /***/ 3254: /***/ (
+> + /***/ 1060: /***/ (
+> module,
+> __unused_webpack_exports,
+> __webpack_require__
+> ) => {
+> - module.exports = __webpack_require__(8236);
+> + module.exports = __webpack_require__(3612);
+> 
+> /***/
+> },
+> 
+> - /***/ 5990: /***/ (
+> + /***/ 5867: /***/ (
+> + __unused_webpack_module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + (window.__NEXT_P = window.__NEXT_P || []).push([
+> + "/script",
+> + function () {
+> + return __webpack_require__(7640);
+> + },
+> + ]);
+> + if (false) {
+> + }
+> +
+> + /***/
+> + },
+> +
+> + /***/ 7640: /***/ (
+> __unused_webpack_module,
+> __webpack_exports__,
+> __webpack_require__
+> @@ -26,7 +43,7 @@
+> /* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__ =
+> __webpack_require__(8017);
+> /* harmony import */ var next_script__WEBPACK_IMPORTED_MODULE_1__ =
+> - __webpack_require__(3254);
+> + __webpack_require__(1060);
+> /* harmony import */ var next_script__WEBPACK_IMPORTED_MODULE_1___default =
+> /*#__PURE__*/ __webpack_require__.n(
+> next_script__WEBPACK_IMPORTED_MODULE_1__
+> @@ -58,30 +75,13 @@
+> 
+> /***/
+> },
+> -
+> - /***/ 8745: /***/ (
+> - __unused_webpack_module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - (window.__NEXT_P = window.__NEXT_P || []).push([
+> - "/script",
+> - function () {
+> - return __webpack_require__(5990);
+> - },
+> - ]);
+> - if (false) {
+> - }
+> -
+> - /***/
+> - },
+> },
+> /******/ (__webpack_require__) => {
+> // webpackRuntimeModules
+> /******/ var __webpack_exec__ = (moduleId) =>
+> __webpack_require__((__webpack_require__.s = moduleId));
+> /******/ __webpack_require__.O(0, [636, 6593, 8792], () =>
+> - __webpack_exec__(8745)
+> + __webpack_exec__(5867)
+> );
+> /******/ var __webpack_exports__ = __webpack_require__.O();
+> /******/ _N_E = __webpack_exports__;
+> ```
+> 
+> 
+> Diff for withRouter-HASH.js 
+> 
+> ```diff
+> @@ -1,34 +1,17 @@
+> (self["webpackChunk_N_E"] = self["webpackChunk_N_E"] || []).push([
+> [3263],
+> {
+> - /***/ 760: /***/ (
+> + /***/ 3022: /***/ (
+> module,
+> __unused_webpack_exports,
+> __webpack_require__
+> ) => {
+> - module.exports = __webpack_require__(8326);
+> + module.exports = __webpack_require__(1606);
+> 
+> /***/
+> },
+> 
+> - /***/ 6545: /***/ (
+> - __unused_webpack_module,
+> - __unused_webpack_exports,
+> - __webpack_require__
+> - ) => {
+> - (window.__NEXT_P = window.__NEXT_P || []).push([
+> - "/withRouter",
+> - function () {
+> - return __webpack_require__(9680);
+> - },
+> - ]);
+> - if (false) {
+> - }
+> -
+> - /***/
+> - },
+> -
+> - /***/ 9680: /***/ (
+> + /***/ 3438: /***/ (
+> __unused_webpack_module,
+> __webpack_exports__,
+> __webpack_require__
+> @@ -43,7 +26,7 @@
+> /* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__ =
+> __webpack_require__(8017);
+> /* harmony import */ var next_router__WEBPACK_IMPORTED_MODULE_1__ =
+> - __webpack_require__(760);
+> + __webpack_require__(3022);
+> /* harmony import */ var next_router__WEBPACK_IMPORTED_MODULE_1___default =
+> /*#__PURE__*/ __webpack_require__.n(
+> next_router__WEBPACK_IMPORTED_MODULE_1__
+> @@ -61,13 +44,30 @@
+> 
+> /***/
+> },
+> +
+> + /***/ 4563: /***/ (
+> + __unused_webpack_module,
+> + __unused_webpack_exports,
+> + __webpack_require__
+> + ) => {
+> + (window.__NEXT_P = window.__NEXT_P || []).push([
+> + "/withRouter",
+> + function () {
+> + return __webpack_require__(3438);
+> + },
+> + ]);
+> + if (false) {
+> + }
+> +
+> + /***/
+> + },
+> },
+> /******/ (__webpack_require__) => {
+> // webpackRuntimeModules
+> /******/ var __webpack_exec__ = (moduleId) =>
+> __webpack_require__((__webpack_require__.s = moduleId));
+> /******/ __webpack_require__.O(0, [636, 6593, 8792], () =>
+> - __webpack_exec__(6545)
+> + __webpack_exec__(4563)
+> );
+> /******/ var __webpack_exports__ = __webpack_require__.O();
+> /******/ _N_E = __webpack_exports__;
+> ```
+> 
+> 
+> Diff for 8987-HASH.js 
+> 
+> Diff too large to display
+> 
+> 
+> Diff for 9484-HASH.js 
+> 
+> Diff too large to display
+> 
+> 
+> Diff for main-HASH.js 
+> 
+> Diff too large to display
+> 
+> 
+> 
+> 
+> 
+> Commit: c8acf34e0b838989dfe377e3700bb175e452ab0a
+
+- gaojude head_ref_force_pushed
+
+- gaojude head_ref_force_pushed
+
+- Renamed from "[Draft]" to "(feat) Add instrumentation-client.ts for client-side analytics initialization"
+
+- gaojude ready_for_review
+
+- Renamed from "(feat) Add instrumentation-client.ts for client-side analytics initialization" to "(feat) support client-side instrumentation"
+
+- Review requested from ztanner
+
+- Review requested from huozhi
+
+- Review requested from feedthejim
+
+- Review by huozhi: 
+
+- Review by huozhi: 
+
+- Review by timneutkens: Let's make sure there's also HMR tests for changing the file during development, that should work 💯 It's relevant for e.g. https://mswjs.io/ 
+
+- Review by ztanner: 
+
+- Review requested from timneutkens
+
+**gaojude** commented on 2025-03-13T20:17:27Z:
+
+> > Let's make sure there's also HMR tests for changing the file during development, that should work 💯 It's relevant for e.g. https://mswjs.io/
+> 
+> Added
+
+- gaojude head_ref_force_pushed
+
+- someone committed
+
+- gaojude head_ref_force_pushed
+
+- Review by timneutkens: 
+
+- gaojude merged
+
+- gaojude closed
+
+- gaojude head_ref_deleted
+
+- Referenced by issue #8105: Next.js Turbopack Support
+
+- Referenced by PR #77121: log the instrumentation-client execution time
+
+- Referenced by PR #77134: Add doc for instrumentation client hook
+
+- Referenced by PR #77136: docs(scripts): update Script -> beforeInteractive docs
+
+- Referenced in commit 83021c5
+
+- Referenced in commit 3c2670d
+
+**lbpphr** commented on 2025-03-21T13:16:42Z:
+
+> That's an awesome feature. We've been waiting for this. Do you already have an idea which next version will contain the feature?
+
+- Renamed from "(feat) support client-side instrumentation" to "feat: support client-side instrumentation"
+
+- github-actions[bot] added label "locked"
+
+- github-actions[bot] locked
