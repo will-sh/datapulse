@@ -31,7 +31,7 @@ scripts/cai-start-application.sh
 
 脚本会读取 `CDSW_READONLY_PORT` 环境变量，并在 `127.0.0.1` 上启动 uvicorn。推荐使用 PBJ Workbench Python 3.11 runtime。
 
-Application 的 `script` 字段应设为 `scripts/cai_start_application.py`（PBJ Python runtime 会将脚本作为 Python 代码执行，不能使用 bash 脚本路径）。
+Application 的 `script` 字段应设为 `scripts/cai_start_application.py` 或 `scripts/start_datapulse.py`（PBJ Python runtime 会将脚本作为 Python 代码执行，不能使用 bash 脚本路径；脚本内请使用 `os.getcwd()` 而非 `__file__`，且不要用 `raise SystemExit` 包裹 uvicorn）。
 
 ## 配置 PostHog（可选）
 
