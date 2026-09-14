@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
+import subprocess
+import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from pathlib import Path
 
@@ -16,9 +20,35 @@ def _config_dir() -> Path:
     return Path(_env("KAFKA_CONFIG_DIR", ".")).expanduser()
 
 
+def _spark_connect_host() -> str:
+    return _env("SPARK_CONNECT_HOST") or _env("CDSW_IP_ADDRESS") or "127.0.0.1"
+
+
+def _spark_connect_port() -> str:
+    engine_id = _env("CDSW_ENGINE_ID").upper()
+    if engine_id:
+        port = os.getenv(f"DS_RUNTIME_{engine_id}_SERVICE_PORT_SPARK")
+        if port:
+            return port
+    for key, port in os.environ.items():
+        if key.startswith("DS_RUNTIME_") and key.endswith("_SERVICE_PORT_SPARK"):
+            return port
+    return _env("SPARK_CONNECT_PORT", "20049")
+
+
+def _spark_connect_url() -> str | None:
+    explicit = _env("SPARK_REMOTE") or _env("SPARK_CONNECT_URL")
+    if explicit:
+        return explicit
+    if not _env("CDSW_ENGINE_ID") and not any(
+        k.startswith("DS_RUNTIME_") and k.endswith("_SERVICE_PORT_SPARK") for k in os.environ
+    ):
+        return None
+    return f"sc://{_spark_connect_host()}:{_spark_connect_port()}"
+
+
 def _spark_env_summary() -> str:
-    keys = sorted(k for k in os.environ if "SPARK" in k or k.startswith("CDSW_"))
-    return ", ".join(keys[:12]) or "no SPARK/CDSW env detected"
+    return f"connect={_spark_connect_url() or 'missing'}"
 
 
 def _kafka_options() -> tuple[dict[str, str], str, str]:
@@ -30,7 +60,7 @@ def _kafka_options() -> tuple[dict[str, str], str, str]:
     kafka_ca = config_dir / "kafka-ca.crt"
     oauth_ca = config_dir / "oauth-ca.crt"
     allowed_urls = f"-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls={token_url}"
-    dist_files = ",".join(str(path) for path in (kafka_ca, oauth_ca) if path.is_file())
+    dist_files = ",".join(str(path.resolve()) for path in (kafka_ca, oauth_ca) if path.is_file())
 
     options = {
         "kafka.bootstrap.servers": _env(
@@ -62,12 +92,56 @@ def _kafka_options() -> tuple[dict[str, str], str, str]:
     return options, allowed_urls, dist_files
 
 
+def _write_external_properties(config_dir: Path) -> Path:
+    token_url = _env(
+        "KAFKA_TOKEN_URL",
+        "https://console.readygo.a70735.test.cldr.work/api/v0/auth/access-keys/token",
+    )
+    client_id = _env("KAFKA_CLIENT_ID")
+    client_secret = _env("KAFKA_CLIENT_SECRET")
+    offset_reset = _env("KAFKA_AUTO_OFFSET_RESET", "earliest")
+    content = f"""bootstrap.servers={_env("KAFKA_BOOTSTRAP_SERVERS")}
+security.protocol=SASL_SSL
+sasl.mechanism=OAUTHBEARER
+sasl.login.callback.handler.class=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler
+sasl.oauthbearer.token.endpoint.url={token_url}
+sasl.oauthbearer.client.id={client_id}
+sasl.oauthbearer.client.secret={client_secret}
+sasl.oauthbearer.client.credentials.client.id={client_id}
+sasl.oauthbearer.client.credentials.client.secret={client_secret}
+sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="{client_id}" clientSecret="{client_secret}" ssl.truststore.location=oauth-ca.crt ssl.truststore.type=PEM;
+ssl.truststore.location=kafka-ca.crt
+ssl.truststore.type=PEM
+auto.offset.reset={offset_reset}
+enable.auto.commit=true
+"""
+    path = config_dir / "external.properties"
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def _kafka_cli_home() -> Path | None:
+    explicit = _env("KAFKA_HOME")
+    if explicit:
+        path = Path(explicit)
+        if (path / "bin" / "kafka-console-consumer.sh").is_file():
+            return path
+    cache = Path.home() / ".cache" / "kafka" / "kafka_2.13-3.9.0"
+    if (cache / "bin" / "kafka-console-consumer.sh").is_file():
+        return cache
+    return None
+
+
 def _build_spark_session():
     from pyspark.sql import SparkSession
 
     _, allowed_urls, dist_files = _kafka_options()
     if not _env("KAFKA_CLIENT_ID"):
         raise RuntimeError("KAFKA_CLIENT_ID is required")
+
+    connect_url = _spark_connect_url()
+    if not connect_url:
+        raise RuntimeError("Spark Connect URL not found (missing CDSW_ENGINE_ID or runtime addon)")
 
     spark_version = _env("SPARK_VERSION", "3.5.4")
     scala_version = _env("SPARK_SCALA_VERSION", "2.12")
@@ -78,7 +152,7 @@ def _build_spark_session():
 
     builder = (
         SparkSession.builder.appName("datapulse-spark-kafka-consumer")
-        .master(_env("SPARK_MASTER", "local[1]"))
+        .remote(connect_url)
         .config("spark.sql.shuffle.partitions", "1")
         .config("spark.driver.extraJavaOptions", allowed_urls)
         .config("spark.executor.extraJavaOptions", allowed_urls)
@@ -87,22 +161,106 @@ def _build_spark_session():
     if dist_files:
         builder = builder.config("spark.files", dist_files)
 
-    remote = _env("SPARK_REMOTE") or _env("SPARK_CONNECT_URL")
-    if remote:
-        builder = SparkSession.builder.appName("datapulse-spark-kafka-consumer").remote(remote)
-
     return builder.getOrCreate()
 
 
 def _create_spark_session():
-    timeout = int(_env("SPARK_SESSION_TIMEOUT_SEC", "120"))
+    timeout = int(_env("SPARK_SESSION_TIMEOUT_SEC", "60"))
     STORE.set_status(f"creating Spark session ({_spark_env_summary()})")
     with ThreadPoolExecutor(max_workers=1) as pool:
         future = pool.submit(_build_spark_session)
         try:
             return future.result(timeout=timeout), _kafka_options()[0]
         except FuturesTimeoutError as exc:
-            raise RuntimeError(f"Spark session creation timed out after {timeout}s") from exc
+            raise RuntimeError(
+                f"Spark Connect session timed out after {timeout}s ({_spark_env_summary()})"
+            ) from exc
+
+
+def _spark_connect_probe_script() -> str:
+    return """
+import os
+from pyspark.sql import SparkSession
+
+host = os.environ.get("SPARK_CONNECT_HOST") or os.environ.get("CDSW_IP_ADDRESS", "127.0.0.1")
+engine_id = os.environ.get("CDSW_ENGINE_ID", "").upper()
+port = os.environ.get(f"DS_RUNTIME_{engine_id}_SERVICE_PORT_SPARK") if engine_id else None
+if not port:
+    for key, value in os.environ.items():
+        if key.startswith("DS_RUNTIME_") and key.endswith("_SERVICE_PORT_SPARK"):
+            port = value
+            break
+port = port or os.environ.get("SPARK_CONNECT_PORT", "20049")
+url = os.environ.get("SPARK_CONNECT_URL") or f"sc://{host}:{port}"
+spark = SparkSession.builder.appName("datapulse-connect-probe").remote(url).getOrCreate()
+print(spark.version)
+spark.stop()
+"""
+
+
+def _try_start_spark_connect_server() -> bool:
+    """Best-effort: some CAI runtimes expose Spark Connect on a port but defer JVM startup."""
+    if _env("SPARK_CONNECT_AUTOSTART", "true").lower() in {"0", "false", "no"}:
+        return False
+
+    candidates = [
+        Path("/opt/spark-connect/bin/start-connect-server.sh"),
+        Path("/opt/spark-connect/start-connect-server.sh"),
+        Path("/opt/spark-connect/sbin/start-connect-server.sh"),
+    ]
+    for script in candidates:
+        if not script.is_file():
+            continue
+        host = _spark_connect_host()
+        port = _spark_connect_port()
+        env = os.environ.copy()
+        env.setdefault("SPARK_CONNECT_URL", f"sc://{host}:{port}")
+        try:
+            subprocess.run(
+                [str(script), "--host", host, "--port", port],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+                check=False,
+            )
+            STORE.set_status(f"attempted Spark Connect start via {script.name}")
+            return True
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+    return False
+
+
+def _spark_connect_available() -> bool:
+    connect_url = _spark_connect_url()
+    if not connect_url:
+        return False
+
+    probe_timeout = int(_env("SPARK_CONNECT_PROBE_SEC", "20"))
+    env = os.environ.copy()
+    env.setdefault("SPARK_CONNECT_URL", connect_url)
+    _try_start_spark_connect_server()
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", _spark_connect_probe_script()],
+            capture_output=True,
+            text=True,
+            timeout=probe_timeout,
+            env=env,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        STORE.set_status(f"Spark Connect probe timed out after {probe_timeout}s")
+        return False
+
+    if result.returncode == 0:
+        version = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else "unknown"
+        STORE.set_status(f"Spark Connect probe ok ({version})")
+        return True
+
+    detail = (result.stderr or result.stdout or f"exit {result.returncode}").strip()
+    STORE.set_status(f"Spark Connect probe failed: {detail[:240]}")
+    return False
 
 
 def _process_batch(batch_df, batch_id: int) -> None:
@@ -116,28 +274,138 @@ def _process_batch(batch_df, batch_id: int) -> None:
         STORE.add(str(message), str(timestamp) if timestamp is not None else None)
 
 
-def start_streaming_worker() -> None:
+def _start_spark_connect_streaming() -> None:
+    spark, kafka_options = _create_spark_session()
+    STORE.set_status(f"Spark {spark.version} ready", active=False)
+
+    source = spark.readStream.format("kafka").options(**kafka_options).load()
+    events = source.selectExpr(
+        "CAST(value AS STRING) AS message",
+        "CAST(timestamp AS STRING) AS event_timestamp",
+    )
+
+    checkpoint = str(_config_dir() / ".spark-checkpoints" / "datapulse-kafka")
+    Path(checkpoint).mkdir(parents=True, exist_ok=True)
+    query = (
+        events.writeStream.outputMode("append")
+        .option("checkpointLocation", checkpoint)
+        .foreachBatch(_process_batch)
+        .trigger(processingTime=_env("KAFKA_POLL_INTERVAL", "5 seconds"))
+        .start()
+    )
+    STORE.set_status("streaming (spark connect)", active=True)
+    query.awaitTermination()
+
+
+def _consume_kafka_cli_line(line: str) -> None:
+    line = line.strip()
+    if not line:
+        return
     try:
-        spark, kafka_options = _create_spark_session()
-        STORE.set_status(f"Spark {spark.version} ready", active=False)
+        payload = json.loads(line)
+        name = payload.get("name", "")
+        STORE.add(line, None, event_name=name)
+    except json.JSONDecodeError:
+        STORE.add(line, None)
 
-        source = spark.readStream.format("kafka").options(**kafka_options).load()
-        events = source.selectExpr(
-            "CAST(value AS STRING) AS message",
-            "CAST(timestamp AS STRING) AS event_timestamp",
-        )
 
-        checkpoint = str(_config_dir() / ".spark-checkpoints" / "datapulse-kafka")
-        Path(checkpoint).mkdir(parents=True, exist_ok=True)
-        query = (
-            events.writeStream.outputMode("append")
-            .option("checkpointLocation", checkpoint)
-            .foreachBatch(_process_batch)
-            .trigger(processingTime=_env("KAFKA_POLL_INTERVAL", "5 seconds"))
-            .start()
+def _drain_kafka_cli_stderr(proc: subprocess.Popen[str]) -> None:
+    if proc.stderr is None:
+        return
+    for line in proc.stderr:
+        detail = line.strip()
+        if not detail:
+            continue
+        if "ERROR" in detail or "Exception" in detail:
+            STORE.set_error(detail[:500])
+
+
+def _start_kafka_cli_consumer() -> None:
+    if not _env("KAFKA_CLIENT_ID"):
+        raise RuntimeError("KAFKA_CLIENT_ID is required")
+
+    config_dir = _config_dir()
+    _write_external_properties(config_dir)
+    kafka_home = _kafka_cli_home()
+    if kafka_home is None:
+        raise RuntimeError("Kafka CLI not found under ~/.cache/kafka (download via startup script)")
+
+    consumer = kafka_home / "bin" / "kafka-console-consumer.sh"
+    topic = _env("KAFKA_TOPIC", "datapulse-events")
+    bootstrap = _env(
+        "KAFKA_BOOTSTRAP_SERVERS",
+        "csm-bp-kafka.cldr-csk-csm-1.a70735.test.cldr.work:8443",
+    )
+    group = _env("KAFKA_CONSUMER_GROUP", "datapulse-spark-consumer")
+    token_url = _env("KAFKA_TOKEN_URL")
+
+    env = os.environ.copy()
+    env["KAFKA_OPTS"] = f"-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls={token_url}"
+
+    cmd = [
+        str(consumer),
+        "--bootstrap-server",
+        bootstrap,
+        "--consumer.config",
+        str(config_dir / "external.properties"),
+        "--topic",
+        topic,
+        "--group",
+        group,
+    ]
+    if _env("KAFKA_CLI_FROM_BEGINNING", "").lower() in {"1", "true", "yes"}:
+        cmd.append("--from-beginning")
+
+    STORE.set_status(f"kafka-cli streaming (group={group})", active=True)
+    while True:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=str(config_dir),
+            env=env,
+            text=True,
+            bufsize=1,
         )
-        STORE.set_status("streaming", active=True)
-        query.awaitTermination()
+        stderr_thread = threading.Thread(
+            target=_drain_kafka_cli_stderr,
+            args=(proc,),
+            name="kafka-cli-stderr",
+            daemon=True,
+        )
+        stderr_thread.start()
+        try:
+            if proc.stdout is not None:
+                for line in proc.stdout:
+                    _consume_kafka_cli_line(line)
+        finally:
+            proc.wait(timeout=30)
+            if proc.returncode not in (0,):
+                STORE.set_status(
+                    f"kafka-cli exited ({proc.returncode}); reconnecting (group={group})",
+                    active=True,
+                )
+        time.sleep(int(_env("KAFKA_CLI_RECONNECT_SEC", "3")))
+
+
+def start_streaming_worker() -> None:
+    mode = _env("KAFKA_CONSUMER_MODE", "auto").lower()
+    try:
+        if mode in {"cli", "kafka-cli"}:
+            _start_kafka_cli_consumer()
+            return
+        if mode in {"spark", "spark-connect"}:
+            _start_spark_connect_streaming()
+            return
+
+        if _spark_connect_available():
+            try:
+                _start_spark_connect_streaming()
+                return
+            except Exception as spark_exc:
+                STORE.set_status(f"Spark Connect stream failed ({spark_exc}); using Kafka CLI")
+
+        _start_kafka_cli_consumer()
     except Exception as exc:  # noqa: BLE001 - surface in UI
         STORE.set_error(str(exc))
 

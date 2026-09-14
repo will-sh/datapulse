@@ -11,6 +11,7 @@ class StreamEvent:
     message: str
     kafka_timestamp: str | None
     received_at: float
+    name: str | None = None
 
 
 class EventStore:
@@ -22,8 +23,18 @@ class EventStore:
         self.stream_active = False
         self.spark_status = "initializing"
 
-    def add(self, message: str, kafka_timestamp: str | None = None) -> None:
-        event = StreamEvent(message=message, kafka_timestamp=kafka_timestamp, received_at=time.time())
+    def add(
+        self,
+        message: str,
+        kafka_timestamp: str | None = None,
+        event_name: str | None = None,
+    ) -> None:
+        event = StreamEvent(
+            message=message,
+            kafka_timestamp=kafka_timestamp,
+            received_at=time.time(),
+            name=event_name,
+        )
         with self._lock:
             self._events.appendleft(event)
             self.total_received += 1
@@ -50,6 +61,7 @@ class EventStore:
                 "events": [
                     {
                         "message": event.message,
+                        "name": event.name,
                         "kafka_timestamp": event.kafka_timestamp,
                         "received_at": event.received_at,
                     }

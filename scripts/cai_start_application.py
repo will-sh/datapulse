@@ -7,6 +7,21 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(os.getcwd())
+
+
+def load_env_file(path: Path) -> None:
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip())
+
+
+load_env_file(ROOT / "datapulse.env")
+
 PORT = os.environ["CDSW_READONLY_PORT"]
 KAFKA_VERSION = os.getenv("KAFKA_VERSION", "3.9.0")
 KAFKA_SCALA = os.getenv("KAFKA_SCALA", "2.13")

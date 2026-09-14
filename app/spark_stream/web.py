@@ -23,12 +23,15 @@ app = FastAPI(title="DataPulse Spark Kafka Consumer", version="1.0.0", lifespan=
 @app.get("/health")
 async def health() -> dict:
     snapshot = STORE.snapshot()
+    healthy = snapshot["stream_active"] and not snapshot["last_error"]
     return {
-        "status": "ok" if snapshot["spark_status"] == "streaming" else snapshot["spark_status"],
+        "status": "ok" if healthy else snapshot["spark_status"],
+        "spark_status": snapshot["spark_status"],
         "stream_active": snapshot["stream_active"],
         "total_received": snapshot["total_received"],
         "last_error": snapshot["last_error"],
         "topic": os.getenv("KAFKA_TOPIC", "datapulse-events"),
+        "consumer_mode": os.getenv("KAFKA_CONSUMER_MODE", "auto"),
     }
 
 
