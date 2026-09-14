@@ -58,6 +58,7 @@
       posthogKey: {{ settings.posthog_key | tojson }},
       posthogHost: {{ settings.posthog_host | tojson }},
       posthogEnabled: {{ settings.posthog_enabled | tojson }},
+      kafkaEnabled: {{ settings.kafka_enabled | tojson }},
       pagePath: {{ active_path | tojson }}
     };
   </script>
