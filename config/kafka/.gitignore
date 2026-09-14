@@ -1,0 +1,4 @@
+external.properties
+kafka-ca.crt
+oauth-ca.crt
+combined-ca.crt

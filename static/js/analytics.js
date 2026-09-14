@@ -26,7 +26,13 @@
   function updateBadge() {
     const badge = document.getElementById("posthog-badge");
     if (!badge) return;
-    if (config.posthogEnabled) {
+    if (config.kafkaEnabled && config.posthogEnabled) {
+      badge.textContent = "PostHog + Kafka";
+      badge.className = "badge badge-primary";
+    } else if (config.kafkaEnabled) {
+      badge.textContent = "Kafka 已启用";
+      badge.className = "badge badge-primary";
+    } else if (config.posthogEnabled) {
       badge.textContent = "PostHog 已连接";
       badge.className = "badge badge-primary";
     } else {
@@ -35,14 +41,35 @@
     }
   }
 
+  function sendEventToKafka(event) {
+    if (!config.kafkaEnabled) return;
+
+    fetch("/api/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: event.name,
+        properties: event.properties || {},
+        timestamp: event.timestamp,
+        source: event.source,
+        page_path: config.pagePath || window.location.pathname,
+      }),
+      keepalive: true,
+    }).catch(() => {
+      /* fire-and-forget */
+    });
+  }
+
   function renderEvents() {
     const list = document.getElementById("event-list");
     const count = document.getElementById("event-count");
     if (!list || !count) return;
 
-    const suffix = config.posthogEnabled
-      ? ""
-      : " · 配置 PostHog Key 后可同步到云端";
+    const suffix = config.kafkaEnabled
+      ? " · 同步到 Kafka"
+      : config.posthogEnabled
+        ? ""
+        : " · 配置 PostHog Key 后可同步到云端";
     count.textContent = `已采集 ${events.length} 条事件${suffix}`;
 
     if (events.length === 0) {
@@ -76,12 +103,17 @@
       name,
       properties,
       timestamp: Date.now(),
-      source: config.posthogEnabled ? "posthog" : "local",
+      source: config.kafkaEnabled
+        ? "kafka"
+        : config.posthogEnabled
+          ? "posthog"
+          : "local",
     };
 
     events = [event, ...events].slice(0, MAX_EVENTS);
     renderEvents();
     updateHomeMetrics();
+    sendEventToKafka(event);
 
     if (config.posthogEnabled && typeof posthog !== "undefined") {
       posthog.capture(name, properties);
@@ -115,7 +147,13 @@
     custom.textContent = events.filter((e) => e.name !== "$pageview").length;
 
     if (status) {
-      status.textContent = config.posthogEnabled ? "PostHog 云端" : "本地面板";
+      if (config.kafkaEnabled) {
+        status.textContent = "Kafka 平台";
+      } else if (config.posthogEnabled) {
+        status.textContent = "PostHog 云端";
+      } else {
+        status.textContent = "本地面板";
+      }
     }
 
     if (session) {

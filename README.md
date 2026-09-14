@@ -48,12 +48,36 @@ POSTHOG_HOST=https://us.i.posthog.com
 
 配置后，事件面板会显示「PostHog 已连接」，数据同步到 PostHog 后台的 Live Events。
 
+## 配置 Kafka OAuth（可选）
+
+1. 在 Surveyor 打开 Kafka **CLIENT_CONFIGS**，下载 `kafka-ca.crt` 与 `oauth-ca.crt` 到 `config/kafka/`
+2. 在 Console API Explorer 创建 Access Key（`POST /api/v0/auth/access-keys/credentials`）
+3. 设置环境变量：
+
+```env
+KAFKA_ENABLED=true
+KAFKA_CLIENT_ID=your-client-id
+KAFKA_CLIENT_SECRET=your-client-secret
+KAFKA_TOPIC=datapulse-events
+KAFKA_BOOTSTRAP_SERVERS=csm-bp-kafka.cldr-csk-csm-1.a70735.test.cldr.work:8443
+KAFKA_TOKEN_URL=https://console.readygo.a70735.test.cldr.work/api/v0/auth/access-keys/token
+KAFKA_CONFIG_DIR=config/kafka
+```
+
+4. 重启应用。浏览器事件会通过 `POST /api/events` 写入 Kafka topic。
+
+CAI Application 启动脚本会在 `KAFKA_ENABLED=true` 时自动下载 Kafka CLI（`KAFKA_HOME`）。
+
 ## 项目结构
 
 ```
 app/
   main.py           # FastAPI 路由
   config.py         # 环境变量配置
+  kafka_settings.py # Kafka OAuth 配置
+  api/events.py     # POST /api/events
+  services/kafka_producer.py
+config/kafka/       # Surveyor 证书与 client properties
 templates/          # Jinja2 页面模板
 static/
   css/styles.css    # 样式

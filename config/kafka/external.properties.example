@@ -1,0 +1,9 @@
+bootstrap.servers=csm-bp-kafka.cldr-csk-csm-1.a70735.test.cldr.work:8443
+security.protocol=SASL_SSL
+sasl.mechanism=OAUTHBEARER
+sasl.login.callback.handler.class=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler
+sasl.oauthbearer.token.endpoint.url=https://console.readygo.a70735.test.cldr.work/api/v0/auth/access-keys/token
+sasl.oauthbearer.client.credentials.client.id=<CLIENT_ID>
+sasl.oauthbearer.client.credentials.client.secret=<CLIENT_SECRET>
+ssl.truststore.location=kafka-ca.crt
+ssl.truststore.type=PEM
