@@ -2,14 +2,22 @@ from __future__ import annotations
 
 import os
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.spark_stream.kafka_stream import launch_streaming_thread
 from app.spark_stream.store import STORE
 
-app = FastAPI(title="DataPulse Spark Kafka Consumer", version="1.0.0")
-_stream_thread = launch_streaming_thread()
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    launch_streaming_thread()
+    yield
+
+
+app = FastAPI(title="DataPulse Spark Kafka Consumer", version="1.0.0", lifespan=lifespan)
 
 
 @app.get("/health")
