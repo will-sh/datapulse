@@ -1,6 +1,41 @@
 # DataPulse
 
-基于 PostHog 的用户行为分析 Demo 应用。在网站上进行点击、浏览、表单提交等操作，事件会实时显示在右下角的事件采集面板中，并可同步到 PostHog 云端。
+基于 PostHog 的用户行为分析 Demo 应用。在网站上进行点击、浏览、表单提交等操作，事件会实时显示在右下角的事件采集面板中，并可同步到 PostHog 云端；在 Cloudera AI 上还可将事件写入 Kafka，并由 Spark Consumer Application 实时展示。
+
+## 整体架构
+
+```mermaid
+flowchart LR
+    subgraph User["用户交互"]
+        Browser["浏览器 / Playground"]
+    end
+
+    subgraph Producer["Producer Application"]
+        App["datapulse-app<br/>FastAPI + 事件采集"]
+    end
+
+    subgraph Messaging["消息总线"]
+        Kafka[("Kafka<br/>datapulse-events")]
+    end
+
+    subgraph Consumer["Consumer Application"]
+        Spark["datapulse-spark-consumer<br/>流式消费 + 事件看板"]
+    end
+
+    Browser -->|"点击 / 浏览 / 表单"| App
+    App -->|"POST /api/events"| Kafka
+    Kafka -->|"Consumer Group 订阅"| Spark
+    Spark -->|"实时展示"| Browser
+
+    App -.->|"可选"| PostHog["PostHog SaaS"]
+```
+
+在 Cloudera AI 上，两个 Application 均运行在 **CAI Workbench**（Blueprint: `cai`）；Kafka 由 **CSM (Streams Messaging)** 提供，Producer / Consumer 通过 Console Access Key 进行 OAuth 认证。
+
+| Application | 启动脚本 | 说明 |
+|-------------|----------|------|
+| **datapulse-app** | `scripts/cai_start_application.py` | 演示站点 + 事件生产 |
+| **datapulse-spark-consumer** | `scripts/cai_spark_kafka_stream.py` | Kafka 消费 + 实时看板 |
 
 ## 功能
 
@@ -68,27 +103,40 @@ KAFKA_CONFIG_DIR=config/kafka
 
 CAI Application 启动脚本会在 `KAFKA_ENABLED=true` 时自动下载 Kafka CLI（`KAFKA_HOME`）。
 
+### Spark Consumer Application
+
+在 CAI 中创建第二个 Application，启动脚本设为 `scripts/cai_spark_kafka_stream.py`，并配置与 Producer 相同的 Kafka OAuth 环境变量。推荐 Runtime Addon：`sparkconnect354-731-26`（Spark Connect 不可用时自动 fallback 到 Kafka CLI）。
+
 ## 项目结构
 
 ```
 app/
-  main.py           # FastAPI 路由
-  config.py         # 环境变量配置
-  kafka_settings.py # Kafka OAuth 配置
-  api/events.py     # POST /api/events
+  main.py                  # Producer FastAPI 路由
+  config.py                # 环境变量配置
+  kafka_settings.py        # Kafka OAuth 配置
+  api/events.py            # POST /api/events
   services/kafka_producer.py
-config/kafka/       # Surveyor 证书与 client properties
-templates/          # Jinja2 页面模板
+  spark_stream/            # Consumer Application
+    kafka_stream.py        # Spark Connect 探针 + Kafka CLI 消费
+    web.py                 # Consumer Web UI
+    store.py               # 内存事件存储
+config/kafka/              # Surveyor 证书与 client properties
+templates/                 # Producer Jinja2 页面模板
 static/
-  css/styles.css    # 样式
-  js/analytics.js   # 事件采集与 PostHog 集成
+  css/styles.css
+  js/analytics.js          # 事件采集与 PostHog 集成
 scripts/
-  cai-start-application.sh  # CAI Application 启动脚本
-src/                # 原 Next.js 实现（保留参考）
+  cai_start_application.py       # Producer CAI 启动脚本
+  cai_spark_kafka_stream.py      # Consumer CAI 启动脚本
+  cai-start-application.sh
+requirements-spark.txt     # Consumer 依赖
+src/                       # 原 Next.js 实现（保留参考）
 ```
 
 ## 技术栈
 
-- FastAPI + Jinja2
-- PostHog (`posthog-js` CDN)
+- FastAPI + Jinja2（Producer 站点 + Consumer 看板）
+- Kafka OAuth（CSM / Strimzi）
+- Spark Connect + Kafka CLI fallback（Consumer）
+- PostHog (`posthog-js` CDN，可选）
 - 原 Next.js 16 实现保留在 `src/` 目录供参考
