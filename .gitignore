@@ -46,6 +46,8 @@ monitoring/grafana/bin/
 monitoring/grafana/public/
 monitoring/grafana/plugins/
 monitoring/run/
+monitoring/status.json
+monitoring-e2e-results.json
 
 # vercel
 .vercel
