@@ -8,8 +8,8 @@ DataPulse 在 Cloudera 平台上的目标形态：**实时事件链路**（已�
 
 ```mermaid
 flowchart LR
-    subgraph UserLayer["用户"]
-        User["用户"]
+    subgraph UserLayer["User"]
+        User["User"]
     end
 
     subgraph CAI["Cloudera AI · CAI Workbench"]
@@ -21,41 +21,41 @@ flowchart LR
         Kafka[("CSM(Kafka)<br/>datapulse-events")]
     end
 
-    subgraph Ingest["流式入湖 · 路线选择 · 规划"]
+    subgraph Ingest["Stream Ingest · Route Choice · Planned"]
         CDE["CDE(Spark)<br/>Structured Streaming"]
         CSA["CSA(Flink)<br/>Flink SQL"]
     end
 
-    subgraph Lakehouse["Cloudera Lakehouse · 规划"]
-        Table[("Iceberg 表<br/>datapulse.events")]
-        Trino["Trino<br/>SQL 分析"]
-        CDV["CDV(Viz)<br/>漏斗 · 趋势"]
+    subgraph Lakehouse["Cloudera Lakehouse · Planned"]
+        Table[("Iceberg Table<br/>datapulse.events")]
+        Trino["Trino<br/>SQL Analytics"]
+        CDV["CDV(Viz)<br/>Funnels · Trends"]
     end
 
-    subgraph ProductAnalytics["Product Analytics · 可选 · 并行"]
-        PostHog["PostHog<br/>产品分析"]
+    subgraph ProductAnalytics["Product Analytics · Optional · Parallel"]
+        PostHog["PostHog<br/>Product Analytics"]
     end
 
-    subgraph Observability["Observability · 可选 · 并行"]
-        Prometheus["Prometheus<br/>Metrics 采集 / 存储"]
+    subgraph Observability["Observability · Optional · Parallel"]
+        Prometheus["Prometheus<br/>Metrics Collection / Storage"]
         Grafana["Grafana<br/>Dashboard"]
         Datadog["Datadog<br/>APM · Logs · Traces"]
     end
 
-    User -->|"行为事件"| Producer
+    User -->|"Behavioral Events"| Producer
     Producer -->|"POST /api/events"| Kafka
-    Kafka -->|"实时订阅"| Consumer
-    Consumer -->|"秒级展示"| User
+    Kafka -->|"Real-time Subscribe"| Consumer
+    Consumer -->|"Real-time Display"| User
 
-    Kafka -->|"路线 A"| CDE
-    Kafka -->|"路线 B"| CSA
+    Kafka -->|"Route A"| CDE
+    Kafka -->|"Route B"| CSA
     CDE --> Table
     CSA --> Table
     Table --> Trino
     Table --> CDV
 
-    User -.->|"浏览器 SDK"| PostHog
-    Producer -.->|"服务端事件 / 埋点"| PostHog
+    User -.->|"Browser SDK"| PostHog
+    Producer -.->|"Server-side Events"| PostHog
 
     Producer -.->|"/metrics · Trace"| Prometheus
     Consumer -.->|"/metrics · Trace"| Prometheus
@@ -66,8 +66,8 @@ flowchart LR
 
     Producer -.->|"APM · Logs · Trace"| Datadog
     Consumer -.->|"APM · Logs · Trace"| Datadog
-    CDE -.->|"Job 监控"| Datadog
-    CSA -.->|"Job 监控"| Datadog
+    CDE -.->|"Job Monitoring"| Datadog
+    CSA -.->|"Job Monitoring"| Datadog
 ```
 
 ### 平台组件
