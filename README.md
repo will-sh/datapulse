@@ -2,7 +2,9 @@
 
 基于 PostHog 的用户行为分析 Demo 应用。在网站上进行点击、浏览、表单提交等操作，事件会实时显示在右下角的事件采集面板中，并可同步到 PostHog 云端；在 Cloudera AI 上还可将事件写入 Kafka，并由 Spark Consumer Application 实时展示。
 
-## 整体架构
+## 最终架构
+
+DataPulse 在 Cloudera 平台上的目标形态：**实时事件链路**（已落地）+ **湖仓沉淀与分析**（规划扩展）。两层并行，Kafka 作为统一事件总线。
 
 ```mermaid
 flowchart LR
@@ -10,32 +12,66 @@ flowchart LR
         Browser["浏览器 / Playground"]
     end
 
-    subgraph Producer["Producer Application"]
-        App["datapulse-app<br/>FastAPI + 事件采集"]
+    subgraph CAI["Cloudera AI · CAI Workbench"]
+        Producer["datapulse-app<br/>事件采集 · 生产"]
+        Consumer["datapulse-spark-consumer<br/>实时看板"]
     end
 
-    subgraph Messaging["消息总线"]
+    subgraph CSM["Streams Messaging"]
         Kafka[("Kafka<br/>datapulse-events")]
     end
 
-    subgraph Consumer["Consumer Application"]
-        Spark["datapulse-spark-consumer<br/>流式消费 + 事件看板"]
+    subgraph Stream["流式入湖 · 规划"]
+        Ingest["Spark / Flink / CDE<br/>Structured Streaming"]
     end
 
-    Browser -->|"点击 / 浏览 / 表单"| App
-    App -->|"POST /api/events"| Kafka
-    Kafka -->|"Consumer Group 订阅"| Spark
-    Spark -->|"实时展示"| Browser
+    subgraph Lakehouse["Cloudera Lakehouse · 规划"]
+        Table[("Iceberg 表<br/>datapulse.events")]
+        SQL["Trino / CDX<br/>SQL 分析"]
+        Viz["DataViz / BI<br/>漏斗 · 趋势"]
+    end
 
-    App -.->|"可选"| PostHog["PostHog SaaS"]
+    Browser -->|"点击 / 浏览 / 表单"| Producer
+    Producer -->|"POST /api/events"| Kafka
+    Kafka -->|"实时订阅"| Consumer
+    Consumer -->|"秒级展示"| Browser
+
+    Kafka -->|"流式写入"| Ingest
+    Ingest --> Table
+    Table --> SQL
+    Table --> Viz
+
+    Producer -.->|"可选"| PostHog["PostHog SaaS"]
 ```
 
-在 Cloudera AI 上，两个 Application 均运行在 **CAI Workbench**（Blueprint: `cai`）；Kafka 由 **CSM (Streams Messaging)** 提供，Producer / Consumer 通过 Console Access Key 进行 OAuth 认证。
+### 平台组件
+
+| 层级 | 组件 | Blueprint / 服务 | 状态 |
+|------|------|------------------|------|
+| 应用托管 | CAI Workbench | `cai` | ✅ 已部署 |
+| 事件生产 | datapulse-app | CAI Application | ✅ 已验证 |
+| 消息总线 | Kafka | `csm` | ✅ 已验证 |
+| 实时消费 | datapulse-spark-consumer | CAI Application | ✅ 已验证 |
+| 流式入湖 | Spark / CDE / CSA | `cde-udf` 或 `csa` | 📋 规划 |
+| 湖仓存储 | Iceberg 表 | `cloudera-lakehouse-engine-governed` | 📋 规划 |
+| SQL 分析 | Trino / CDX | Lakehouse Engine / `cdx` | 📋 规划 |
+| 可视化 | DataViz | `dataviz` | 📋 规划（可选） |
+
+### CAI Applications
 
 | Application | 启动脚本 | 说明 |
 |-------------|----------|------|
 | **datapulse-app** | `scripts/cai_start_application.py` | 演示站点 + 事件生产 |
 | **datapulse-spark-consumer** | `scripts/cai_spark_kafka_stream.py` | Kafka 消费 + 实时看板 |
+
+Producer / Consumer 通过 Console Access Key 访问 Kafka（OAuth）。**无需** `cai-base-connected` Blueprint，除非需对接 on-prem CDP Base 数据湖。
+
+### 两条数据路径
+
+| 路径 | 链路 | 用途 |
+|------|------|------|
+| **实时路径** | Playground → Kafka → Consumer 看板 | Demo 演示、秒级反馈 |
+| **分析路径** | Kafka → 流式入湖 → Lakehouse → SQL / BI | 历史查询、漏斗、留存、报表 |
 
 ## 功能
 
