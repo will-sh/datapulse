@@ -4,44 +4,57 @@
 
 ## 最终架构
 
-DataPulse 在 Cloudera 平台上的目标形态：**实时事件链路**（已落地）+ **湖仓沉淀与分析**（规划扩展）。两层并行，Kafka 作为统一事件总线。
+DataPulse 在 Cloudera 平台上的目标形态：**实时事件链路**（已落地）+ **湖仓沉淀与分析**（规划扩展）。Kafka 作为统一事件总线；流式入湖可在 **CDE(Spark)** 与 **CSA(Flink)** 两条路线中择一。
 
 ```mermaid
 flowchart LR
-    subgraph User["用户交互"]
-        Browser["浏览器 / Playground"]
+    subgraph UserLayer["用户"]
+        User["用户"]
     end
 
     subgraph CAI["Cloudera AI · CAI Workbench"]
-        Producer["datapulse-app<br/>事件采集 · 生产"]
-        Consumer["datapulse-spark-consumer<br/>实时看板"]
+        Producer["datapulse-app<br/>(CAI Application)"]
+        Consumer["datapulse-spark-consumer<br/>(CAI Application)"]
     end
 
     subgraph CSM["Streams Messaging"]
-        Kafka[("Kafka<br/>datapulse-events")]
+        Kafka[("CSM(Kafka)<br/>datapulse-events")]
     end
 
-    subgraph Stream["流式入湖 · 规划"]
-        Ingest["Spark / Flink / CDE<br/>Structured Streaming"]
+    subgraph Ingest["流式入湖 · 路线选择 · 规划"]
+        CDE["CDE(Spark)<br/>Structured Streaming"]
+        CSA["CSA(Flink)<br/>Flink SQL"]
     end
 
     subgraph Lakehouse["Cloudera Lakehouse · 规划"]
         Table[("Iceberg 表<br/>datapulse.events")]
-        SQL["Trino / CDX<br/>SQL 分析"]
-        Viz["DataViz / BI<br/>漏斗 · 趋势"]
+        Trino["Trino<br/>SQL 分析"]
+        CDV["CDV(Viz)<br/>漏斗 · 趋势"]
     end
 
-    Browser -->|"点击 / 浏览 / 表单"| Producer
+    subgraph SaaS["第三方 SaaS · 可选 · 并行"]
+        PostHog["PostHog<br/>产品分析"]
+        Datadog["Datadog<br/>APM · Logs · Metrics"]
+    end
+
+    User -->|"行为事件"| Producer
     Producer -->|"POST /api/events"| Kafka
     Kafka -->|"实时订阅"| Consumer
-    Consumer -->|"秒级展示"| Browser
+    Consumer -->|"秒级展示"| User
 
-    Kafka -->|"流式写入"| Ingest
-    Ingest --> Table
-    Table --> SQL
-    Table --> Viz
+    Kafka -->|"路线 A"| CDE
+    Kafka -->|"路线 B"| CSA
+    CDE --> Table
+    CSA --> Table
+    Table --> Trino
+    Table --> CDV
 
-    Producer -.->|"可选"| PostHog["PostHog SaaS"]
+    User -.->|"浏览器 SDK"| PostHog
+    Producer -.->|"服务端事件 / 埋点"| PostHog
+    Producer -.->|"应用指标 / 日志 / Trace"| Datadog
+    Consumer -.->|"应用指标 / 日志 / Trace"| Datadog
+    CDE -.->|"Job 指标 / 日志"| Datadog
+    CSA -.->|"Job 指标 / 日志"| Datadog
 ```
 
 ### 平台组件
@@ -49,13 +62,14 @@ flowchart LR
 | 层级 | 组件 | Blueprint / 服务 | 状态 |
 |------|------|------------------|------|
 | 应用托管 | CAI Workbench | `cai` | ✅ 已部署 |
-| 事件生产 | datapulse-app | CAI Application | ✅ 已验证 |
-| 消息总线 | Kafka | `csm` | ✅ 已验证 |
-| 实时消费 | datapulse-spark-consumer | CAI Application | ✅ 已验证 |
-| 流式入湖 | Spark / CDE / CSA | `cde-udf` 或 `csa` | 📋 规划 |
+| 事件生产 | datapulse-app (CAI Application) | CAI Application | ✅ 已验证 |
+| 消息总线 | CSM(Kafka) | `csm` | ✅ 已验证 |
+| 实时消费 | datapulse-spark-consumer (CAI Application) | CAI Application | ✅ 已验证 |
+| 流式入湖 A | CDE(Spark) | `cde-udf` | 📋 规划 |
+| 流式入湖 B | CSA(Flink) | `csa` | 📋 规划（与 CDE 二选一） |
 | 湖仓存储 | Iceberg 表 | `cloudera-lakehouse-engine-governed` | 📋 规划 |
-| SQL 分析 | Trino / CDX | Lakehouse Engine / `cdx` | 📋 规划 |
-| 可视化 | DataViz | `dataviz` | 📋 规划（可选） |
+| SQL 分析 | Trino | Lakehouse Engine | 📋 规划 |
+| 可视化 | CDV(Viz) | `cdv` | 📋 规划（可选） |
 
 ### CAI Applications
 
@@ -64,14 +78,32 @@ flowchart LR
 | **datapulse-app** | `scripts/cai_start_application.py` | 演示站点 + 事件生产 |
 | **datapulse-spark-consumer** | `scripts/cai_spark_kafka_stream.py` | Kafka 消费 + 实时看板 |
 
-Producer / Consumer 通过 Console Access Key 访问 Kafka（OAuth）。**无需** `cai-base-connected` Blueprint，除非需对接 on-prem CDP Base 数据湖。
+Producer / Consumer 通过 Console Access Key 访问 CSM(Kafka)（OAuth）。**无需** `cai-base-connected` Blueprint，除非需对接 on-prem CDP Base 数据湖。
 
-### 两条数据路径
+### 三条数据路径
 
 | 路径 | 链路 | 用途 |
 |------|------|------|
-| **实时路径** | Playground → Kafka → Consumer 看板 | Demo 演示、秒级反馈 |
-| **分析路径** | Kafka → 流式入湖 → Lakehouse → SQL / BI | 历史查询、漏斗、留存、报表 |
+| **实时路径** | 用户 → datapulse-app → CSM(Kafka) → spark-consumer → 用户 | Demo 演示、秒级反馈 |
+| **分析路径** | CSM(Kafka) → CDE(Spark) **或** CSA(Flink) → Lakehouse → Trino / CDV(Viz) | 历史查询、漏斗、留存、报表 |
+| **SaaS 路径** | 见下表 | 产品分析、可观测性，与 Cloudera 管道**并行** |
+
+### 第三方 SaaS 接入位置
+
+第三方 SaaS **不替代** CSM / Lakehouse 主链路，而是作为**并行出口**挂载在不同层级：
+
+| 类型 | 代表产品 | 接入点 | 数据内容 | 与主链路关系 |
+|------|----------|--------|----------|--------------|
+| **产品分析** | PostHog、Mixpanel、Amplitude | ① 用户浏览器（`analytics.js` SDK）<br/>② datapulse-app 服务端 | 点击、浏览、转化等行为事件 | 与 CSM(Kafka) **并行**；可只开 SaaS、只开 Kafka、或双写 |
+| **可观测性** | Datadog、Dynatrace、New Relic | ① datapulse-app / spark-consumer（APM、日志、Trace）<br/>② CDE / CSA Job（流处理任务监控）<br/>③ CSM / 平台层（Broker 指标，通常由平台运维配置） | 延迟、错误率、资源用量、日志 | 监控 Cloudera 组件健康，**不承载业务事件分析** |
+| **错误追踪** | Sentry | datapulse-app / spark-consumer | 前端 & 后端异常 | 可观测性子类，挂 Application 层 |
+| **告警通知** | PagerDuty、Slack | Datadog / 平台告警规则 | 运维告警 | 可观测性下游，非数据管道 |
+
+**设计原则：**
+
+- **PostHog 类产品分析** → 挂在 **用户 / Application 层**，事件语义与业务 KPI 相关，可与 Kafka 双写做「SaaS + 平台内分析」对照演示。
+- **Datadog 等可观测性** → 挂在 **Application 与计算 Job 层**，关注 SLI/SLO，不进入 Lakehouse 业务表。
+- **Cloudera 主链路**（CSM → Lakehouse → Trino / CDV）负责 **平台内数据资产**；SaaS 负责 **托管分析或运维监控**，职责分离。
 
 ## 功能
 
@@ -174,5 +206,6 @@ src/                       # 原 Next.js 实现（保留参考）
 - FastAPI + Jinja2（Producer 站点 + Consumer 看板）
 - Kafka OAuth（CSM / Strimzi）
 - Spark Connect + Kafka CLI fallback（Consumer）
+- Cloudera Lakehouse + Iceberg + Trino（目标分析路径，规划）
 - PostHog (`posthog-js` CDN，可选）
 - 原 Next.js 16 实现保留在 `src/` 目录供参考
