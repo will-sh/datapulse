@@ -3,6 +3,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -10,7 +11,24 @@ from pathlib import Path
 ROOT = Path(os.getcwd())
 MONITORING = ROOT / "monitoring"
 PORT = int(os.environ["CDSW_READONLY_PORT"])
+GRAFANA_INTERNAL_PORT = int(os.getenv("GRAFANA_INTERNAL_PORT", str(PORT + 1)))
 DOMAIN = os.environ.get("CDSW_DOMAIN", "ray-ml.cldr-csk-cai-readygo.a70735.test.cldr.work")
+
+HOP_BY_HOP_HEADERS = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+}
+STRIP_RESPONSE_HEADERS = HOP_BY_HOP_HEADERS | {
+    "content-encoding",
+    "content-length",
+    "transfer-encoding",
+}
 
 
 def load_env_file(path: Path) -> None:
@@ -24,9 +42,33 @@ def load_env_file(path: Path) -> None:
         os.environ.setdefault(key.strip(), value.strip())
 
 
-class BootstrapHandler(BaseHTTPRequestHandler):
+class GatewayHandler(BaseHTTPRequestHandler):
+    grafana_ready = False
+    protocol_version = "HTTP/1.1"
+
     def do_GET(self) -> None:
-        if self.path in {"/", "/health", "/api/health"}:
+        self._handle_request()
+
+    def do_POST(self) -> None:
+        self._handle_request()
+
+    def do_PUT(self) -> None:
+        self._handle_request()
+
+    def do_PATCH(self) -> None:
+        self._handle_request()
+
+    def do_DELETE(self) -> None:
+        self._handle_request()
+
+    def do_OPTIONS(self) -> None:
+        self._handle_request()
+
+    def _handle_request(self) -> None:
+        if self.grafana_ready:
+            self._proxy_to_grafana()
+            return
+        if self.command == "GET" and self.path in {"/", "/health", "/api/health"}:
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.end_headers()
@@ -35,12 +77,55 @@ class BootstrapHandler(BaseHTTPRequestHandler):
         self.send_response(503)
         self.end_headers()
 
+    def _proxy_to_grafana(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0") or 0)
+        body = self.rfile.read(content_length) if content_length > 0 else None
+        url = f"http://127.0.0.1:{GRAFANA_INTERNAL_PORT}{self.path}"
+
+        headers = {"Accept-Encoding": "identity"}
+        for key, value in self.headers.items():
+            lower = key.lower()
+            if lower in HOP_BY_HOP_HEADERS or lower in {"host", "accept-encoding"}:
+                continue
+            headers[key] = value
+
+        request = urllib.request.Request(
+            url,
+            data=body,
+            headers=headers,
+            method=self.command,
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                payload = response.read()
+                self.send_response(response.status)
+                for key, value in response.headers.items():
+                    if key.lower() in STRIP_RESPONSE_HEADERS:
+                        continue
+                    self.send_header(key, value)
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+        except urllib.error.HTTPError as exc:
+            payload = exc.read()
+            self.send_response(exc.code)
+            for key, value in exc.headers.items():
+                if key.lower() in STRIP_RESPONSE_HEADERS:
+                    continue
+                self.send_header(key, value)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+        except Exception:
+            self.send_response(502)
+            self.end_headers()
+
     def log_message(self, _format: str, *args) -> None:
         return
 
 
-def start_bootstrap() -> ThreadingHTTPServer:
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), BootstrapHandler)
+def start_gateway() -> ThreadingHTTPServer:
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), GatewayHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return server
@@ -53,26 +138,31 @@ def binaries_ready() -> bool:
     )
 
 
+def wait_for_grafana(timeout: int = 300) -> bool:
+    deadline = time.time() + timeout
+    url = f"http://127.0.0.1:{GRAFANA_INTERNAL_PORT}/api/health"
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=3) as response:
+                if response.status == 200:
+                    return True
+        except Exception:
+            pass
+        time.sleep(2)
+    return False
+
+
 load_env_file(ROOT / "datapulse.env")
 
-os.environ.setdefault(
-    "PRODUCER_URL",
-    f"https://datapulse-app.{DOMAIN}",
-)
-os.environ.setdefault(
-    "CONSUMER_URL",
-    f"https://datapulse-spark-consumer.{DOMAIN}",
-)
+os.environ.setdefault("PRODUCER_URL", f"https://datapulse-app.{DOMAIN}")
+os.environ.setdefault("CONSUMER_URL", f"https://datapulse-spark-consumer.{DOMAIN}")
 os.environ.setdefault("MONITORING_VERIFY_SSL", "false")
-os.environ.setdefault(
-    "GRAFANA_ROOT_URL",
-    f"https://datapulse-monitoring.{DOMAIN}/",
-)
-os.environ["GRAFANA_PORT"] = str(PORT)
+os.environ.setdefault("GRAFANA_ROOT_URL", f"https://datapulse-monitoring.{DOMAIN}/")
+os.environ["GRAFANA_PORT"] = str(GRAFANA_INTERNAL_PORT)
 os.environ["GRAFANA_ADDR"] = "127.0.0.1"
 
-print(f"Bootstrap listener on 127.0.0.1:{PORT} while dependencies start ...")
-bootstrap = start_bootstrap()
+print(f"Gateway listening on 127.0.0.1:{PORT} (Grafana internal :{GRAFANA_INTERNAL_PORT}) ...")
+gateway = start_gateway()
 time.sleep(0.5)
 
 subprocess.check_call(
@@ -91,9 +181,14 @@ if not binaries_ready():
     print("Downloading Prometheus and Grafana binaries ...")
     subprocess.check_call(["bash", str(download_script)], cwd=str(ROOT))
 
-print("Stopping bootstrap; starting Grafana directly on readonly port ...")
-bootstrap.shutdown()
-bootstrap.server_close()
-time.sleep(0.2)
+print("Launching monitoring/start.sh ...")
+stack = subprocess.Popen(["bash", str(start_script)], cwd=str(ROOT))
 
-os.execvp("bash", ["bash", str(start_script)])
+if wait_for_grafana():
+    GatewayHandler.grafana_ready = True
+    print("Grafana ready; gateway proxy enabled with gzip-safe forwarding.")
+else:
+    print("Timed out waiting for Grafana; gateway stays in bootstrap mode.", file=sys.stderr)
+
+stack.wait()
+raise SystemExit(stack.returncode or 0)
