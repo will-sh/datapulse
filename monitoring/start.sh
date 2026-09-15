@@ -56,7 +56,7 @@ start_exporter() {
   (
     cd "${ROOT}"
     export PRODUCER_URL CONSUMER_URL EXPORTER_PORT
-    export MONITORING_BEARER_TOKEN="${MONITORING_BEARER_TOKEN:-${WORKBENCH_API_KEY:-}}"
+    export MONITORING_BEARER_TOKEN="${MONITORING_BEARER_TOKEN:-${CDSW_APIV2_KEY:-${WORKBENCH_API_KEY:-}}}"
     export MONITORING_VERIFY_SSL="${MONITORING_VERIFY_SSL:-false}"
     nohup python3 "${SCRIPT_DIR}/DataPulseExporter.py" \
       >"${DATA_DIR}/logs/exporter.log" 2>&1 &
@@ -110,6 +110,36 @@ start_grafana
 wait_for_url "DataPulse exporter" "http://127.0.0.1:${EXPORTER_PORT}/metrics"
 wait_for_url "Prometheus" "http://127.0.0.1:${PROM_PORT}/-/ready"
 wait_for_url "Grafana" "http://${GRAFANA_ADDR}:${GRAFANA_PORT}/api/health"
+
+python3 - <<'PY'
+import json
+import time
+import urllib.request
+from pathlib import Path
+
+status = {
+    "stack_ready": True,
+    "grafana_url": f"http://{__import__('os').environ.get('GRAFANA_ADDR', '127.0.0.1')}:{__import__('os').environ.get('GRAFANA_PORT', '8100')}/",
+    "prometheus_url": "http://127.0.0.1:9090/",
+    "exporter_url": "http://127.0.0.1:9191/metrics",
+    "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+}
+for name, url in [
+    ("exporter_ready", "http://127.0.0.1:9191/metrics"),
+    ("prometheus_ready", "http://127.0.0.1:9090/-/ready"),
+    ("grafana_ready", f"http://{__import__('os').environ.get('GRAFANA_ADDR', '127.0.0.1')}:{__import__('os').environ.get('GRAFANA_PORT', '8100')}/api/health"),
+]:
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            status[name] = resp.status == 200
+    except Exception:
+        status[name] = False
+
+path = Path("monitoring/status.json")
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(status, indent=2), encoding="utf-8")
+print(f"Wrote {path}")
+PY
 
 echo "DataPulse monitoring stack running."
 echo "Grafana UI: http://${GRAFANA_ADDR}:${GRAFANA_PORT}/"

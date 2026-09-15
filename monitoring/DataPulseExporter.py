@@ -11,6 +11,7 @@ import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 from prometheus_client import CONTENT_TYPE_LATEST, Gauge, generate_latest
 
@@ -19,8 +20,12 @@ CONSUMER_URL = os.getenv("CONSUMER_URL", "http://127.0.0.1:8081").rstrip("/")
 SCRAPE_INTERVAL = float(os.getenv("EXPORTER_SCRAPE_INTERVAL", "10"))
 EXPORTER_HOST = os.getenv("EXPORTER_HOST", "127.0.0.1")
 EXPORTER_PORT = int(os.getenv("EXPORTER_PORT", "9191"))
-AUTH_TOKEN = os.getenv("MONITORING_BEARER_TOKEN", os.getenv("WORKBENCH_API_KEY", ""))
+AUTH_TOKEN = os.getenv(
+    "MONITORING_BEARER_TOKEN",
+    os.getenv("CDSW_APIV2_KEY", os.getenv("WORKBENCH_API_KEY", "")),
+)
 VERIFY_SSL = os.getenv("MONITORING_VERIFY_SSL", "false").lower() in {"1", "true", "yes"}
+STATUS_PATH = Path(os.getenv("MONITORING_STATUS_PATH", Path.cwd() / "monitoring" / "status.json"))
 
 PRODUCER_UP = Gauge("datapulse_exporter_producer_up", "Producer health endpoint reachable")
 CONSUMER_UP = Gauge("datapulse_exporter_consumer_up", "Consumer health endpoint reachable")
@@ -75,6 +80,26 @@ def scrape_once() -> None:
         CONSUMER_TOTAL_RECEIVED.set(float(consumer_health.get("total_received") or 0))
     else:
         CONSUMER_STREAM_ACTIVE.set(0)
+
+    try:
+        STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        STATUS_PATH.write_text(
+            json.dumps(
+                {
+                    "producer_url": PRODUCER_URL,
+                    "consumer_url": CONSUMER_URL,
+                    "producer_up": producer_health is not None,
+                    "consumer_up": consumer_health is not None,
+                    "producer_health": producer_health,
+                    "consumer_health": consumer_health,
+                    "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
 
 
 def scrape_loop() -> None:
