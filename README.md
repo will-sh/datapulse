@@ -224,7 +224,7 @@ WAIT_TIMEOUT=300
 
 `CDSW_APP_POLLING_ENDPOINT=/` 是 CAI 判定 Application 为 RUNNING 的关键配置（参考 WebSessions 项目的 Locust Dashboard）。Grafana 直接绑定 `CDSW_READONLY_PORT`，无需额外 HTTP 代理。
 
-Monitoring Application 自身只需保留 `MONITORING_VERIFY_SSL=false`（其余变量从 Project 继承）。Exporter 会使用 pod 内的 `CDSW_APIV2_KEY` 访问 Producer / Consumer（跨 Application HTTPS 仍可能返回 401，见下方限制）。
+Monitoring Application 自身只需保留 `MONITORING_VERIFY_SSL=false`（其余变量从 Project 继承）。Exporter 通过 pod 内 `DS_RUNTIME_*_PORT_8100_TCP_ADDR` 内网地址抓取 Producer / Consumer（需 Application 绑定 `0.0.0.0:CDSW_READONLY_PORT`）。
 
 **访问 URL：** 在 Workbench **Applications** 页点击 `datapulse-monitoring` 的 **Open** 链接（subdomain 类似 Locust Dashboard 的 `datapulse-mon-xxxxxx.<domain>`，创建时由平台分配）。若 `nslookup` 报 NXDOMAIN，说明内网 DNS 尚未同步——删除并重建 Application 可触发注册；也可先确认 `datapulse-app.<domain>` 是否能解析以排除网络问题。
 
