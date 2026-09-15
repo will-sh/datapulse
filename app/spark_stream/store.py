@@ -35,6 +35,7 @@ class EventStore:
         message: str,
         kafka_timestamp: str | None = None,
         event_name: str | None = None,
+        component: str | None = None,
     ) -> None:
         event = StreamEvent(
             message=message,
@@ -45,7 +46,10 @@ class EventStore:
         with self._lock:
             self._events.appendleft(event)
             self.total_received += 1
-            EVENTS_CONSUMED.labels(event_name=event_name or "unknown").inc()
+            EVENTS_CONSUMED.labels(
+                event_name=event_name or "unknown",
+                component=component or "-",
+            ).inc()
             CONSUMER_TOTAL_RECEIVED.set(self.total_received)
             CONSUMER_STREAM_ACTIVE.set(1 if self.stream_active else 0)
 

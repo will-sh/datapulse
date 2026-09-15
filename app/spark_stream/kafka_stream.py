@@ -9,6 +9,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from pathlib import Path
 
+from app.event_labels import event_component
 from app.spark_stream.store import STORE
 
 
@@ -271,7 +272,19 @@ def _process_batch(batch_df, batch_id: int) -> None:
         raw = row.asDict(recursive=True)
         message = raw.get("message") or raw.get("value") or ""
         timestamp = raw.get("event_timestamp") or raw.get("timestamp")
-        STORE.add(str(message), str(timestamp) if timestamp is not None else None)
+        text = str(message)
+        try:
+            payload = json.loads(text)
+            name = str(payload.get("name", ""))
+            component = event_component(name, payload.get("properties"))
+            STORE.add(
+                text,
+                str(timestamp) if timestamp is not None else None,
+                event_name=name,
+                component=component,
+            )
+        except json.JSONDecodeError:
+            STORE.add(text, str(timestamp) if timestamp is not None else None)
 
 
 def _start_spark_connect_streaming() -> None:
@@ -304,7 +317,8 @@ def _consume_kafka_cli_line(line: str) -> None:
     try:
         payload = json.loads(line)
         name = payload.get("name", "")
-        STORE.add(line, None, event_name=name)
+        component = event_component(str(name), payload.get("properties"))
+        STORE.add(line, None, event_name=str(name), component=component)
     except json.JSONDecodeError:
         STORE.add(line, None)
 

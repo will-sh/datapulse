@@ -4,6 +4,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
+from app.event_labels import event_component
 from app.kafka_settings import get_kafka_settings
 from app.metrics import EVENTS_ACCEPTED, KAFKA_PUBLISH
 from app.services.kafka_producer import publish_event
@@ -58,6 +59,9 @@ async def ingest_event(payload: EventIn) -> EventAccepted:
             detail=str(exc),
         ) from exc
 
-    EVENTS_ACCEPTED.labels(event_name=payload.name).inc()
+    EVENTS_ACCEPTED.labels(
+        event_name=payload.name,
+        component=event_component(payload.name, payload.properties),
+    ).inc()
     KAFKA_PUBLISH.labels(status="success").inc()
     return EventAccepted(status="accepted", topic=settings.topic, event=event)

@@ -88,6 +88,84 @@
       ],
       "title": "Kafka Publish Latency",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 16},
+      "id": 100,
+      "panels": [],
+      "title": "User Behavior",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 17},
+      "id": 6,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "sum by (event_name) (rate(datapulse_events_accepted_total[5m]))",
+          "legendFormat": "{{event_name}}"
+        }
+      ],
+      "title": "Events by Type (rate)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 17},
+      "id": 7,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "sum by (event_name) (datapulse_events_accepted_total)",
+          "legendFormat": "{{event_name}}"
+        }
+      ],
+      "title": "Events by Type (total)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 25},
+      "id": 8,
+      "options": {
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "xTickLabelRotation": 0
+      },
+      "targets": [
+        {
+          "expr": "topk(12, sum by (event_name, component) (datapulse_events_accepted_total{component!=\"-\"}))",
+          "instant": true,
+          "legendFormat": "{{event_name}} · {{component}}",
+          "range": false
+        }
+      ],
+      "title": "Top Components (clicks / interactions)",
+      "type": "barchart"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 25},
+      "id": 9,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "sum by (component) (rate(datapulse_events_accepted_total{component!=\"-\"}[5m]))",
+          "legendFormat": "{{component}}"
+        }
+      ],
+      "title": "Component Interaction Rate",
+      "type": "timeseries"
     }
   ],
   "refresh": "5s",
@@ -99,5 +177,5 @@
   "timezone": "",
   "title": "DataPulse Overview",
   "uid": "datapulse-overview",
-  "version": 1
+  "version": 2
 }

@@ -15,7 +15,7 @@ from prometheus_client import (
 EVENTS_ACCEPTED = Counter(
     "datapulse_events_accepted_total",
     "Events accepted by the producer API",
-    ["event_name"],
+    ["event_name", "component"],
 )
 KAFKA_PUBLISH = Counter(
     "datapulse_kafka_publish_total",
@@ -46,7 +46,7 @@ HTTP_REQUEST_DURATION = Histogram(
 EVENTS_CONSUMED = Counter(
     "datapulse_events_consumed_total",
     "Events consumed from Kafka",
-    ["event_name"],
+    ["event_name", "component"],
 )
 CONSUMER_STREAM_ACTIVE = Gauge(
     "datapulse_consumer_stream_active",
