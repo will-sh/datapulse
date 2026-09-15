@@ -30,6 +30,12 @@ AUTH_TOKEN = os.getenv(
 CDSW_API_KEY = os.getenv("CDSW_API_KEY", "")
 VERIFY_SSL = os.getenv("MONITORING_VERIFY_SSL", "false").lower() in {"1", "true", "yes"}
 STATUS_PATH = Path(os.getenv("MONITORING_STATUS_PATH", Path.cwd() / "monitoring" / "status.json"))
+RELAY_DIR = Path(os.getenv("METRICS_RELAY_DIR", Path.cwd() / "monitoring" / "relay"))
+RELAY_MAX_AGE = float(os.getenv("METRICS_RELAY_MAX_AGE", "30"))
+PRODUCER_METRICS_FILE = RELAY_DIR / "producer.prom"
+CONSUMER_METRICS_FILE = RELAY_DIR / "consumer.prom"
+PRODUCER_HEALTH_FILE = RELAY_DIR / "producer.health.json"
+CONSUMER_HEALTH_FILE = RELAY_DIR / "consumer.health.json"
 RELAY_PREFIX = "datapulse_"
 EXCLUDE_PREFIX = "datapulse_exporter_"
 LAST_SCRAPE_ERROR = ""
@@ -122,15 +128,48 @@ def _fetch_json_direct(url: str) -> dict | None:
         return None
 
 
+def _read_relay_text(path: Path) -> tuple[str | None, float | None]:
+    if not path.is_file():
+        return None, None
+    try:
+        age = time.time() - path.stat().st_mtime
+        if age > RELAY_MAX_AGE:
+            return None, age
+        return path.read_text(encoding="utf-8"), age
+    except OSError:
+        return None, None
+
+
+def _read_relay_health(path: Path) -> tuple[dict | None, float | None]:
+    body, age = _read_relay_text(path)
+    if body is None:
+        return None, age
+    try:
+        payload = json.loads(body)
+        return payload if isinstance(payload, dict) else None, age
+    except json.JSONDecodeError:
+        return None, age
+
+
 def _resolve_scrape_targets() -> dict[str, str]:
     producer = os.getenv("PRODUCER_INTERNAL_URL", "").rstrip("/") or PRODUCER_URL
     consumer = os.getenv("CONSUMER_INTERNAL_URL", "").rstrip("/") or CONSUMER_URL
 
     discovered_producer = None
     discovered_consumer = None
+    probe_results: list[dict[str, object]] = []
     for host in _internal_readonly_hosts():
         base = f"http://{host}:{READONLY_PORT}"
         health = _fetch_json_direct(f"{base}/health")
+        probe_results.append(
+            {
+                "host": host,
+                "url": f"{base}/health",
+                "ok": health is not None,
+                "kafka_ready": bool(health and "kafka_ready" in health),
+                "stream_active": bool(health and "stream_active" in health),
+            }
+        )
         if not health:
             continue
         if "kafka_ready" in health:
@@ -145,6 +184,7 @@ def _resolve_scrape_targets() -> dict[str, str]:
 
     _resolved_targets["producer"] = producer
     _resolved_targets["consumer"] = consumer
+    _resolved_targets["probe_results"] = probe_results
     return _resolved_targets
 
 
@@ -248,10 +288,28 @@ def scrape_once() -> None:
     producer_base = targets["producer"]
     consumer_base = targets["consumer"]
 
-    producer_health = _fetch_json(f"{producer_base}/health")
-    consumer_health = _fetch_json(f"{consumer_base}/health")
-    producer_metrics = _fetch_text(f"{producer_base}/metrics")
-    consumer_metrics = _fetch_text(f"{consumer_base}/metrics")
+    producer_metrics, producer_metrics_age = _read_relay_text(PRODUCER_METRICS_FILE)
+    consumer_metrics, consumer_metrics_age = _read_relay_text(CONSUMER_METRICS_FILE)
+    producer_health, producer_health_age = _read_relay_health(PRODUCER_HEALTH_FILE)
+    consumer_health, consumer_health_age = _read_relay_health(CONSUMER_HEALTH_FILE)
+
+    health_source = {
+        "producer": "relay" if producer_health is not None else "http",
+        "consumer": "relay" if consumer_health is not None else "http",
+    }
+    metrics_source = {
+        "producer": "relay" if producer_metrics is not None else "http",
+        "consumer": "relay" if consumer_metrics is not None else "http",
+    }
+
+    if producer_health is None:
+        producer_health = _fetch_json(f"{producer_base}/health")
+    if consumer_health is None:
+        consumer_health = _fetch_json(f"{consumer_base}/health")
+    if producer_metrics is None:
+        producer_metrics = _fetch_text(f"{producer_base}/metrics")
+    if consumer_metrics is None:
+        consumer_metrics = _fetch_text(f"{consumer_base}/metrics")
     relay = REMOTE_METRICS.update(producer_metrics, consumer_metrics)
 
     PRODUCER_UP.set(1 if producer_health is not None else 0)
@@ -275,7 +333,18 @@ def scrape_once() -> None:
         "consumer_url": CONSUMER_URL,
         "producer_scrape_url": producer_base,
         "consumer_scrape_url": consumer_base,
+        "relay_dir": str(RELAY_DIR),
+        "relay_max_age_seconds": RELAY_MAX_AGE,
+        "health_source": health_source,
+        "metrics_source": metrics_source,
+        "relay_file_ages_seconds": {
+            "producer_metrics": producer_metrics_age,
+            "consumer_metrics": consumer_metrics_age,
+            "producer_health": producer_health_age,
+            "consumer_health": consumer_health_age,
+        },
         "internal_hosts_seen": _internal_readonly_hosts(),
+        "internal_probe_results": targets.get("probe_results", []),
         "producer_up": producer_health is not None,
         "consumer_up": consumer_health is not None,
         "producer_metrics_up": relay["producer_metrics_up"],

@@ -10,21 +10,10 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from app.spark_stream.kafka_stream import launch_streaming_thread
 from app.spark_stream.store import STORE
 from app.metrics import register_metrics_middleware, register_metrics_route
+from app.metrics_relay import start_metrics_relay
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    launch_streaming_thread()
-    yield
-
-
-app = FastAPI(title="DataPulse Spark Kafka Consumer", version="1.0.0", lifespan=lifespan)
-register_metrics_middleware(app)
-register_metrics_route(app)
-
-
-@app.get("/health")
-async def health() -> dict:
+def _consumer_health_snapshot() -> dict[str, object]:
     snapshot = STORE.snapshot()
     healthy = snapshot["stream_active"] and not snapshot["last_error"]
     return {
@@ -36,6 +25,23 @@ async def health() -> dict:
         "topic": os.getenv("KAFKA_TOPIC", "datapulse-events"),
         "consumer_mode": os.getenv("KAFKA_CONSUMER_MODE", "auto"),
     }
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    launch_streaming_thread()
+    start_metrics_relay("consumer", _consumer_health_snapshot)
+    yield
+
+
+app = FastAPI(title="DataPulse Spark Kafka Consumer", version="1.0.0", lifespan=lifespan)
+register_metrics_middleware(app)
+register_metrics_route(app)
+
+
+@app.get("/health")
+async def health() -> dict:
+    return _consumer_health_snapshot()
 
 
 @app.get("/api/messages")

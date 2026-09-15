@@ -9,14 +9,34 @@ from app.api.events import router as events_router
 from app.config import get_settings
 from app.kafka_settings import get_kafka_settings
 from app.metrics import KAFKA_READY, register_metrics_middleware, register_metrics_route
+from app.metrics_relay import start_metrics_relay
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _producer_health_snapshot() -> dict[str, object]:
+    kafka = get_kafka_settings()
+    kafka_ready = kafka.is_ready()
+    KAFKA_READY.set(1 if kafka_ready else 0)
+    return {
+        "status": "ok",
+        "kafka_enabled": kafka.enabled,
+        "kafka_ready": kafka_ready,
+        "kafka_issues": kafka.readiness_issues() if kafka.enabled else [],
+    }
+
 
 app = FastAPI(title="DataPulse", version="1.0.0")
 app.include_router(events_router)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 register_metrics_middleware(app)
 register_metrics_route(app)
+
+
+@app.on_event("startup")
+async def _start_metrics_relay() -> None:
+    start_metrics_relay("producer", _producer_health_snapshot)
+
 
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
@@ -136,12 +156,4 @@ async def playground(request: Request) -> HTMLResponse:
 
 @app.get("/health")
 async def health() -> dict[str, str | bool | list[str]]:
-    kafka = get_kafka_settings()
-    kafka_ready = kafka.is_ready()
-    KAFKA_READY.set(1 if kafka_ready else 0)
-    return {
-        "status": "ok",
-        "kafka_enabled": kafka.enabled,
-        "kafka_ready": kafka_ready,
-        "kafka_issues": kafka.readiness_issues() if kafka.enabled else [],
-    }
+    return _producer_health_snapshot()  # type: ignore[return-value]
