@@ -65,10 +65,15 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self._handle_request()
 
     def _handle_request(self) -> None:
+        # CAI readiness probes hit /health (and sometimes /) on CDSW_READONLY_PORT.
+        # Never proxy these — Grafana may redirect or 404 and the app stays STARTING.
+        if self.command == "GET" and self.path in {"/health", "/api/health"}:
+            self._send_health()
+            return
         if self.grafana_ready:
             self._proxy_to_grafana()
             return
-        if self.command == "GET" and self.path in {"/", "/health", "/api/health"}:
+        if self.command == "GET" and self.path == "/":
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.end_headers()
@@ -76,6 +81,19 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
         self.send_response(503)
         self.end_headers()
+
+    def _send_health(self) -> None:
+        if self.grafana_ready:
+            body = b'{"status":"ok","grafana_ready":true}'
+            content_type = "application/json; charset=utf-8"
+        else:
+            body = b'{"status":"starting","grafana_ready":false}'
+            content_type = "application/json; charset=utf-8"
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _proxy_to_grafana(self) -> None:
         content_length = int(self.headers.get("Content-Length", "0") or 0)
