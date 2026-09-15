@@ -81,23 +81,29 @@ def scrape_once() -> None:
     else:
         CONSUMER_STREAM_ACTIVE.set(0)
 
+    status_payload: dict[str, object] = {
+        "producer_url": PRODUCER_URL,
+        "consumer_url": CONSUMER_URL,
+        "producer_up": producer_health is not None,
+        "consumer_up": consumer_health is not None,
+        "producer_health": producer_health,
+        "consumer_health": consumer_health,
+        "auth_token_configured": bool(AUTH_TOKEN),
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    if STATUS_PATH.is_file():
+        try:
+            existing = json.loads(STATUS_PATH.read_text(encoding="utf-8"))
+            if isinstance(existing, dict):
+                for key in ("stack_ready", "exporter_ready", "prometheus_ready", "grafana_ready"):
+                    if key in existing:
+                        status_payload[key] = existing[key]
+        except (OSError, json.JSONDecodeError):
+            pass
+
     try:
         STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        STATUS_PATH.write_text(
-            json.dumps(
-                {
-                    "producer_url": PRODUCER_URL,
-                    "consumer_url": CONSUMER_URL,
-                    "producer_up": producer_health is not None,
-                    "consumer_up": consumer_health is not None,
-                    "producer_health": producer_health,
-                    "consumer_health": consumer_health,
-                    "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                },
-                indent=2,
-            ),
-            encoding="utf-8",
-        )
+        STATUS_PATH.write_text(json.dumps(status_payload, indent=2), encoding="utf-8")
     except OSError:
         pass
 
