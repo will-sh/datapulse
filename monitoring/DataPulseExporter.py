@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate DataPulse producer/consumer health into Prometheus metrics."""
+"""Aggregate DataPulse producer/consumer health and relay app metrics for Prometheus."""
 
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from prometheus_client import CONTENT_TYPE_LATEST, Gauge, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, Gauge, REGISTRY, generate_latest
+from prometheus_client.parser import text_string_to_metric_families
 
 PRODUCER_URL = os.getenv("PRODUCER_URL", "http://127.0.0.1:8080").rstrip("/")
 CONSUMER_URL = os.getenv("CONSUMER_URL", "http://127.0.0.1:8081").rstrip("/")
@@ -26,9 +27,19 @@ AUTH_TOKEN = os.getenv(
 )
 VERIFY_SSL = os.getenv("MONITORING_VERIFY_SSL", "false").lower() in {"1", "true", "yes"}
 STATUS_PATH = Path(os.getenv("MONITORING_STATUS_PATH", Path.cwd() / "monitoring" / "status.json"))
+RELAY_PREFIX = "datapulse_"
+EXCLUDE_PREFIX = "datapulse_exporter_"
 
 PRODUCER_UP = Gauge("datapulse_exporter_producer_up", "Producer health endpoint reachable")
 CONSUMER_UP = Gauge("datapulse_exporter_consumer_up", "Consumer health endpoint reachable")
+PRODUCER_METRICS_UP = Gauge(
+    "datapulse_exporter_producer_metrics_up",
+    "Producer /metrics endpoint reachable",
+)
+CONSUMER_METRICS_UP = Gauge(
+    "datapulse_exporter_consumer_metrics_up",
+    "Consumer /metrics endpoint reachable",
+)
 PRODUCER_KAFKA_READY = Gauge(
     "datapulse_exporter_producer_kafka_ready",
     "Producer Kafka readiness from /health",
@@ -43,6 +54,49 @@ CONSUMER_TOTAL_RECEIVED = Gauge(
 )
 
 
+class RemoteMetricsCollector:
+    """Re-expose producer/consumer Prometheus text metrics on the local exporter."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._families: list = []
+
+    def collect(self):
+        with self._lock:
+            return list(self._families)
+
+    def update(self, producer_body: str | None, consumer_body: str | None) -> dict[str, object]:
+        families = []
+        seen_names: set[str] = set()
+        result = {
+            "producer_metrics_up": producer_body is not None,
+            "consumer_metrics_up": consumer_body is not None,
+            "relayed_metric_count": 0,
+        }
+
+        for body in (producer_body, consumer_body):
+            if not body:
+                continue
+            for family in text_string_to_metric_families(body):
+                if not family.name.startswith(RELAY_PREFIX):
+                    continue
+                if family.name.startswith(EXCLUDE_PREFIX):
+                    continue
+                if family.name in seen_names:
+                    continue
+                seen_names.add(family.name)
+                families.append(family)
+
+        result["relayed_metric_count"] = len(families)
+        with self._lock:
+            self._families = families
+        return result
+
+
+REMOTE_METRICS = RemoteMetricsCollector()
+REGISTRY.register(REMOTE_METRICS)
+
+
 def _ssl_context() -> ssl.SSLContext | None:
     if VERIFY_SSL:
         return None
@@ -52,23 +106,42 @@ def _ssl_context() -> ssl.SSLContext | None:
     return ctx
 
 
-def _fetch_json(url: str) -> dict | None:
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+def _auth_request(url: str, accept: str) -> urllib.request.Request:
+    request = urllib.request.Request(url, headers={"Accept": accept})
     if AUTH_TOKEN:
         request.add_header("Authorization", f"Bearer {AUTH_TOKEN}")
+    return request
+
+
+def _fetch_json(url: str) -> dict | None:
     try:
-        with urllib.request.urlopen(request, timeout=15, context=_ssl_context()) as response:
+        with urllib.request.urlopen(_auth_request(url, "application/json"), timeout=15, context=_ssl_context()) as response:
             return json.loads(response.read().decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
+        return None
+
+
+def _fetch_text(url: str) -> str | None:
+    try:
+        with urllib.request.urlopen(_auth_request(url, "text/plain"), timeout=15, context=_ssl_context()) as response:
+            if response.status != 200:
+                return None
+            return response.read().decode("utf-8", errors="replace")
+    except (urllib.error.URLError, TimeoutError, urllib.error.HTTPError):
         return None
 
 
 def scrape_once() -> None:
     producer_health = _fetch_json(f"{PRODUCER_URL}/health")
     consumer_health = _fetch_json(f"{CONSUMER_URL}/health")
+    producer_metrics = _fetch_text(f"{PRODUCER_URL}/metrics")
+    consumer_metrics = _fetch_text(f"{CONSUMER_URL}/metrics")
+    relay = REMOTE_METRICS.update(producer_metrics, consumer_metrics)
 
     PRODUCER_UP.set(1 if producer_health is not None else 0)
     CONSUMER_UP.set(1 if consumer_health is not None else 0)
+    PRODUCER_METRICS_UP.set(1 if relay["producer_metrics_up"] else 0)
+    CONSUMER_METRICS_UP.set(1 if relay["consumer_metrics_up"] else 0)
 
     if producer_health is not None:
         PRODUCER_KAFKA_READY.set(1 if producer_health.get("kafka_ready") else 0)
@@ -86,6 +159,9 @@ def scrape_once() -> None:
         "consumer_url": CONSUMER_URL,
         "producer_up": producer_health is not None,
         "consumer_up": consumer_health is not None,
+        "producer_metrics_up": relay["producer_metrics_up"],
+        "consumer_metrics_up": relay["consumer_metrics_up"],
+        "relayed_metric_count": relay["relayed_metric_count"],
         "producer_health": producer_health,
         "consumer_health": consumer_health,
         "auth_token_configured": bool(AUTH_TOKEN),
@@ -138,7 +214,7 @@ def main() -> None:
     server = ThreadingHTTPServer((EXPORTER_HOST, EXPORTER_PORT), MetricsHandler)
     print(
         f"DataPulse exporter listening on http://{EXPORTER_HOST}:{EXPORTER_PORT}/metrics "
-        f"(producer={PRODUCER_URL}, consumer={CONSUMER_URL})"
+        f"(producer={PRODUCER_URL}, consumer={CONSUMER_URL}, relay=enabled)"
     )
     server.serve_forever()
 

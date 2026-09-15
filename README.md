@@ -230,7 +230,7 @@ Monitoring Application 自身只需保留 `MONITORING_VERIFY_SSL=false`（其余
 
 Pod 内组件：
 
-- `DataPulseExporter.py` — 聚合 Producer / Consumer `/health` 与 `/metrics`
+- `DataPulseExporter.py` — 聚合 Producer / Consumer `/health` 与 `/metrics`（relay 到 Prometheus）
 - Prometheus — scrape `localhost:9191`
 - Grafana — 预置 **DataPulse Overview** dashboard
 
