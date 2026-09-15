@@ -39,6 +39,14 @@ yarn-error.log*
 .env*
 !.env.example
 
+# monitoring bundle artifacts
+.cache/monitoring/
+monitoring/prometheus/
+monitoring/grafana/bin/
+monitoring/grafana/public/
+monitoring/grafana/plugins/
+monitoring/run/
+
 # vercel
 .vercel
 

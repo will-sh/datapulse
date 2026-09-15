@@ -2,9 +2,11 @@ import json
 import logging
 import os
 import subprocess
+import time
 from typing import Any
 
 from app.kafka_settings import KafkaSettings, get_kafka_settings
+from app.metrics import KAFKA_PUBLISH_DURATION
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,7 @@ def publish_event(event: dict[str, Any], settings: KafkaSettings | None = None) 
         f"-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls={settings.allowed_urls}"
     )
 
+    started = time.perf_counter()
     result = subprocess.run(
         [
             str(producer_script),
@@ -67,6 +70,7 @@ def publish_event(event: dict[str, Any], settings: KafkaSettings | None = None) 
         timeout=45,
         check=False,
     )
+    KAFKA_PUBLISH_DURATION.observe(time.perf_counter() - started)
 
     if result.returncode != 0:
         stderr = result.stderr.decode("utf-8", errors="replace").strip()

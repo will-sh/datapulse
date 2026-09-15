@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.spark_stream.kafka_stream import launch_streaming_thread
 from app.spark_stream.store import STORE
+from app.metrics import register_metrics_middleware, register_metrics_route
 
 
 @asynccontextmanager
@@ -18,6 +19,8 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="DataPulse Spark Kafka Consumer", version="1.0.0", lifespan=lifespan)
+register_metrics_middleware(app)
+register_metrics_route(app)
 
 
 @app.get("/health")

@@ -200,6 +200,38 @@ CAI Application 启动脚本会在 `KAFKA_ENABLED=true` 时自动下载 Kafka CL
 
 在 CAI 中创建第二个 Application，启动脚本设为 `scripts/cai_spark_kafka_stream.py`，并配置与 Producer 相同的 Kafka OAuth 环境变量。推荐 Runtime Addon：`sparkconnect354-731-26`（Spark Connect 不可用时自动 fallback 到 Kafka CLI）。
 
+### Monitoring Application（Prometheus + Grafana）
+
+第三个 CAI Application 用于 Observability，启动脚本：`scripts/cai_start_monitoring.py`。
+
+| 项 | 值 |
+|----|-----|
+| Application 名 | `datapulse-monitoring` |
+| Script | `scripts/cai_start_monitoring.py` |
+| 对外 UI | Grafana（绑定 `CDSW_READONLY_PORT`） |
+
+环境变量示例：
+
+```env
+PRODUCER_URL=https://datapulse-app.<your-domain>
+CONSUMER_URL=https://datapulse-spark-consumer.<your-domain>
+MONITORING_BEARER_TOKEN=<workbench-api-key>
+MONITORING_VERIFY_SSL=false
+```
+
+Pod 内组件：
+
+- `DataPulseExporter.py` — 聚合 Producer / Consumer `/health` 与 `/metrics`
+- Prometheus — scrape `localhost:9191`
+- Grafana — 预置 **DataPulse Overview** dashboard
+
+Producer / Consumer 现已暴露 `GET /metrics`（Prometheus 格式）。本地调试：
+
+```bash
+bash monitoring/download.sh
+PRODUCER_URL=http://127.0.0.1:8080 CONSUMER_URL=http://127.0.0.1:8081 bash monitoring/start.sh
+```
+
 ## 项目结构
 
 ```
@@ -221,8 +253,14 @@ static/
 scripts/
   cai_start_application.py       # Producer CAI 启动脚本
   cai_spark_kafka_stream.py      # Consumer CAI 启动脚本
+  cai_start_monitoring.py        # Monitoring CAI 启动脚本
   cai-start-application.sh
 requirements-spark.txt     # Consumer 依赖
+monitoring/                # Prometheus + Grafana + DataPulse exporter
+  DataPulseExporter.py
+  prometheus.yml
+  start.sh
+  download.sh
 src/                       # 原 Next.js 实现（保留参考）
 ```
 

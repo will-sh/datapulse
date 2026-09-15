@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.kafka_settings import get_kafka_settings
+from app.metrics import EVENTS_ACCEPTED, KAFKA_PUBLISH
 from app.services.kafka_producer import publish_event
 
 router = APIRouter(prefix="/api", tags=["events"])
@@ -51,9 +52,12 @@ async def ingest_event(payload: EventIn) -> EventAccepted:
     try:
         publish_event(event, settings)
     except RuntimeError as exc:
+        KAFKA_PUBLISH.labels(status="error").inc()
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(exc),
         ) from exc
 
+    EVENTS_ACCEPTED.labels(event_name=payload.name).inc()
+    KAFKA_PUBLISH.labels(status="success").inc()
     return EventAccepted(status="accepted", topic=settings.topic, event=event)

@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: DataPulse
+    orgId: 1
+    folder: DataPulse
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: dashboards

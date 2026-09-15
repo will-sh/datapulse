@@ -5,6 +5,13 @@ import time
 from collections import deque
 from dataclasses import dataclass
 
+from app.metrics import (
+    CONSUMER_ERRORS,
+    CONSUMER_STREAM_ACTIVE,
+    CONSUMER_TOTAL_RECEIVED,
+    EVENTS_CONSUMED,
+)
+
 
 @dataclass(frozen=True)
 class StreamEvent:
@@ -38,18 +45,25 @@ class EventStore:
         with self._lock:
             self._events.appendleft(event)
             self.total_received += 1
+            EVENTS_CONSUMED.labels(event_name=event_name or "unknown").inc()
+            CONSUMER_TOTAL_RECEIVED.set(self.total_received)
+            CONSUMER_STREAM_ACTIVE.set(1 if self.stream_active else 0)
 
     def set_error(self, message: str) -> None:
         with self._lock:
             self.last_error = message
             self.stream_active = False
             self.spark_status = "error"
+            CONSUMER_ERRORS.labels(source="stream").inc()
+            CONSUMER_STREAM_ACTIVE.set(0)
 
     def set_status(self, status: str, active: bool | None = None) -> None:
         with self._lock:
             self.spark_status = status
             if active is not None:
                 self.stream_active = active
+            CONSUMER_STREAM_ACTIVE.set(1 if self.stream_active else 0)
+            CONSUMER_TOTAL_RECEIVED.set(self.total_received)
 
     def snapshot(self) -> dict:
         with self._lock:
