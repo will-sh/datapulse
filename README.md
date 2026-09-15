@@ -32,9 +32,14 @@ flowchart LR
         CDV["CDV(Viz)<br/>漏斗 · 趋势"]
     end
 
-    subgraph SaaS["第三方 SaaS · 可选 · 并行"]
+    subgraph ProductAnalytics["Product Analytics · 可选 · 并行"]
         PostHog["PostHog<br/>产品分析"]
-        Datadog["Datadog<br/>APM · Logs · Metrics"]
+    end
+
+    subgraph Observability["Observability · 可选 · 并行"]
+        Prometheus["Prometheus<br/>Metrics 采集 / 存储"]
+        Grafana["Grafana<br/>Dashboard"]
+        Datadog["Datadog<br/>APM · Logs · Traces"]
     end
 
     User -->|"行为事件"| Producer
@@ -51,10 +56,18 @@ flowchart LR
 
     User -.->|"浏览器 SDK"| PostHog
     Producer -.->|"服务端事件 / 埋点"| PostHog
-    Producer -.->|"应用指标 / 日志 / Trace"| Datadog
-    Consumer -.->|"应用指标 / 日志 / Trace"| Datadog
-    CDE -.->|"Job 指标 / 日志"| Datadog
-    CSA -.->|"Job 指标 / 日志"| Datadog
+
+    Producer -.->|"/metrics · Trace"| Prometheus
+    Consumer -.->|"/metrics · Trace"| Prometheus
+    CDE -.->|"Job Metrics"| Prometheus
+    CSA -.->|"Job Metrics"| Prometheus
+    Kafka -.->|"Broker Metrics"| Prometheus
+    Prometheus --> Grafana
+
+    Producer -.->|"APM · Logs · Trace"| Datadog
+    Consumer -.->|"APM · Logs · Trace"| Datadog
+    CDE -.->|"Job 监控"| Datadog
+    CSA -.->|"Job 监控"| Datadog
 ```
 
 ### 平台组件
@@ -70,6 +83,7 @@ flowchart LR
 | 湖仓存储 | Iceberg 表 | `cloudera-lakehouse-engine-governed` | 📋 规划 |
 | SQL 分析 | Trino | Lakehouse Engine | 📋 规划 |
 | 可视化 | CDV(Viz) | `cdv` | 📋 规划（可选） |
+| 可观测性 | Observability | Prometheus + Grafana / Datadog 等 | 📋 规划（可选） |
 
 ### CAI Applications
 
@@ -80,30 +94,41 @@ flowchart LR
 
 Producer / Consumer 通过 Console Access Key 访问 CSM(Kafka)（OAuth）。**无需** `cai-base-connected` Blueprint，除非需对接 on-prem CDP Base 数据湖。
 
-### 三条数据路径
+### 四条数据路径
 
 | 路径 | 链路 | 用途 |
 |------|------|------|
 | **实时路径** | 用户 → datapulse-app → CSM(Kafka) → spark-consumer → 用户 | Demo 演示、秒级反馈 |
 | **分析路径** | CSM(Kafka) → CDE(Spark) **或** CSA(Flink) → Lakehouse → Trino / CDV(Viz) | 历史查询、漏斗、留存、报表 |
-| **SaaS 路径** | 见下表 | 产品分析、可观测性，与 Cloudera 管道**并行** |
+| **产品分析路径** | 用户 / datapulse-app → PostHog 等 | 行为埋点、转化分析，与 CSM **并行** |
+| **可观测性路径** | 各层组件 → **Observability** | 平台与应用健康监控，见下表 |
 
-### 第三方 SaaS 接入位置
+### Observability（可观测性）
 
-第三方 SaaS **不替代** CSM / Lakehouse 主链路，而是作为**并行出口**挂载在不同层级：
+**Observability** 模块与 Cloudera 业务主链路**并行**，汇聚多种观测手段，关注 **SLI / SLO**（延迟、错误率、吞吐、资源），**不承载业务事件分析**，数据**不进入** Lakehouse 业务表。
+
+| 手段 | 代表 | 接入点 | 观测内容 |
+|------|------|--------|----------|
+| **Metrics（指标）** | Prometheus + Grafana | datapulse-app、spark-consumer、CDE Job、CSA Job、CSM(Kafka) Broker | QPS、P99 延迟、Consumer Lag、Job 背压、CPU / 内存 |
+| **APM / Logs / Traces** | Datadog、Dynatrace、New Relic | 同上各 Application 与 Job 层 | 分布式 Trace、日志检索、告警、SLO 面板 |
+| **Errors（错误追踪）** | Sentry | datapulse-app、spark-consumer | 前后端异常堆栈 |
+| **Alerting（告警）** | PagerDuty、Slack | Grafana Alerting / Datadog 规则 | 运维通知，Observability 下游 |
+
+**Prometheus + Grafana** 与 **Datadog** 在 Observability 内**并列**：前者适合平台内自建 Metrics 看板（如 Locust / Kafka Lag 大盘）；后者适合一体化 SaaS APM。可按环境二选一或组合使用（Metrics 走 Prometheus，Trace / Log 走 Datadog）。
+
+### Product Analytics（产品分析 · 可选）
+
+与 Observability 职责分离：关注**用户行为与业务 KPI**，而非服务健康。
 
 | 类型 | 代表产品 | 接入点 | 数据内容 | 与主链路关系 |
 |------|----------|--------|----------|--------------|
 | **产品分析** | PostHog、Mixpanel、Amplitude | ① 用户浏览器（`analytics.js` SDK）<br/>② datapulse-app 服务端 | 点击、浏览、转化等行为事件 | 与 CSM(Kafka) **并行**；可只开 SaaS、只开 Kafka、或双写 |
-| **可观测性** | Datadog、Dynatrace、New Relic | ① datapulse-app / spark-consumer（APM、日志、Trace）<br/>② CDE / CSA Job（流处理任务监控）<br/>③ CSM / 平台层（Broker 指标，通常由平台运维配置） | 延迟、错误率、资源用量、日志 | 监控 Cloudera 组件健康，**不承载业务事件分析** |
-| **错误追踪** | Sentry | datapulse-app / spark-consumer | 前端 & 后端异常 | 可观测性子类，挂 Application 层 |
-| **告警通知** | PagerDuty、Slack | Datadog / 平台告警规则 | 运维告警 | 可观测性下游，非数据管道 |
 
 **设计原则：**
 
-- **PostHog 类产品分析** → 挂在 **用户 / Application 层**，事件语义与业务 KPI 相关，可与 Kafka 双写做「SaaS + 平台内分析」对照演示。
-- **Datadog 等可观测性** → 挂在 **Application 与计算 Job 层**，关注 SLI/SLO，不进入 Lakehouse 业务表。
-- **Cloudera 主链路**（CSM → Lakehouse → Trino / CDV）负责 **平台内数据资产**；SaaS 负责 **托管分析或运维监控**，职责分离。
+- **Product Analytics（PostHog 等）** → 挂在 **用户 / Application 层**，管业务 KPI，可与 Kafka 双写。
+- **Observability（Prometheus / Grafana / Datadog 等）** → 挂在 **Application、Job、CSM 各层**，管平台与应用健康。
+- **Cloudera 主链路**（CSM → Lakehouse → Trino / CDV）→ 管 **平台内业务数据资产**；三者职责分离。
 
 ## 功能
 
@@ -206,6 +231,7 @@ src/                       # 原 Next.js 实现（保留参考）
 - FastAPI + Jinja2（Producer 站点 + Consumer 看板）
 - Kafka OAuth（CSM / Strimzi）
 - Spark Connect + Kafka CLI fallback（Consumer）
-- Cloudera Lakehouse + Iceberg + Trino（目标分析路径，规划）
-- PostHog (`posthog-js` CDN，可选）
+- Cloudera Lakehouse + Iceberg + Trino + CDV(Viz)（目标分析路径，规划）
+- Observability：Prometheus + Grafana / Datadog（可选，与主链路并行）
+- PostHog (`posthog-js` CDN，可选，Product Analytics)
 - 原 Next.js 16 实现保留在 `src/` 目录供参考
