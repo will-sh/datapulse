@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataPulse Live Events</title>
+  <link rel="stylesheet" href="/live/static/live.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">DataPulse · Live Events</p>
+      <h1>实时事件流</h1>
+      <p class="subtitle">Topic: <strong id="topic-label">{{ topic }}</strong> · 仅显示内存窗口内最近事件</p>
+    </div>
+    <div class="topbar-actions">
+      <label class="refresh-toggle">
+        <input type="checkbox" id="auto-refresh" checked>
+        自动刷新 (3s)
+      </label>
+      <a class="link-muted" href="/live/legacy">旧版视图</a>
+    </div>
+  </header>
+
+  <section id="status-bar" class="status-bar">加载中…</section>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>过滤器</h2>
+      <label class="field">
+        <span>Event name</span>
+        <select id="filter-name">
+          <option value="">全部</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>User ID</span>
+        <input id="filter-user" type="text" placeholder="可选">
+      </label>
+      <button type="button" id="clear-filters" class="btn-secondary">清除过滤</button>
+
+      <h2>窗口统计</h2>
+      <p class="hint">基于内存 buffer，非历史分析</p>
+      <div id="stats-panel" class="stats-panel"></div>
+    </aside>
+
+    <main class="main">
+      <div id="events-list" class="events-list">
+        <p class="empty">加载中…</p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    window.DATAPULSE_LIVE = { topic: "{{ topic }}" };
+  </script>
+  <script src="/live/static/live.js"></script>
+</body>
+</html>
