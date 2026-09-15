@@ -88,4 +88,4 @@ if not binaries_ready():
 
 bootstrap.shutdown()
 print("Launching monitoring/start.sh (Grafana on CDSW_READONLY_PORT) ...")
-raise SystemExit(subprocess.call(["bash", str(start_script)], cwd=str(ROOT)))
+sys.exit(subprocess.call(["bash", str(start_script)], cwd=str(ROOT)))
