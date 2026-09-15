@@ -8,4 +8,5 @@ providers:
     disableDeletion: false
     editable: true
     options:
-      path: .
+      # Relative to GF_PATHS_HOME (monitoring/grafana), not the yaml file directory.
+      path: conf/provisioning/dashboards
