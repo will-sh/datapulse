@@ -76,8 +76,7 @@ class RemoteMetricsCollector:
             return list(self._families)
 
     def update(self, producer_body: str | None, consumer_body: str | None) -> dict[str, object]:
-        families = []
-        seen_names: set[str] = set()
+        families_by_name: dict[str, object] = {}
         result = {
             "producer_metrics_up": producer_body is not None,
             "consumer_metrics_up": consumer_body is not None,
@@ -92,11 +91,9 @@ class RemoteMetricsCollector:
                     continue
                 if family.name.startswith(EXCLUDE_PREFIX):
                     continue
-                if family.name in seen_names:
-                    continue
-                seen_names.add(family.name)
-                families.append(family)
+                families_by_name[family.name] = family
 
+        families = list(families_by_name.values())
         result["relayed_metric_count"] = len(families)
         with self._lock:
             self._families = families
