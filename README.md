@@ -226,6 +226,8 @@ WAIT_TIMEOUT=300
 
 Monitoring Application 自身只需保留 `MONITORING_VERIFY_SSL=false`（其余变量从 Project 继承）。Exporter 会使用 pod 内的 `CDSW_APIV2_KEY` 访问 Producer / Consumer（跨 Application HTTPS 仍可能返回 401，见下方限制）。
 
+**访问 URL：** `https://datapulse-monitoring.<your-domain>/`（subdomain 与 Application 创建时一致）。若浏览器报 `DNS_PROBE_FINISHED_NXDOMAIN`，通常是因为 Application 尚未达到 `APPLICATION_RUNNING`（DNS 未注册）或本地 DNS 缓存了旧的 NXDOMAIN——请从 Workbench **Applications** 页点击 Open 链接，或执行 `ipconfig /flushdns` / `sudo dscacheutil -flushcache` 后重试。
+
 Pod 内组件：
 
 - `DataPulseExporter.py` — 聚合 Producer / Consumer `/health` 与 `/metrics`
