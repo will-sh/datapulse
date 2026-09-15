@@ -113,7 +113,7 @@ wait_for_url "Grafana" "http://${GRAFANA_ADDR}:${GRAFANA_PORT}/api/health"
 
 echo "Importing DataPulse Overview dashboard ..."
 GRAFANA_URL="http://${GRAFANA_ADDR}:${GRAFANA_PORT}" \
-  DASHBOARD_PATH="${SCRIPT_DIR}/grafana/conf/provisioning/dashboards/datapulse.json" \
+  DASHBOARD_PATH="${SCRIPT_DIR}/dashboards/datapulse.json" \
   python3 "${SCRIPT_DIR}/import_dashboard.py" || echo "Dashboard import script failed; relying on file provisioning."
 
 python3 - <<'PY'
@@ -133,6 +133,7 @@ for name, url in [
     ("exporter_ready", "http://127.0.0.1:9191/metrics"),
     ("prometheus_ready", "http://127.0.0.1:9090/-/ready"),
     ("grafana_ready", f"http://{__import__('os').environ.get('GRAFANA_ADDR', '127.0.0.1')}:{__import__('os').environ.get('GRAFANA_PORT', '8100')}/api/health"),
+    ("prometheus_query_ready", "http://127.0.0.1:9090/api/v1/query?query=up"),
 ]:
     try:
         with urllib.request.urlopen(url, timeout=5) as resp:

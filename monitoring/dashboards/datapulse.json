@@ -1,0 +1,103 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [
+        {
+          "expr": "sum(rate(datapulse_events_accepted_total[1m]))",
+          "legendFormat": "events accepted/s"
+        },
+        {
+          "expr": "sum(rate(datapulse_events_consumed_total[1m]))",
+          "legendFormat": "events consumed/s"
+        }
+      ],
+      "title": "Event Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "targets": [
+        {
+          "expr": "datapulse_exporter_consumer_total_received",
+          "legendFormat": "total received"
+        },
+        {
+          "expr": "datapulse_consumer_total_received",
+          "legendFormat": "consumer /metrics total"
+        }
+      ],
+      "title": "Consumer Totals",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short", "max": 1, "min": 0}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8},
+      "id": 3,
+      "targets": [
+        {"expr": "datapulse_exporter_producer_up", "legendFormat": "producer up"},
+        {"expr": "datapulse_exporter_consumer_up", "legendFormat": "consumer up"},
+        {"expr": "datapulse_exporter_producer_kafka_ready", "legendFormat": "kafka ready"},
+        {"expr": "datapulse_exporter_consumer_stream_active", "legendFormat": "stream active"}
+      ],
+      "title": "Health Flags",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8},
+      "id": 4,
+      "targets": [
+        {
+          "expr": "sum(rate(datapulse_kafka_publish_total{status=\"error\"}[5m]))",
+          "legendFormat": "kafka publish errors/s"
+        },
+        {
+          "expr": "sum(rate(datapulse_consumer_errors_total[5m]))",
+          "legendFormat": "consumer errors/s"
+        }
+      ],
+      "title": "Error Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8},
+      "id": 5,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(datapulse_kafka_publish_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95 kafka publish"
+        }
+      ],
+      "title": "Kafka Publish Latency",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["datapulse"],
+  "templating": {"list": []},
+  "time": {"from": "now-15m", "to": "now"},
+  "timezone": "",
+  "title": "DataPulse Overview",
+  "uid": "datapulse-overview",
+  "version": 1
+}

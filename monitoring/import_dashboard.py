@@ -15,7 +15,7 @@ GRAFANA_URL = os.getenv("GRAFANA_URL", "http://127.0.0.1:8100").rstrip("/")
 DASHBOARD_PATH = Path(
     os.getenv(
         "DASHBOARD_PATH",
-        Path(__file__).resolve().parent / "grafana" / "conf" / "provisioning" / "dashboards" / "datapulse.json",
+        Path(__file__).resolve().parent / "dashboards" / "datapulse.json",
     )
 )
 FOLDER_TITLE = "DataPulse"
