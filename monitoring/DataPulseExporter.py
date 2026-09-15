@@ -19,6 +19,7 @@ from prometheus_client.parser import text_string_to_metric_families
 
 PRODUCER_URL = os.getenv("PRODUCER_URL", "http://127.0.0.1:8080").rstrip("/")
 CONSUMER_URL = os.getenv("CONSUMER_URL", "http://127.0.0.1:8081").rstrip("/")
+READONLY_PORT = os.getenv("CDSW_READONLY_PORT", "8100")
 SCRAPE_INTERVAL = float(os.getenv("EXPORTER_SCRAPE_INTERVAL", "10"))
 EXPORTER_HOST = os.getenv("EXPORTER_HOST", "127.0.0.1")
 EXPORTER_PORT = int(os.getenv("EXPORTER_PORT", "9191"))
@@ -99,6 +100,57 @@ class RemoteMetricsCollector:
 REMOTE_METRICS = RemoteMetricsCollector()
 REGISTRY.register(REMOTE_METRICS)
 
+_resolved_targets: dict[str, str] = {
+    "producer": PRODUCER_URL,
+    "consumer": CONSUMER_URL,
+}
+
+
+def _internal_readonly_hosts() -> list[str]:
+    hosts: set[str] = set()
+    for key, value in os.environ.items():
+        if key.startswith("DS_RUNTIME_") and key.endswith("_PORT_8100_TCP_ADDR") and value:
+            hosts.add(value)
+    return sorted(hosts)
+
+
+def _fetch_json_direct(url: str) -> dict | None:
+    try:
+        with urllib.request.urlopen(url, timeout=5) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
+        return None
+
+
+def _resolve_scrape_targets() -> dict[str, str]:
+    producer = os.getenv("PRODUCER_INTERNAL_URL", "").rstrip("/") or PRODUCER_URL
+    consumer = os.getenv("CONSUMER_INTERNAL_URL", "").rstrip("/") or CONSUMER_URL
+
+    discovered_producer = None
+    discovered_consumer = None
+    for host in _internal_readonly_hosts():
+        base = f"http://{host}:{READONLY_PORT}"
+        health = _fetch_json_direct(f"{base}/health")
+        if not health:
+            continue
+        if "kafka_ready" in health:
+            discovered_producer = base
+        if "stream_active" in health:
+            discovered_consumer = base
+
+    if discovered_producer:
+        producer = discovered_producer
+    if discovered_consumer:
+        consumer = discovered_consumer
+
+    _resolved_targets["producer"] = producer
+    _resolved_targets["consumer"] = consumer
+    return _resolved_targets
+
+
+def _is_internal_url(url: str) -> bool:
+    return url.startswith("http://") and not url.startswith("http://127.0.0.1")
+
 
 def _ssl_context() -> ssl.SSLContext | None:
     if VERIFY_SSL:
@@ -136,6 +188,20 @@ def _auth_strategies() -> list[tuple[str, dict[str, str]]]:
 
 def _fetch_bytes(url: str, accept: str) -> tuple[bytes | None, str | None]:
     global LAST_SCRAPE_ERROR
+    if _is_internal_url(url) or url.startswith("http://127.0.0.1"):
+        try:
+            request = urllib.request.Request(url, headers={"Accept": accept})
+            with urllib.request.urlopen(request, timeout=10) as response:
+                body = response.read()
+                if response.status >= 300:
+                    LAST_SCRAPE_ERROR = f"{url} internal status={response.status}"
+                    return None, None
+                LAST_SCRAPE_ERROR = ""
+                return body, "internal"
+        except (urllib.error.URLError, TimeoutError, urllib.error.HTTPError) as exc:
+            LAST_SCRAPE_ERROR = f"{url} internal error={exc}"
+            return None, None
+
     last_error = ""
     for name, headers in _auth_strategies():
         request = urllib.request.Request(url, headers={"Accept": accept, **headers})
@@ -178,10 +244,14 @@ def _fetch_text(url: str) -> str | None:
 
 
 def scrape_once() -> None:
-    producer_health = _fetch_json(f"{PRODUCER_URL}/health")
-    consumer_health = _fetch_json(f"{CONSUMER_URL}/health")
-    producer_metrics = _fetch_text(f"{PRODUCER_URL}/metrics")
-    consumer_metrics = _fetch_text(f"{CONSUMER_URL}/metrics")
+    targets = _resolve_scrape_targets()
+    producer_base = targets["producer"]
+    consumer_base = targets["consumer"]
+
+    producer_health = _fetch_json(f"{producer_base}/health")
+    consumer_health = _fetch_json(f"{consumer_base}/health")
+    producer_metrics = _fetch_text(f"{producer_base}/metrics")
+    consumer_metrics = _fetch_text(f"{consumer_base}/metrics")
     relay = REMOTE_METRICS.update(producer_metrics, consumer_metrics)
 
     PRODUCER_UP.set(1 if producer_health is not None else 0)
@@ -203,6 +273,9 @@ def scrape_once() -> None:
     status_payload: dict[str, object] = {
         "producer_url": PRODUCER_URL,
         "consumer_url": CONSUMER_URL,
+        "producer_scrape_url": producer_base,
+        "consumer_scrape_url": consumer_base,
+        "internal_hosts_seen": _internal_readonly_hosts(),
         "producer_up": producer_health is not None,
         "consumer_up": consumer_health is not None,
         "producer_metrics_up": relay["producer_metrics_up"],
