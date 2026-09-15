@@ -208,7 +208,7 @@ CAI Application 启动脚本会在 `KAFKA_ENABLED=true` 时自动下载 Kafka CL
 |----|-----|
 | Application 名 | `datapulse-monitoring` |
 | Script | `scripts/cai_start_monitoring.py` |
-| 对外 UI | Grafana（绑定 `CDSW_READONLY_PORT`） |
+| 对外 UI | Grafana（subdomain 由 CAI 分配，类似 `datapulse-mon-xxxxxx.<domain>`） |
 
 环境变量（推荐在 **Project → Settings → Engine** 配置，所有 Application 启动时自动加载；也可在项目根目录放置 `datapulse.env` 作为 fallback）：
 
@@ -216,8 +216,8 @@ CAI Application 启动脚本会在 `KAFKA_ENABLED=true` 时自动下载 Kafka CL
 CDSW_APP_POLLING_ENDPOINT=/
 PRODUCER_URL=https://datapulse-app.<your-domain>
 CONSUMER_URL=https://datapulse-spark-consumer.<your-domain>
-GRAFANA_ROOT_URL=https://datapulse-monitoring.<your-domain>/
-GRAFANA_DOMAIN=datapulse-monitoring.<your-domain>
+GRAFANA_ROOT_URL=https://datapulse-mon-xxxxxx.<your-domain>/
+GRAFANA_DOMAIN=datapulse-mon-xxxxxx.<your-domain>
 MONITORING_VERIFY_SSL=false
 WAIT_TIMEOUT=300
 ```
@@ -226,7 +226,7 @@ WAIT_TIMEOUT=300
 
 Monitoring Application 自身只需保留 `MONITORING_VERIFY_SSL=false`（其余变量从 Project 继承）。Exporter 会使用 pod 内的 `CDSW_APIV2_KEY` 访问 Producer / Consumer（跨 Application HTTPS 仍可能返回 401，见下方限制）。
 
-**访问 URL：** `https://datapulse-monitoring.<your-domain>/`（subdomain 与 Application 创建时一致）。若浏览器报 `DNS_PROBE_FINISHED_NXDOMAIN`，通常是因为 Application 尚未达到 `APPLICATION_RUNNING`（DNS 未注册）或本地 DNS 缓存了旧的 NXDOMAIN——请从 Workbench **Applications** 页点击 Open 链接，或执行 `ipconfig /flushdns` / `sudo dscacheutil -flushcache` 后重试。
+**访问 URL：** 在 Workbench **Applications** 页点击 `datapulse-monitoring` 的 **Open** 链接（subdomain 类似 Locust Dashboard 的 `datapulse-mon-xxxxxx.<domain>`，创建时由平台分配）。若 `nslookup` 报 NXDOMAIN，说明内网 DNS 尚未同步——删除并重建 Application 可触发注册；也可先确认 `datapulse-app.<domain>` 是否能解析以排除网络问题。
 
 Pod 内组件：
 
