@@ -3,6 +3,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -11,6 +12,16 @@ ROOT = Path(os.getcwd())
 MONITORING = ROOT / "monitoring"
 PORT = int(os.environ["CDSW_READONLY_PORT"])
 GRAFANA_INTERNAL_PORT = int(os.getenv("GRAFANA_INTERNAL_PORT", str(PORT + 1)))
+HOP_BY_HOP_HEADERS = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+}
 
 
 def load_env_file(path: Path) -> None:
@@ -26,12 +37,31 @@ def load_env_file(path: Path) -> None:
 
 class GatewayHandler(BaseHTTPRequestHandler):
     grafana_ready = False
+    protocol_version = "HTTP/1.1"
 
     def do_GET(self) -> None:
+        self._handle_request()
+
+    def do_POST(self) -> None:
+        self._handle_request()
+
+    def do_PUT(self) -> None:
+        self._handle_request()
+
+    def do_PATCH(self) -> None:
+        self._handle_request()
+
+    def do_DELETE(self) -> None:
+        self._handle_request()
+
+    def do_OPTIONS(self) -> None:
+        self._handle_request()
+
+    def _handle_request(self) -> None:
         if self.grafana_ready:
             self._proxy_to_grafana()
             return
-        if self.path in {"/", "/health", "/api/health"}:
+        if self.command == "GET" and self.path in {"/", "/health", "/api/health"}:
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.end_headers()
@@ -40,25 +70,42 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self.send_response(503)
         self.end_headers()
 
-    def do_POST(self) -> None:
-        if self.grafana_ready:
-            self._proxy_to_grafana()
-            return
-        self.send_response(503)
-        self.end_headers()
-
     def _proxy_to_grafana(self) -> None:
+        content_length = int(self.headers.get("Content-Length", "0") or 0)
+        body = self.rfile.read(content_length) if content_length > 0 else None
         url = f"http://127.0.0.1:{GRAFANA_INTERNAL_PORT}{self.path}"
+
+        headers = {}
+        for key, value in self.headers.items():
+            if key.lower() in HOP_BY_HOP_HEADERS or key.lower() == "host":
+                continue
+            headers[key] = value
+
+        request = urllib.request.Request(
+            url,
+            data=body,
+            headers=headers,
+            method=self.command,
+        )
         try:
-            with urllib.request.urlopen(url, timeout=10) as response:
-                body = response.read()
+            with urllib.request.urlopen(request, timeout=60) as response:
+                payload = response.read()
                 self.send_response(response.status)
                 for key, value in response.headers.items():
-                    if key.lower() in {"transfer-encoding", "connection"}:
+                    if key.lower() in HOP_BY_HOP_HEADERS:
                         continue
                     self.send_header(key, value)
                 self.end_headers()
-                self.wfile.write(body)
+                self.wfile.write(payload)
+        except urllib.error.HTTPError as exc:
+            payload = exc.read()
+            self.send_response(exc.code)
+            for key, value in exc.headers.items():
+                if key.lower() in HOP_BY_HOP_HEADERS:
+                    continue
+                self.send_header(key, value)
+            self.end_headers()
+            self.wfile.write(payload)
         except Exception:
             self.send_response(502)
             self.end_headers()
