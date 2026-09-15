@@ -110,9 +110,9 @@ start_exporter
 start_prometheus
 start_grafana
 
+wait_for_url "Grafana" "http://${GRAFANA_ADDR}:${GRAFANA_PORT}/api/health"
 wait_for_url "DataPulse exporter" "http://127.0.0.1:${EXPORTER_PORT}/metrics"
 wait_for_url "Prometheus" "http://127.0.0.1:${PROM_PORT}/-/ready"
-wait_for_url "Grafana" "http://${GRAFANA_ADDR}:${GRAFANA_PORT}/api/health"
 
 echo "Importing DataPulse Overview dashboard ..."
 GRAFANA_URL="http://${GRAFANA_ADDR}:${GRAFANA_PORT}" \

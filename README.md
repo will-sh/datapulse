@@ -210,14 +210,18 @@ CAI Application 启动脚本会在 `KAFKA_ENABLED=true` 时自动下载 Kafka CL
 | Script | `scripts/cai_start_monitoring.py` |
 | 对外 UI | Grafana（绑定 `CDSW_READONLY_PORT`） |
 
-环境变量示例：
+环境变量（推荐在 **Project → Settings → Engine** 配置，所有 Application 启动时自动加载；也可在项目根目录放置 `datapulse.env` 作为 fallback）：
 
 ```env
 PRODUCER_URL=https://datapulse-app.<your-domain>
 CONSUMER_URL=https://datapulse-spark-consumer.<your-domain>
-MONITORING_BEARER_TOKEN=<workbench-api-key>
+GRAFANA_ROOT_URL=https://datapulse-monitoring.<your-domain>/
+GRAFANA_DOMAIN=datapulse-monitoring.<your-domain>
 MONITORING_VERIFY_SSL=false
+WAIT_TIMEOUT=300
 ```
+
+Monitoring Application 自身只需保留 `MONITORING_VERIFY_SSL=false`（其余变量从 Project 继承）。Exporter 会使用 pod 内的 `CDSW_APIV2_KEY` 访问 Producer / Consumer（跨 Application HTTPS 仍可能返回 401，见下方限制）。
 
 Pod 内组件：
 
