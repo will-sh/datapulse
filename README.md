@@ -213,6 +213,7 @@ CAI Application 启动脚本会在 `KAFKA_ENABLED=true` 时自动下载 Kafka CL
 环境变量（推荐在 **Project → Settings → Engine** 配置，所有 Application 启动时自动加载；也可在项目根目录放置 `datapulse.env` 作为 fallback）：
 
 ```env
+CDSW_APP_POLLING_ENDPOINT=/
 PRODUCER_URL=https://datapulse-app.<your-domain>
 CONSUMER_URL=https://datapulse-spark-consumer.<your-domain>
 GRAFANA_ROOT_URL=https://datapulse-monitoring.<your-domain>/
@@ -220,6 +221,8 @@ GRAFANA_DOMAIN=datapulse-monitoring.<your-domain>
 MONITORING_VERIFY_SSL=false
 WAIT_TIMEOUT=300
 ```
+
+`CDSW_APP_POLLING_ENDPOINT=/` 是 CAI 判定 Application 为 RUNNING 的关键配置（参考 WebSessions 项目的 Locust Dashboard）。Grafana 直接绑定 `CDSW_READONLY_PORT`，无需额外 HTTP 代理。
 
 Monitoring Application 自身只需保留 `MONITORING_VERIFY_SSL=false`（其余变量从 Project 继承）。Exporter 会使用 pod 内的 `CDSW_APIV2_KEY` 访问 Producer / Consumer（跨 Application HTTPS 仍可能返回 401，见下方限制）。
 
