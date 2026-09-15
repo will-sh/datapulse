@@ -114,6 +114,7 @@ def detect_spark_connect_url() -> None:
 
 
 load_env_file(ROOT / "datapulse.env")
+os.environ.setdefault("CDSW_APP_POLLING_ENDPOINT", "/")
 configure_spark_connect_python()
 detect_spark_connect_url()
 ensure_kafka_cli()
@@ -134,7 +135,7 @@ subprocess.call(
         "uvicorn",
         "app.spark_stream.web:app",
         "--host",
-        "0.0.0.0",
+        "127.0.0.1",
         "--port",
         PORT,
     ],

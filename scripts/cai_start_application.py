@@ -22,6 +22,7 @@ def load_env_file(path: Path) -> None:
 
 load_env_file(ROOT / "datapulse.env")
 
+os.environ.setdefault("CDSW_APP_POLLING_ENDPOINT", "/")
 PORT = os.environ["CDSW_READONLY_PORT"]
 KAFKA_VERSION = os.getenv("KAFKA_VERSION", "3.9.0")
 KAFKA_SCALA = os.getenv("KAFKA_SCALA", "2.13")
@@ -65,6 +66,7 @@ subprocess.check_call(
     env={**os.environ, "PIP_USER": "1"},
 )
 
+# Bind loopback only: engine-init already listens on the pod IP:CDSW_READONLY_PORT.
 subprocess.call(
     [
         sys.executable,
@@ -72,7 +74,7 @@ subprocess.call(
         "uvicorn",
         "app.main:app",
         "--host",
-        "0.0.0.0",
+        "127.0.0.1",
         "--port",
         PORT,
     ],
