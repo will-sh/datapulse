@@ -64,6 +64,37 @@ CONSUMER_TOTAL_RECEIVED = Gauge(
 )
 
 
+def _family_sample_count(family) -> int:
+    return sum(1 for _ in family.samples)
+
+
+def _merge_metric_families(existing, incoming):
+    """Merge samples from two parsed metric families with the same name."""
+    if existing is None:
+        return incoming
+    if _family_sample_count(incoming) == 0:
+        return existing
+    if _family_sample_count(existing) == 0:
+        return incoming
+
+    samples_by_key: dict[tuple[str, tuple[tuple[str, str], ...]], object] = {}
+    for sample in existing.samples:
+        samples_by_key[(sample.name, tuple(sorted(sample.labels.items())))] = sample
+    for sample in incoming.samples:
+        samples_by_key[(sample.name, tuple(sorted(sample.labels.items())))] = sample
+
+    merged = type(existing)(existing.name, existing.documentation, existing.type)
+    for sample in samples_by_key.values():
+        merged.add_sample(
+            sample.name,
+            dict(sample.labels),
+            sample.value,
+            sample.timestamp,
+            sample.exemplar,
+        )
+    return merged
+
+
 class RemoteMetricsCollector:
     """Re-expose producer/consumer Prometheus text metrics on the local exporter."""
 
@@ -91,7 +122,10 @@ class RemoteMetricsCollector:
                     continue
                 if family.name.startswith(EXCLUDE_PREFIX):
                     continue
-                families_by_name[family.name] = family
+                families_by_name[family.name] = _merge_metric_families(
+                    families_by_name.get(family.name),
+                    family,
+                )
 
         families = list(families_by_name.values())
         result["relayed_metric_count"] = len(families)
