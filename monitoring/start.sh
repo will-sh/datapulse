@@ -111,6 +111,11 @@ wait_for_url "DataPulse exporter" "http://127.0.0.1:${EXPORTER_PORT}/metrics"
 wait_for_url "Prometheus" "http://127.0.0.1:${PROM_PORT}/-/ready"
 wait_for_url "Grafana" "http://${GRAFANA_ADDR}:${GRAFANA_PORT}/api/health"
 
+echo "Importing DataPulse Overview dashboard ..."
+GRAFANA_URL="http://${GRAFANA_ADDR}:${GRAFANA_PORT}" \
+  DASHBOARD_PATH="${SCRIPT_DIR}/grafana/conf/provisioning/dashboards/datapulse.json" \
+  python3 "${SCRIPT_DIR}/import_dashboard.py" || echo "Dashboard import script failed; relying on file provisioning."
+
 python3 - <<'PY'
 import json
 import time
