@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import ssl
@@ -25,10 +26,12 @@ AUTH_TOKEN = os.getenv(
     "MONITORING_BEARER_TOKEN",
     os.getenv("CDSW_APIV2_KEY", os.getenv("WORKBENCH_API_KEY", "")),
 )
+CDSW_API_KEY = os.getenv("CDSW_API_KEY", "")
 VERIFY_SSL = os.getenv("MONITORING_VERIFY_SSL", "false").lower() in {"1", "true", "yes"}
 STATUS_PATH = Path(os.getenv("MONITORING_STATUS_PATH", Path.cwd() / "monitoring" / "status.json"))
 RELAY_PREFIX = "datapulse_"
 EXCLUDE_PREFIX = "datapulse_exporter_"
+LAST_SCRAPE_ERROR = ""
 
 PRODUCER_UP = Gauge("datapulse_exporter_producer_up", "Producer health endpoint reachable")
 CONSUMER_UP = Gauge("datapulse_exporter_consumer_up", "Consumer health endpoint reachable")
@@ -106,29 +109,72 @@ def _ssl_context() -> ssl.SSLContext | None:
     return ctx
 
 
-def _auth_request(url: str, accept: str) -> urllib.request.Request:
-    request = urllib.request.Request(url, headers={"Accept": accept})
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        return None
+
+
+def _urlopen(request: urllib.request.Request, timeout: int = 15):
+    handlers = [_NoRedirect()]
+    ctx = _ssl_context()
+    if ctx is not None:
+        handlers.append(urllib.request.HTTPSHandler(context=ctx))
+    opener = urllib.request.build_opener(*handlers)
+    return opener.open(request, timeout=timeout)
+
+
+def _auth_strategies() -> list[tuple[str, dict[str, str]]]:
+    strategies: list[tuple[str, dict[str, str]]] = []
     if AUTH_TOKEN:
-        request.add_header("Authorization", f"Bearer {AUTH_TOKEN}")
-    return request
+        strategies.append(("bearer", {"Authorization": f"Bearer {AUTH_TOKEN}"}))
+    if CDSW_API_KEY:
+        token = base64.b64encode(f"{CDSW_API_KEY}:".encode()).decode()
+        strategies.append(("basic", {"Authorization": f"Basic {token}"}))
+    strategies.append(("none", {}))
+    return strategies
+
+
+def _fetch_bytes(url: str, accept: str) -> tuple[bytes | None, str | None]:
+    global LAST_SCRAPE_ERROR
+    last_error = ""
+    for name, headers in _auth_strategies():
+        request = urllib.request.Request(url, headers={"Accept": accept, **headers})
+        try:
+            with _urlopen(request) as response:
+                body = response.read()
+                content_type = response.headers.get("Content-Type", "")
+                if response.status >= 300:
+                    last_error = f"{url} auth={name} status={response.status}"
+                    continue
+                if "text/html" in content_type.lower() or body.lstrip().startswith(b"<!"):
+                    last_error = f"{url} auth={name} got HTML (Knox login page?)"
+                    continue
+                LAST_SCRAPE_ERROR = ""
+                return body, name
+        except urllib.error.HTTPError as exc:
+            last_error = f"{url} auth={name} http={exc.code}"
+        except (urllib.error.URLError, TimeoutError) as exc:
+            last_error = f"{url} auth={name} error={exc}"
+    LAST_SCRAPE_ERROR = last_error
+    return None, None
 
 
 def _fetch_json(url: str) -> dict | None:
+    body, _ = _fetch_bytes(url, "application/json")
+    if body is None:
+        return None
     try:
-        with urllib.request.urlopen(_auth_request(url, "application/json"), timeout=15, context=_ssl_context()) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
+        return json.loads(body.decode("utf-8"))
+    except (json.JSONDecodeError, ValueError):
+        LAST_SCRAPE_ERROR = f"{url} invalid JSON"
         return None
 
 
 def _fetch_text(url: str) -> str | None:
-    try:
-        with urllib.request.urlopen(_auth_request(url, "text/plain"), timeout=15, context=_ssl_context()) as response:
-            if response.status != 200:
-                return None
-            return response.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, TimeoutError, urllib.error.HTTPError):
+    body, _ = _fetch_bytes(url, "text/plain; version=0.0.4")
+    if body is None:
         return None
+    return body.decode("utf-8", errors="replace")
 
 
 def scrape_once() -> None:
@@ -164,7 +210,8 @@ def scrape_once() -> None:
         "relayed_metric_count": relay["relayed_metric_count"],
         "producer_health": producer_health,
         "consumer_health": consumer_health,
-        "auth_token_configured": bool(AUTH_TOKEN),
+        "auth_token_configured": bool(AUTH_TOKEN or CDSW_API_KEY),
+        "last_scrape_error": LAST_SCRAPE_ERROR,
         "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     if STATUS_PATH.is_file():
