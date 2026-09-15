@@ -1,15 +1,16 @@
 import os
 import subprocess
 import sys
-import textwrap
+import threading
 import time
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from threading import Thread
 
 ROOT = Path(os.getcwd())
 MONITORING = ROOT / "monitoring"
-PORT = os.environ["CDSW_READONLY_PORT"]
+PORT = int(os.environ["CDSW_READONLY_PORT"])
+GRAFANA_INTERNAL_PORT = int(os.getenv("GRAFANA_INTERNAL_PORT", str(PORT + 1)))
 
 
 def load_env_file(path: Path) -> None:
@@ -23,24 +24,52 @@ def load_env_file(path: Path) -> None:
         os.environ.setdefault(key.strip(), value.strip())
 
 
-class BootstrapHandler(BaseHTTPRequestHandler):
+class GatewayHandler(BaseHTTPRequestHandler):
+    grafana_ready = False
+
     def do_GET(self) -> None:
+        if self.grafana_ready:
+            self._proxy_to_grafana()
+            return
         if self.path in {"/", "/health", "/api/health"}:
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.end_headers()
             self.wfile.write(b"DataPulse monitoring stack is starting...")
             return
-        self.send_response(404)
+        self.send_response(503)
         self.end_headers()
+
+    def do_POST(self) -> None:
+        if self.grafana_ready:
+            self._proxy_to_grafana()
+            return
+        self.send_response(503)
+        self.end_headers()
+
+    def _proxy_to_grafana(self) -> None:
+        url = f"http://127.0.0.1:{GRAFANA_INTERNAL_PORT}{self.path}"
+        try:
+            with urllib.request.urlopen(url, timeout=10) as response:
+                body = response.read()
+                self.send_response(response.status)
+                for key, value in response.headers.items():
+                    if key.lower() in {"transfer-encoding", "connection"}:
+                        continue
+                    self.send_header(key, value)
+                self.end_headers()
+                self.wfile.write(body)
+        except Exception:
+            self.send_response(502)
+            self.end_headers()
 
     def log_message(self, _format: str, *args) -> None:
         return
 
 
-def start_bootstrap_server() -> ThreadingHTTPServer:
-    server = ThreadingHTTPServer(("127.0.0.1", int(PORT)), BootstrapHandler)
-    thread = Thread(target=server.serve_forever, daemon=True)
+def start_gateway() -> ThreadingHTTPServer:
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), GatewayHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return server
 
@@ -50,6 +79,20 @@ def binaries_ready() -> bool:
         (MONITORING / "prometheus" / "prometheus").is_file()
         and (MONITORING / "grafana" / "bin" / "grafana").is_file()
     )
+
+
+def wait_for_grafana(timeout: int = 300) -> bool:
+    deadline = time.time() + timeout
+    url = f"http://127.0.0.1:{GRAFANA_INTERNAL_PORT}/api/health"
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=3) as response:
+                if response.status == 200:
+                    return True
+        except Exception:
+            pass
+        time.sleep(2)
+    return False
 
 
 load_env_file(ROOT / "datapulse.env")
@@ -63,10 +106,11 @@ os.environ.setdefault(
     "https://datapulse-spark-consumer.ray-ml.cldr-csk-cai-readygo.a70735.test.cldr.work",
 )
 os.environ.setdefault("MONITORING_VERIFY_SSL", "false")
-os.environ.setdefault("GRAFANA_PORT", PORT)
+os.environ["GRAFANA_PORT"] = str(GRAFANA_INTERNAL_PORT)
+os.environ["GRAFANA_ADDR"] = "127.0.0.1"
 
-print(f"Starting bootstrap health listener on 127.0.0.1:{PORT} ...")
-bootstrap = start_bootstrap_server()
+print(f"Starting gateway listener on 127.0.0.1:{PORT} ...")
+gateway = start_gateway()
 time.sleep(0.5)
 
 subprocess.check_call(
@@ -85,9 +129,14 @@ if not binaries_ready():
     print("Downloading Prometheus and Grafana binaries ...")
     subprocess.check_call(["bash", str(download_script)], cwd=str(ROOT))
 
-print("Stopping bootstrap listener; handing off to monitoring/start.sh ...")
-bootstrap.shutdown()
-bootstrap.server_close()
-time.sleep(0.5)
+print("Launching monitoring/start.sh ...")
+stack = subprocess.Popen(["bash", str(start_script)], cwd=str(ROOT))
 
-os.execvp("bash", ["bash", str(start_script)])
+if wait_for_grafana():
+    GatewayHandler.grafana_ready = True
+    print(f"Grafana ready; gateway now proxying to 127.0.0.1:{GRAFANA_INTERNAL_PORT}")
+else:
+    print("Timed out waiting for Grafana; gateway remains in bootstrap mode", file=sys.stderr)
+
+stack.wait()
+raise SystemExit(stack.returncode or 0)
