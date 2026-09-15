@@ -77,6 +77,9 @@ start_grafana() {
   export GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
   export GF_SERVER_HTTP_ADDR="${GRAFANA_ADDR}"
   export GF_SERVER_HTTP_PORT="${GRAFANA_PORT}"
+  export GF_SERVER_ROOT_URL="${GRAFANA_ROOT_URL:-http://${GRAFANA_ADDR}:${GRAFANA_PORT}/}"
+  export GF_SERVER_DOMAIN="${GRAFANA_DOMAIN:-$(echo "${GF_SERVER_ROOT_URL}" | sed -E 's#https?://([^/]+)/?.*#\1#')}"
+  export GF_SERVER_SERVE_FROM_SUB_PATH=false
   (
     cd "${GRAFANA_DIR}"
     nohup "${GRAFANA_DIR}/bin/grafana" server \
