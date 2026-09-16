@@ -1,0 +1,1 @@
+# Ensures monitoring/relay/ exists on CAI Workbench for metrics relay writes.
