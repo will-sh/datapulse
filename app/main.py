@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.api.events import router as events_router
+from app.api.events import capture_router, router as events_router
 from app.config import get_settings
 from app.kafka_settings import get_kafka_settings
 from app.metrics import KAFKA_READY, register_metrics_middleware, register_metrics_route
@@ -28,6 +28,7 @@ def _producer_health_snapshot() -> dict[str, object]:
 
 app = FastAPI(title="DataPulse", version="1.0.0")
 app.include_router(events_router)
+app.include_router(capture_router)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 register_metrics_middleware(app)
 register_metrics_route(app)

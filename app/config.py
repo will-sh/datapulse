@@ -26,6 +26,9 @@ def get_settings() -> dict[str, str | bool]:
         os.getenv("GRAFANA_ROOT_URL", f"https://datapulse-mon-7rrlwp.{domain}"),
     ).rstrip("/")
 
+    project_id = os.getenv("DATAPULSE_PROJECT_ID", "awc-demo")
+    capture_endpoint = os.getenv("DATAPULSE_CAPTURE_ENDPOINT", "/v1/capture")
+
     return {
         "posthog_key": posthog_key,
         "posthog_host": posthog_host,
@@ -34,5 +37,7 @@ def get_settings() -> dict[str, str | bool]:
         "kafka_ready": kafka.is_ready(),
         "consumer_url": consumer_url,
         "monitoring_url": monitoring_url,
+        "project_id": project_id,
+        "capture_endpoint": capture_endpoint,
         "app_title": "Cloudera Anywhere Cloud — DataPulse Demo",
     }

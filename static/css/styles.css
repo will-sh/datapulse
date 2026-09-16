@@ -858,3 +858,9 @@ code {
   color: var(--muted-foreground);
   font-family: ui-monospace, monospace;
 }
+
+.event-meta-line {
+  margin: 0.25rem 0 0;
+  font-size: 0.625rem;
+  color: var(--muted-foreground);
+}

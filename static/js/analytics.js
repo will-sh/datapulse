@@ -6,15 +6,6 @@
   const sessionStart = Date.now();
   let events = [];
 
-  if (config.posthogEnabled && typeof posthog !== "undefined") {
-    posthog.init(config.posthogKey, {
-      api_host: config.posthogHost,
-      person_profiles: "identified_only",
-      capture_pageview: false,
-      capture_pageleave: true,
-    });
-  }
-
   function formatTime(timestamp) {
     return new Date(timestamp).toLocaleTimeString("zh-CN", {
       hour: "2-digit",
@@ -23,41 +14,21 @@
     });
   }
 
+  function transportLabel() {
+    if (config.kafkaEnabled && config.posthogEnabled) return "Kafka + PostHog";
+    if (config.kafkaEnabled) return "Kafka · AWC Pipeline";
+    if (config.posthogEnabled) return "PostHog 已连接";
+    return "本地模式";
+  }
+
   function updateBadge() {
     const badge = document.getElementById("posthog-badge");
     if (!badge) return;
-    if (config.kafkaEnabled && config.posthogEnabled) {
-      badge.textContent = "Kafka + PostHog";
-      badge.className = "badge badge-primary";
-    } else if (config.kafkaEnabled) {
-      badge.textContent = "Kafka · AWC Pipeline";
-      badge.className = "badge badge-primary";
-    } else if (config.posthogEnabled) {
-      badge.textContent = "PostHog 已连接";
-      badge.className = "badge badge-primary";
-    } else {
-      badge.textContent = "本地模式";
-      badge.className = "badge badge-secondary";
-    }
-  }
-
-  function sendEventToKafka(event) {
-    if (!config.kafkaEnabled) return;
-
-    fetch("/api/events", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: event.name,
-        properties: event.properties || {},
-        timestamp: event.timestamp,
-        source: event.source,
-        page_path: config.pagePath || window.location.pathname,
-      }),
-      keepalive: true,
-    }).catch(() => {
-      /* fire-and-forget */
-    });
+    badge.textContent = transportLabel();
+    badge.className =
+      config.kafkaEnabled || config.posthogEnabled
+        ? "badge badge-primary"
+        : "badge badge-secondary";
   }
 
   function renderEvents() {
@@ -84,12 +55,19 @@
           event.properties && Object.keys(event.properties).length > 0
             ? `<pre class="event-props">${JSON.stringify(event.properties, null, 2)}</pre>`
             : "";
+        const meta = [
+          event.session_id ? `session: ${event.session_id.slice(0, 12)}…` : "",
+          event.anonymous_id ? `anon: ${event.anonymous_id.slice(0, 12)}…` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
         return `
           <div class="event-item">
             <div class="event-item-header">
               <code class="event-name">${event.name}</code>
               <span class="event-time">${formatTime(event.timestamp)}</span>
             </div>
+            ${meta ? `<p class="event-meta-line">${meta}</p>` : ""}
             ${props}
           </div>
         `;
@@ -97,36 +75,10 @@
       .join("");
   }
 
-  function trackEvent(name, properties) {
-    const event = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      name,
-      properties,
-      timestamp: Date.now(),
-      source: config.kafkaEnabled
-        ? "kafka"
-        : config.posthogEnabled
-          ? "posthog"
-          : "local",
-    };
-
+  function rememberEvent(event) {
     events = [event, ...events].slice(0, MAX_EVENTS);
     renderEvents();
     updateHomeMetrics();
-    sendEventToKafka(event);
-
-    if (config.posthogEnabled && typeof posthog !== "undefined") {
-      posthog.capture(name, properties);
-    }
-
-    return event;
-  }
-
-  function identifyUser(userId, traits) {
-    if (config.posthogEnabled && typeof posthog !== "undefined") {
-      posthog.identify(userId, traits);
-    }
-    trackEvent("user_identified", { userId, ...traits });
   }
 
   function clearEvents() {
@@ -177,7 +129,7 @@
             /* ignore */
           }
         }
-        trackEvent(name, props);
+        DataPulse.capture(name, props);
       });
     });
   }
@@ -195,17 +147,65 @@
     });
   }
 
+  function initSdk() {
+    if (typeof DataPulse === "undefined" || typeof DataPulse.init !== "function") {
+      console.warn("DataPulse SDK not loaded");
+      return;
+    }
+
+    DataPulse.init({
+      projectId: config.projectId || "awc-demo",
+      endpoint: config.endpoint || "/v1/capture",
+      transportEnabled: config.kafkaEnabled !== false,
+      pagePath: config.pagePath || window.location.pathname,
+      onCapture: rememberEvent,
+      superProperties: {
+        product: "anywhere_cloud",
+        demo: "datapulse-app",
+      },
+    });
+
+    if (config.posthogEnabled && typeof posthog !== "undefined") {
+      posthog.init(config.posthogKey, {
+        api_host: config.posthogHost,
+        person_profiles: "identified_only",
+        capture_pageview: false,
+        capture_pageleave: true,
+      });
+
+      const originalCapture = DataPulse.capture.bind(DataPulse);
+      DataPulse.capture = function (name, properties) {
+        const event = originalCapture(name, properties);
+        posthog.capture(name, properties);
+        return event;
+      };
+
+      const originalIdentify = DataPulse.identify.bind(DataPulse);
+      DataPulse.identify = function (userId, traits) {
+        posthog.identify(userId, traits);
+        return originalIdentify(userId, traits);
+      };
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
+    initSdk();
     updateBadge();
     bindGlobalTracking();
     bindPanelControls();
-    trackEvent("$pageview", { path: config.pagePath || window.location.pathname });
+    DataPulse.capture("$pageview", {
+      path: config.pagePath || window.location.pathname,
+    });
   });
 
-  window.DataPulse = {
-    trackEvent,
-    identifyUser,
+  window.DataPulseDemo = {
     clearEvents,
     updateHomeMetrics,
+    getEvents: () => events.slice(),
   };
+
+  window.DataPulse.trackEvent = DataPulse.capture;
+  window.DataPulse.identifyUser = DataPulse.identify;
+  window.DataPulse.clearEvents = clearEvents;
+  window.DataPulse.updateHomeMetrics = updateHomeMetrics;
 })();

@@ -29,6 +29,12 @@ class StreamEvent:
     page_path: str | None
     component: str
     properties: dict[str, Any] = field(default_factory=dict)
+    event_id: str | None = None
+    project_id: str | None = None
+    anonymous_id: str | None = None
+    session_id: str | None = None
+    source: str | None = None
+    context: dict[str, Any] | None = None
     kafka_timestamp: str | None = None
     received_at: float = 0.0
 
@@ -42,7 +48,7 @@ class StreamEvent:
         }
 
     def to_live_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "name": self.name,
             "timestamp": self.timestamp,
             "user_id": self.user_id,
@@ -52,6 +58,19 @@ class StreamEvent:
             "kafka_timestamp": self.kafka_timestamp,
             "received_at": self.received_at,
         }
+        if self.event_id:
+            payload["event_id"] = self.event_id
+        if self.project_id:
+            payload["project_id"] = self.project_id
+        if self.anonymous_id:
+            payload["anonymous_id"] = self.anonymous_id
+        if self.session_id:
+            payload["session_id"] = self.session_id
+        if self.source:
+            payload["source"] = self.source
+        if self.context:
+            payload["context"] = self.context
+        return payload
 
 
 def _coerce_properties(value: Any) -> dict[str, Any]:
@@ -107,6 +126,14 @@ def _parse_stream_event(raw: str, kafka_timestamp: str | None = None) -> StreamE
     if page_path is not None:
         page_path = str(page_path)
 
+    def _optional_str(key: str) -> str | None:
+        value = payload.get(key)
+        return str(value) if value is not None else None
+
+    context = payload.get("context")
+    if context is not None and not isinstance(context, dict):
+        context = None
+
     return StreamEvent(
         raw=raw,
         name=name,
@@ -115,6 +142,12 @@ def _parse_stream_event(raw: str, kafka_timestamp: str | None = None) -> StreamE
         page_path=page_path,
         component=event_component(name, properties),
         properties=properties,
+        event_id=_optional_str("event_id"),
+        project_id=_optional_str("project_id"),
+        anonymous_id=_optional_str("anonymous_id"),
+        session_id=_optional_str("session_id"),
+        source=_optional_str("source"),
+        context=context,
         kafka_timestamp=kafka_timestamp,
         received_at=received_at,
     )
