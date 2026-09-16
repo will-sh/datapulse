@@ -27,6 +27,7 @@ DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 # sparkconnect354 combined with hadoop-cli breaks CAI Job engine startup; local Spark uses hadoop-cli only.
 SPARK_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"}
+TRINO_MODES = {"trino-probe", "trino-bootstrap", "trino-verify"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
 JOB_ID = os.getenv("CAI_LAKEHOUSE_JOB_ID", "4h98-444z-iu1n-5x3m")
 JOB_SCRIPT = "scripts/cai_lakehouse_discover_only.py"
@@ -49,6 +50,10 @@ DEFAULT_ENV = {
     "LAKEHOUSE_CHECKPOINT_DIR": "config/lakehouse/.checkpoints/kafka-to-iceberg",
     "LAKEHOUSE_SPARK_MASTER": "local[2]",
     "SPARK_SESSION_TIMEOUT_SEC": "300",
+    "TRINO_HOST": "lakehouse-bp-556b64.cldr-csk-lakehouse.a70735.test.cldr.work",
+    "TRINO_PORT": "443",
+    "TRINO_CATALOG": "iceberg",
+    "TRINO_VERIFY_SSL": "false",
 }
 
 POLL_INTERVAL = int(os.getenv("CAI_JOB_POLL_INTERVAL", "10"))
@@ -259,7 +264,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mode",
         default="discover",
-        choices=("discover", "bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"),
+        choices=(
+            "discover",
+            "bootstrap",
+            "batch",
+            "stream",
+            "verify",
+            "spark-probe",
+            "spark-pi",
+            "trino-probe",
+            "trino-bootstrap",
+            "trino-verify",
+        ),
         help="passed to jobs/kafka_to_iceberg.py via LAKEHOUSE_JOB_MODE",
     )
     parser.add_argument(

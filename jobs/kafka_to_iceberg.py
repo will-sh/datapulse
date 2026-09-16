@@ -10,6 +10,7 @@ from pathlib import Path
 
 from app.lakehouse_settings import discover_hive_site, get_lakehouse_settings
 from app.spark_stream.kafka_stream import _kafka_options
+from app.trino_lakehouse import bootstrap_via_trino, probe_trino, verify_via_trino
 
 
 def _env(name: str, default: str = "") -> str:
@@ -350,8 +351,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Kafka -> Iceberg lakehouse ingest job")
     parser.add_argument(
         "mode",
-        choices=("discover", "bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"),
-        help="discover env, create table, batch/stream ingest, verify, spark probe, or spark pi smoke test",
+        choices=(
+            "discover",
+            "bootstrap",
+            "batch",
+            "stream",
+            "verify",
+            "spark-probe",
+            "spark-pi",
+            "trino-probe",
+            "trino-bootstrap",
+            "trino-verify",
+        ),
+        help="discover env, create table, batch/stream ingest, verify, spark/trino probes",
     )
     parser.add_argument("--max-batches", type=int, default=1)
     parser.add_argument("--timeout-sec", type=int, default=600)
@@ -395,6 +407,21 @@ def spark_pi() -> int:
     return 0
 
 
+def trino_probe() -> int:
+    _print_json("trino-probe", probe_trino())
+    return 0
+
+
+def trino_bootstrap() -> int:
+    _print_json("trino-bootstrap", bootstrap_via_trino())
+    return 0
+
+
+def trino_verify() -> int:
+    _print_json("trino-verify", verify_via_trino())
+    return 0
+
+
 def spark_probe() -> int:
     spark, settings = _create_lakehouse_spark_session(include_kafka=False)
     _print_json(
@@ -417,6 +444,12 @@ def main(argv: list[str] | None = None) -> int:
         return spark_probe()
     if args.mode == "spark-pi":
         return spark_pi()
+    if args.mode == "trino-probe":
+        return trino_probe()
+    if args.mode == "trino-bootstrap":
+        return trino_bootstrap()
+    if args.mode == "trino-verify":
+        return trino_verify()
     if args.mode == "bootstrap":
         return bootstrap_table()
     if args.mode == "batch":

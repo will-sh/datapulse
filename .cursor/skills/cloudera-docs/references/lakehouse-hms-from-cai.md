@@ -106,6 +106,29 @@ Interpretation vs docs:
 4. Confirm with Lakehouse team: HMS URI + auth for **CAI Job pods** (may differ from Application pods)
 5. Read **beta** Lakehouse + CAI docs (SSO) for Anywhere-specific datalake binding — public cloud docs may not cover ReadyGo/AWC topology
 
+## Trino via Console OAuth (same token as Kafka)
+
+DataPulse can reach Trino with the **same Console Access Key** used for Kafka OAuth:
+
+| Step | Detail |
+|------|--------|
+| Token URL | `KAFKA_TOKEN_URL` → `POST grant_type=client_credentials` + `KAFKA_CLIENT_ID` / `KAFKA_CLIENT_SECRET` |
+| Trino auth | `Authorization: Bearer <access_token>` (Knox JWT gateway in front of Trino) |
+| `/v1/info` | **Works** with Console OAuth token |
+| SQL (`/v1/statement`) | May fail with `Principal admin cannot become user admin` — Ranger impersonation policy for access-key principals |
+
+Job modes:
+
+```bash
+python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode trino-probe
+python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode trino-bootstrap
+python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode trino-verify
+```
+
+Implementation: `app/console_oauth.py`, `app/trino_lakehouse.py`, `jobs/kafka_to_iceberg.py` (`trino-*` modes).
+
+Trino Admin UI datasource tests use browser SSO — not identical to headless Access Key tokens, even when both are "OAuth".
+
 ## Related DataPulse files
 
 - `app/lakehouse_settings.py` — URI/warehouse resolution

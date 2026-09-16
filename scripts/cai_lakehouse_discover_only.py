@@ -19,6 +19,7 @@ SPARK_CONNECT_ZIP = Path("/opt/spark-connect/spark_connect.zip")
 SPARK_CONNECT_NATIVE = Path("/opt/spark-connect/native")
 SPARK_CONNECT_DIR = Path("/tmp/spark-connect-unpack")
 SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"}
+TRINO_MODES = {"trino-probe", "trino-bootstrap", "trino-verify"}
 
 
 def write_run_log(payload: dict[str, object]) -> None:
@@ -231,6 +232,9 @@ try:
         payload["steps"].append("spark_connect_ready")
         payload["spark_connect_url"] = os.getenv("SPARK_CONNECT_URL", "")
         payload["spark_master"] = os.getenv("LAKEHOUSE_SPARK_MASTER") or os.getenv("SPARK_MASTER", "")
+        write_run_log(payload)
+    if mode in TRINO_MODES:
+        payload["steps"].append("trino_mode")
         write_run_log(payload)
     ensure_kafka_config_dir()
     payload["steps"].append("preflight_ok")
