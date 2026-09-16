@@ -1196,3 +1196,510 @@ code {
   font-size: 0.625rem;
   color: var(--muted-foreground);
 }
+
+/* ── AWC Homepage (official product page style) ── */
+
+.awc-home {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.awc-home .main-content {
+  max-width: none;
+  padding: 0 0 7rem;
+}
+
+@media (min-width: 640px) {
+  .awc-home .main-content {
+    padding-bottom: 2rem;
+  }
+}
+
+.awc-container {
+  width: min(100% - 2rem, 72rem);
+  margin-inline: auto;
+}
+
+.awc-container--narrow {
+  width: min(100% - 2rem, 48rem);
+}
+
+.awc-section {
+  padding: 4.5rem 0;
+}
+
+.awc-section--muted {
+  background: linear-gradient(180deg, #f3f5f8 0%, #eef1f5 100%);
+}
+
+.awc-section--form {
+  padding: 4rem 0 5rem;
+  background: #fff;
+}
+
+.awc-section-header {
+  margin-bottom: 2.5rem;
+}
+
+.awc-section-header--center {
+  text-align: center;
+}
+
+.awc-section-header--center .awc-section-lead {
+  margin-inline: auto;
+}
+
+.awc-section-header--split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.awc-section-header h2 {
+  margin: 0.35rem 0 0.75rem;
+  font-size: clamp(1.75rem, 3vw, 2.35rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.awc-section-lead {
+  max-width: 42rem;
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: #5c6670;
+}
+
+.awc-kicker {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.btn-lg {
+  height: 2.75rem;
+  padding: 0 1.35rem;
+  font-size: 0.9375rem;
+}
+
+.btn-ghost {
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.28);
+  color: #f8fafc;
+}
+
+.btn-ghost:hover {
+  background: rgb(255 255 255 / 0.14);
+  border-color: rgb(255 255 255 / 0.4);
+}
+
+.awc-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 5rem 0 4.5rem;
+  color: #f8fafc;
+  background:
+    radial-gradient(ellipse 90% 70% at 85% 0%, rgb(249 103 2 / 0.22), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 10% 100%, rgb(14 116 144 / 0.18), transparent 50%),
+    linear-gradient(165deg, #050b14 0%, #0c1524 42%, #132033 100%);
+}
+
+.awc-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.35), transparent 85%);
+  pointer-events: none;
+}
+
+.awc-hero-layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 3rem;
+  align-items: center;
+}
+
+@media (min-width: 960px) {
+  .awc-hero-layout {
+    grid-template-columns: 1.15fr 0.85fr;
+  }
+}
+
+.awc-hero-eyebrow {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(248 250 252 / 0.72);
+}
+
+.awc-hero-title {
+  margin: 0 0 1.25rem;
+  font-size: clamp(2.5rem, 6vw, 4.25rem);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.awc-hero-brand {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.awc-tm {
+  font-size: 0.45em;
+  vertical-align: super;
+  font-weight: 500;
+}
+
+.awc-hero-lead {
+  max-width: 34rem;
+  margin: 0 0 1.75rem;
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  line-height: 1.6;
+  color: rgb(226 232 240 / 0.92);
+}
+
+.awc-checklist {
+  margin: 0 0 2rem;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.awc-checklist li {
+  position: relative;
+  padding-left: 1.75rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.awc-checklist li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: rgb(249 103 2 / 0.18);
+  border: 1px solid rgb(249 103 2 / 0.55);
+  box-shadow: inset 0 0 0 3px rgb(5 11 20 / 0.85);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 6.2 5 8.7 9.5 3.8' stroke='%23f96702' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 0.65rem;
+}
+
+.awc-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.awc-hero-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 18rem;
+}
+
+.awc-hero-orbit {
+  position: relative;
+  width: min(100%, 20rem);
+  aspect-ratio: 1;
+}
+
+.awc-orbit-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.awc-orbit-ring--outer {
+  animation: awc-spin 28s linear infinite;
+}
+
+.awc-orbit-ring--inner {
+  inset: 1.75rem;
+  border-color: rgb(249 103 2 / 0.35);
+  animation: awc-spin 18s linear infinite reverse;
+}
+
+.awc-orbit-core {
+  position: absolute;
+  inset: 3.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, rgb(249 103 2 / 0.25), rgb(15 23 42 / 0.92));
+  border: 1px solid rgb(255 255 255 / 0.14);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.35);
+}
+
+.awc-orbit-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(248 250 252 / 0.88);
+}
+
+@keyframes awc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.awc-pillar-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (min-width: 900px) {
+  .awc-pillar-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.awc-pillar-card {
+  padding: 1.75rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(15 23 42 / 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.awc-pillar-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px rgb(15 23 42 / 0.1);
+}
+
+.awc-pillar-icon {
+  display: flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  border-radius: 0.75rem;
+  background: var(--primary-soft);
+  font-size: 1.25rem;
+}
+
+.awc-pillar-card h3 {
+  margin: 0 0 0.65rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.awc-pillar-card p {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: #5c6670;
+}
+
+.awc-blueprint-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (min-width: 900px) {
+  .awc-blueprint-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.awc-blueprint-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 100%;
+  padding: 1.75rem;
+  border: 1px solid rgb(216 222 228 / 0.9);
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.awc-blueprint-card--featured {
+  border-color: rgb(249 103 2 / 0.45);
+  box-shadow: 0 0 0 1px rgb(249 103 2 / 0.12), 0 16px 40px rgb(249 103 2 / 0.08);
+}
+
+.awc-featured-badge {
+  align-self: flex-start;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: #b45309;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.awc-blueprint-card h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.3;
+  color: #0f172a;
+}
+
+.awc-blueprint-card p {
+  flex: 1;
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: #5c6670;
+}
+
+.awc-text-link {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.awc-text-link:hover {
+  color: var(--primary-hover);
+}
+
+.awc-marketplace-preview {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.awc-service-tile {
+  display: block;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.875rem;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.awc-service-tile:hover {
+  border-color: rgb(249 103 2 / 0.35);
+  box-shadow: 0 10px 28px rgb(15 23 42 / 0.08);
+  transform: translateY(-2px);
+}
+
+.awc-service-tile h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.awc-service-tile p {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #5c6670;
+}
+
+.awc-faq-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.awc-faq-item {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.875rem;
+  background: #fff;
+}
+
+.awc-faq-trigger {
+  padding: 1.1rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #0f172a;
+  cursor: pointer;
+  list-style: none;
+}
+
+.awc-faq-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.awc-faq-trigger::after {
+  content: "+";
+  float: right;
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--primary);
+}
+
+.awc-faq-item[open] .awc-faq-trigger::after {
+  content: "−";
+}
+
+.awc-faq-body {
+  padding: 0 1.25rem 1.15rem;
+}
+
+.awc-faq-body p {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: #5c6670;
+}
+
+.awc-home .lead-form-shell {
+  max-width: none;
+  margin: 0;
+  padding: 2.25rem;
+  border: 2px solid #0b3d91;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 20px 50px rgb(11 61 145 / 0.08);
+}
+
+.awc-home .lead-form-title {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+@media (max-width: 640px) {
+  .awc-section {
+    padding: 3rem 0;
+  }
+
+  .awc-hero {
+    padding: 3.5rem 0 3rem;
+  }
+
+  .awc-hero-visual {
+    min-height: 14rem;
+  }
+
+  .awc-section-header--split .btn {
+    width: 100%;
+  }
+}
