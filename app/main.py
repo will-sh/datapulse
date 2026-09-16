@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -9,7 +9,6 @@ from app.api.events import capture_router, router as events_router
 from app.console_catalog import (
     catalog_meta,
     get_marketplace_item,
-    marketplace_experiences,
     marketplace_items,
     playground_blueprints,
     playground_deploy_targets,
@@ -98,17 +97,9 @@ async def marketplace_doc(request: Request, item_key: str) -> HTMLResponse:
     )
 
 
-@app.get("/pricing", response_class=HTMLResponse)
-async def experiences(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(
-        request,
-        "experiences.html",
-        template_context(
-            request,
-            catalog=catalog_meta(),
-            experiences=marketplace_experiences(),
-        ),
-    )
+@app.get("/pricing")
+async def pricing_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/features", status_code=301)
 
 
 @app.get("/playground", response_class=HTMLResponse)

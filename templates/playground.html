@@ -59,7 +59,7 @@
   <div class="tab-content" data-tab-content="form">
     <div class="card">
       <h2>Request AWC Demo</h2>
-      <p class="card-subtitle">提交后触发 <code>demo_form_submitted</code>（AWC 销售线索转化）</p>
+      <p class="card-subtitle">提交后触发 <code>demo_form_submitted</code> 并通过 PostHog identify 绑定此前匿名浏览行为</p>
       <form id="demo-form" class="form-row">
         <input type="email" id="demo-email" placeholder="work@enterprise.com" required class="input">
         <button type="submit" class="btn btn-primary">Request Demo</button>
@@ -104,7 +104,14 @@
 
     document.getElementById("demo-form").addEventListener("submit", (e) => {
       e.preventDefault();
-      const email = document.getElementById("demo-email").value;
+      const email = document.getElementById("demo-email").value.trim();
+      if (email) {
+        DataPulse.identifyUser(email, {
+          email,
+          source: "demo_form",
+          product: "anywhere_cloud",
+        });
+      }
       DataPulse.trackEvent("demo_form_submitted", {
         email,
         has_email: Boolean(email),

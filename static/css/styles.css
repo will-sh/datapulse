@@ -661,51 +661,71 @@ code {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-.marketplace-list {
+.marketplace-grid {
   display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
 }
 
-.marketplace-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 1rem;
-  align-items: center;
+.marketplace-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  min-height: 100%;
 }
 
-.marketplace-item-link {
-  color: inherit;
-  text-decoration: none;
+.marketplace-card-footer {
+  margin-top: auto;
+  padding-top: 0.5rem;
 }
 
-.marketplace-item-link:hover .marketplace-title {
-  color: var(--accent);
+.btn-block {
+  display: block;
+  width: 100%;
+  text-align: center;
 }
 
 .marketplace-owner {
   margin: 0 0 0.25rem;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--muted-foreground);
 }
 
 .marketplace-title {
-  margin: 0 0 0.5rem;
-  font-size: 1.125rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  line-height: 1.3;
 }
 
 .marketplace-desc {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
   color: var(--muted-foreground);
-  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.marketplace-item-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-width: 8.5rem;
+@media (max-width: 1200px) {
+  .marketplace-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .marketplace-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .marketplace-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .sync-note {
@@ -713,17 +733,6 @@ code {
   margin-top: 0.35rem;
   font-size: 0.8rem;
   color: var(--muted-foreground);
-}
-
-@media (max-width: 768px) {
-  .marketplace-item {
-    grid-template-columns: 1fr;
-  }
-
-  .marketplace-item-actions {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
 }
 
 .experience-card {

@@ -7,7 +7,7 @@
   <span class="badge badge-primary">Marketplace</span>
   <h1>Marketplace</h1>
   <p class="page-desc">
-    Browse and deploy available data services and engines to extend your data platform capabilities.
+    Browse available data services and engines from the AWC Console catalog.
     {% if catalog.synced_at %}
     <span class="sync-note">Synced from AWC Console · {{ catalog.blueprint_count }} items · {{ catalog.synced_at }}</span>
     {% endif %}
@@ -19,30 +19,17 @@
   <span class="filter-chip">Cloudera</span>
 </div>
 
-<div class="marketplace-list">
+<div class="marketplace-grid">
   {% for item in items %}
-  <article class="card marketplace-item" data-item-id="{{ item.id }}">
-    <div class="marketplace-item-main">
-      <a href="{{ item.doc_path }}" class="marketplace-item-link"
-         data-track="marketplace_item_doc_opened"
+  <article class="card marketplace-card" data-item-id="{{ item.id }}">
+    <p class="marketplace-owner">{{ item.owner }}</p>
+    <h2 class="marketplace-title">{{ item.title }}</h2>
+    <p class="marketplace-desc">{{ item.description }}</p>
+    <div class="marketplace-card-footer">
+      <a href="{{ item.doc_path }}" class="btn btn-outline btn-sm btn-block"
+         data-track="marketplace_details_clicked"
          data-track-props='{{ {"blueprint": item.id, "title": item.title} | tojson }}'>
-        <p class="marketplace-owner">{{ item.owner }}</p>
-        <h2 class="marketplace-title">{{ item.title }}</h2>
-        <p class="marketplace-desc">{{ item.description }}</p>
-      </a>
-    </div>
-    <div class="marketplace-item-actions">
-      <button type="button" class="btn btn-primary btn-sm marketplace-deploy"
-              data-item-id="{{ item.id }}"
-              data-item-title="{{ item.title }}"
-              data-track="marketplace_deploy_clicked"
-              data-track-props='{{ {"blueprint": item.id, "title": item.title} | tojson }}'>
-        Deploy
-      </button>
-      <a href="{{ item.doc_path }}" class="btn btn-outline btn-sm"
-         data-track="marketplace_doc_link_clicked"
-         data-track-props='{{ {"blueprint": item.id} | tojson }}'>
-        Documentation
+        Details
       </a>
     </div>
   </article>
@@ -50,26 +37,4 @@
   <p class="event-empty">No marketplace items. Run <code>scripts/sync_console_catalog.py</code> to sync from Console.</p>
   {% endfor %}
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll(".marketplace-deploy").forEach((btn) => {
-      btn.addEventListener("click", (event) => {
-        event.stopPropagation();
-        DataPulse.trackEvent("marketplace_deploy_intent", {
-          blueprint: btn.dataset.itemId,
-          title: btn.dataset.itemTitle,
-        });
-        btn.textContent = "Deploy queued";
-        btn.disabled = true;
-        setTimeout(() => {
-          btn.textContent = "Deploy";
-          btn.disabled = false;
-        }, 2000);
-      });
-    });
-  });
-</script>
 {% endblock %}

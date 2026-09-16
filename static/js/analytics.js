@@ -182,7 +182,12 @@
 
       const originalIdentify = DataPulse.identify.bind(DataPulse);
       DataPulse.identify = function (userId, traits) {
-        posthog.identify(userId, traits);
+        if (userId) {
+          posthog.identify(String(userId), traits || {});
+          if (traits) {
+            posthog.register(traits);
+          }
+        }
         return originalIdentify(userId, traits);
       };
     }
