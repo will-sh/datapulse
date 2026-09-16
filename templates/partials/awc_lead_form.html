@@ -1,0 +1,74 @@
+{# Mirrors Cloudera AWC product page lead form (Module 6: Form) #}
+<section class="lead-form-section" id="schedule-deep-dive">
+  <div class="lead-form-shell card">
+    <h2 class="lead-form-title">Schedule an architecture deep dive</h2>
+    <p class="lead-form-desc">
+      Fill out the form below for more information about Cloudera Anywhere Cloud products,
+      professional services, training, and partners.
+    </p>
+
+    <form
+      class="lead-form"
+      id="{{ form_id | default('awc-lead-form') }}"
+      data-track-form="awc_lead_form"
+      novalidate
+    >
+      <div class="lead-form-grid">
+        <label class="lead-field">
+          <span class="lead-label">First Name <span class="required-mark">*</span></span>
+          <input class="input lead-input" type="text" name="firstName" autocomplete="given-name" required maxlength="50">
+        </label>
+        <label class="lead-field">
+          <span class="lead-label">Middle Name</span>
+          <input class="input lead-input" type="text" name="middleName" autocomplete="additional-name" maxlength="50">
+        </label>
+        <label class="lead-field">
+          <span class="lead-label">Last Name <span class="required-mark">*</span></span>
+          <input class="input lead-input" type="text" name="lastName" autocomplete="family-name" required maxlength="50">
+        </label>
+        <label class="lead-field">
+          <span class="lead-label">Job Title <span class="required-mark">*</span></span>
+          <input class="input lead-input" type="text" name="jobTitle" autocomplete="organization-title" required>
+        </label>
+        <label class="lead-field lead-field-wide">
+          <span class="lead-label">Business Email <span class="required-mark">*</span></span>
+          <input class="input lead-input" type="email" name="email" autocomplete="email" required maxlength="50">
+        </label>
+        <label class="lead-field">
+          <span class="lead-label">Company <span class="required-mark">*</span></span>
+          <input class="input lead-input" type="text" name="companyName" autocomplete="organization" required>
+        </label>
+        <label class="lead-field">
+          <span class="lead-label">Phone</span>
+          <input class="input lead-input" type="tel" name="businessPhone" autocomplete="tel">
+        </label>
+        <label class="lead-field">
+          <span class="lead-label">Country <span class="required-mark">*</span></span>
+          <select class="input lead-input lead-select" name="country" required>
+            <option value="">Country</option>
+            <option value="us" selected>United States</option>
+            <option value="gb">United Kingdom</option>
+            <option value="ca">Canada</option>
+            <option value="de">Germany</option>
+            <option value="fr">France</option>
+            <option value="in">India</option>
+            <option value="jp">Japan</option>
+            <option value="au">Australia</option>
+            <option value="sg">Singapore</option>
+            <option value="cn">China</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="lead-form-actions">
+        <button type="submit" class="btn btn-primary" data-track="awc_lead_form_submit_clicked">Submit</button>
+        <button type="reset" class="btn btn-outline">Reset</button>
+      </div>
+    </form>
+
+    <p id="{{ success_id | default('awc-lead-form-success') }}" class="form-success hidden" role="status">
+      Thank you for submitting your contact information. One of our product specialists will be in touch shortly.
+    </p>
+  </div>
+</section>
