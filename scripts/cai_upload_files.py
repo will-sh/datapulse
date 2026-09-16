@@ -59,6 +59,8 @@ FILES = [
     "scripts/cai_stop_applications.py",
     "scripts/cai_upload_files.py",
     "app/lakehouse_settings.py",
+    "app/console_oauth.py",
+    "app/trino_lakehouse.py",
     "jobs/kafka_to_iceberg.py",
     "scripts/cai_lakehouse_discover_only.py",
     "scripts/cai_lakehouse_job_probe.py",
