@@ -50,6 +50,7 @@ FILES = [
     "monitoring/DataPulseExporter.py",
     "monitoring/relay/placeholder.txt",
     "datapulse.env",
+    "requirements-spark.txt",
     "data/console_catalog.json",
     "scripts/sync_console_catalog.py",
     "scripts/e2e_playground_metrics.py",
