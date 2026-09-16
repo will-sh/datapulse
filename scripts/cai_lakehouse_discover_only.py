@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import sys
 import traceback
@@ -18,6 +19,12 @@ SPARK_CONNECT_ZIP = Path("/opt/spark-connect/spark_connect.zip")
 SPARK_CONNECT_NATIVE = Path("/opt/spark-connect/native")
 SPARK_CONNECT_DIR = Path("/tmp/spark-connect-unpack")
 SPARK_MODES = {"bootstrap", "batch", "stream", "verify"}
+
+
+def write_run_log(payload: dict[str, object]) -> None:
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    payload.setdefault("timestamp", datetime.now(UTC).isoformat())
+    OUT.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
 
 
 def configure_spark_connect_python() -> None:
@@ -71,6 +78,12 @@ def _resolve_spark_connect_port() -> tuple[str, str]:
         if port:
             return port, engine_id
 
+    hostname = socket.gethostname().upper().replace("-", "")
+    if hostname:
+        port = os.getenv(f"DS_RUNTIME_{hostname}_SERVICE_PORT_SPARK")
+        if port:
+            return port, hostname
+
     for key in ("CDSW_JOB_RUN_ID", "CDSW_RUN_ID"):
         run_id = os.getenv(key, "").upper().replace("-", "")
         if not run_id:
@@ -88,6 +101,13 @@ def _resolve_spark_connect_port() -> tuple[str, str]:
         key, port = candidates[0]
         return port, key.removeprefix("DS_RUNTIME_").removesuffix("_SERVICE_PORT_SPARK")
 
+    host = _spark_connect_host()
+    for key, port in candidates:
+        host_key = key.removeprefix("DS_RUNTIME_").removesuffix("_SERVICE_PORT_SPARK")
+        service_host = os.getenv(f"DS_RUNTIME_{host_key}_SERVICE_HOST", "")
+        if service_host and service_host.split(".")[0].upper().replace("-", "") == host.upper().replace("-", ""):
+            return port, host_key
+
     for key, port in candidates:
         if port == "20049":
             return port, key.removeprefix("DS_RUNTIME_").removesuffix("_SERVICE_PORT_SPARK")
@@ -96,7 +116,7 @@ def _resolve_spark_connect_port() -> tuple[str, str]:
         key, port = candidates[0]
         return port, key.removeprefix("DS_RUNTIME_").removesuffix("_SERVICE_PORT_SPARK")
 
-    return os.getenv("SPARK_CONNECT_PORT", "20049"), engine_id or "unknown"
+    return os.getenv("SPARK_CONNECT_PORT", "20049"), engine_id or hostname or "unknown"
 
 
 def detect_spark_connect_url() -> None:
@@ -170,6 +190,7 @@ OUT.parent.mkdir(parents=True, exist_ok=True)
 payload: dict[str, object] = {
     "timestamp": datetime.now(UTC).isoformat(),
     "mode": mode,
+    "hostname": socket.gethostname(),
     "steps": [],
 }
 
@@ -177,8 +198,11 @@ try:
     if mode in SPARK_MODES:
         prepare_spark_connect()
         payload["steps"].append("spark_connect_ready")
+        payload["spark_connect_url"] = os.getenv("SPARK_CONNECT_URL", "")
+        write_run_log(payload)
     ensure_kafka_config_dir()
     payload["steps"].append("preflight_ok")
+    write_run_log(payload)
 
     jobs_dir = ROOT / "jobs"
     if str(jobs_dir) not in sys.path:
@@ -187,18 +211,19 @@ try:
     from kafka_to_iceberg import main as job_main
 
     payload["steps"].append("import_ok")
+    write_run_log(payload)
     exit_code = job_main([mode, *extra_args])
     payload["status"] = "ok" if exit_code == 0 else "failed"
     payload["exit_code"] = exit_code
+    write_run_log(payload)
     if exit_code != 0:
         raise RuntimeError(f"lakehouse job failed with exit code {exit_code}")
 except Exception as exc:  # noqa: BLE001
     payload["status"] = "error"
     payload["error"] = str(exc)
     payload["traceback"] = traceback.format_exc()
-    OUT.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    write_run_log(payload)
     print(json.dumps(payload, indent=2, default=str))
     raise RuntimeError(str(exc)) from exc
 
-OUT.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
 print(json.dumps(payload, indent=2, default=str))

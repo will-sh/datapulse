@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -61,7 +62,7 @@ def _configure_iceberg_catalog(spark, settings) -> None:
         spark.conf.set("spark.yarn.access.hadoopFileSystems", settings.ozone_filesystems)
 
 
-def _create_lakehouse_spark_session():
+def _build_lakehouse_spark_session():
     settings = get_lakehouse_settings()
     _, allowed_urls, dist_files = _kafka_options()
 
@@ -89,6 +90,19 @@ def _create_lakehouse_spark_session():
     spark = builder.getOrCreate()
     _configure_iceberg_catalog(spark, settings)
     return spark, settings
+
+
+def _create_lakehouse_spark_session():
+    timeout = int(_env("SPARK_SESSION_TIMEOUT_SEC", "120"))
+    connect_url = _env("SPARK_REMOTE") or _env("SPARK_CONNECT_URL")
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(_build_lakehouse_spark_session)
+        try:
+            return future.result(timeout=timeout)
+        except FuturesTimeoutError as exc:
+            raise RuntimeError(
+                f"Spark Connect session timed out after {timeout}s (url={connect_url or 'missing'})"
+            ) from exc
 
 
 def _ensure_table(spark, settings) -> None:
