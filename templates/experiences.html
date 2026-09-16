@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Experiences — {{ settings.app_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <span class="badge badge-primary">Deployed Experiences</span>
+  <h1>Experiences</h1>
+  <p class="page-desc">
+    Deployed service instances in this AWC environment (from <code>/api/v0/console/experiences</code>).
+    {% if catalog.synced_at %}
+    {{ catalog.experience_count }} deployed · synced {{ catalog.synced_at }}
+    {% endif %}
+  </p>
+</div>
+
+<div class="experience-grid">
+  {% for exp in experiences %}
+  <div class="card experience-card">
+    <div class="experience-header">
+      <span class="status-badge status-{{ exp.status }}">{{ exp.status }}</span>
+      {% if exp.version %}<span class="version-tag">v{{ exp.version }}</span>{% endif %}
+    </div>
+    <h3 class="experience-title">{{ exp.title }}</h3>
+    <p class="experience-name"><code>{{ exp.name }}</code></p>
+    {% if exp.description %}<p class="experience-desc">{{ exp.description }}</p>{% endif %}
+    <ul class="experience-meta">
+      {% if exp.cluster %}<li>Cluster: {{ exp.cluster }}</li>{% endif %}
+      {% if exp.provider %}<li>Cloud: {{ exp.provider }}</li>{% endif %}
+      {% if exp.blueprint_id %}<li>Blueprint: <code>{{ exp.blueprint_id }}</code></li>{% endif %}
+    </ul>
+  </div>
+  {% else %}
+  <p class="event-empty">No deployed experiences in catalog snapshot.</p>
+  {% endfor %}
+</div>
+{% endblock %}

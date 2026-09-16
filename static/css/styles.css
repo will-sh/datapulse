@@ -639,6 +639,93 @@ code {
   gap: 1rem;
 }
 
+.marketplace-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.filter-chip.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.marketplace-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.marketplace-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.marketplace-item-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.marketplace-item-link:hover .marketplace-title {
+  color: var(--accent);
+}
+
+.marketplace-owner {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.marketplace-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.marketplace-desc {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+.marketplace-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 8.5rem;
+}
+
+.sync-note {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 768px) {
+  .marketplace-item {
+    grid-template-columns: 1fr;
+  }
+
+  .marketplace-item-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
 .experience-card {
   display: flex;
   flex-direction: column;

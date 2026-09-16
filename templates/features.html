@@ -4,40 +4,72 @@
 
 {% block content %}
 <div class="page-header">
-  <span class="badge badge-primary">Anywhere Cloud Marketplace</span>
-  <h1>Deployed Experiences</h1>
+  <span class="badge badge-primary">Marketplace</span>
+  <h1>Marketplace</h1>
   <p class="page-desc">
-    与 AWC Console Marketplace 一致，展示当前环境中已部署的 Experiences。
+    Browse and deploy available data services and engines to extend your data platform capabilities.
     {% if catalog.synced_at %}
-    同步于 {{ catalog.synced_at }} · {{ catalog.experience_count }} 项
+    <span class="sync-note">Synced from AWC Console · {{ catalog.blueprint_count }} items · {{ catalog.synced_at }}</span>
     {% endif %}
   </p>
 </div>
 
-<div class="experience-grid">
-  {% for exp in experiences %}
-  <a href="{{ exp.doc_path }}" class="card experience-card experience-card-link"
-     data-track="experience_doc_opened"
-     data-track-props='{{ {"experience_id": exp.id, "experience_name": exp.name, "app": exp.title} | tojson }}'>
-    <div class="experience-header">
-      <span class="status-badge status-{{ exp.status }}">{{ exp.status }}</span>
-      {% if exp.version %}
-      <span class="version-tag">v{{ exp.version }}</span>
-      {% endif %}
+<div class="marketplace-toolbar">
+  <span class="filter-chip active">All Items</span>
+  <span class="filter-chip">Cloudera</span>
+</div>
+
+<div class="marketplace-list">
+  {% for item in items %}
+  <article class="card marketplace-item" data-item-id="{{ item.id }}">
+    <div class="marketplace-item-main">
+      <a href="{{ item.doc_path }}" class="marketplace-item-link"
+         data-track="marketplace_item_doc_opened"
+         data-track-props='{{ {"blueprint": item.id, "title": item.title} | tojson }}'>
+        <p class="marketplace-owner">{{ item.owner }}</p>
+        <h2 class="marketplace-title">{{ item.title }}</h2>
+        <p class="marketplace-desc">{{ item.description }}</p>
+      </a>
     </div>
-    <h3 class="experience-title">{{ exp.title }}</h3>
-    <p class="experience-name"><code>{{ exp.name }}</code></p>
-    {% if exp.description %}
-    <p class="experience-desc">{{ exp.description }}</p>
-    {% endif %}
-    <ul class="experience-meta">
-      {% if exp.cluster %}<li>Cluster: {{ exp.cluster }}</li>{% endif %}
-      {% if exp.provider %}<li>Cloud: {{ exp.provider }}</li>{% endif %}
-    </ul>
-    <span class="experience-doc-cta">View documentation →</span>
-  </a>
+    <div class="marketplace-item-actions">
+      <button type="button" class="btn btn-primary btn-sm marketplace-deploy"
+              data-item-id="{{ item.id }}"
+              data-item-title="{{ item.title }}"
+              data-track="marketplace_deploy_clicked"
+              data-track-props='{{ {"blueprint": item.id, "title": item.title} | tojson }}'>
+        Deploy
+      </button>
+      <a href="{{ item.doc_path }}" class="btn btn-outline btn-sm"
+         data-track="marketplace_doc_link_clicked"
+         data-track-props='{{ {"blueprint": item.id} | tojson }}'>
+        Documentation
+      </a>
+    </div>
+  </article>
   {% else %}
-  <p class="event-empty">暂无 Experience 数据。请运行 <code>scripts/sync_console_catalog.py</code> 同步 Console 目录。</p>
+  <p class="event-empty">No marketplace items. Run <code>scripts/sync_console_catalog.py</code> to sync from Console.</p>
   {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".marketplace-deploy").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        DataPulse.trackEvent("marketplace_deploy_intent", {
+          blueprint: btn.dataset.itemId,
+          title: btn.dataset.itemTitle,
+        });
+        btn.textContent = "Deploy queued";
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.textContent = "Deploy";
+          btn.disabled = false;
+        }, 2000);
+      });
+    });
+  });
+</script>
 {% endblock %}

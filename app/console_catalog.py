@@ -173,33 +173,50 @@ def marketplace_engines() -> list[dict[str, Any]]:
     return sorted(items, key=lambda item: item["title"].lower())
 
 
-def blueprint_plans() -> list[dict[str, Any]]:
+def marketplace_items() -> list[dict[str, Any]]:
+    """Console Marketplace catalog — deployable blueprints (/api/v0/console/blueprints)."""
     items: list[dict[str, Any]] = []
     for blueprint in load_catalog().get("blueprints") or []:
         if not isinstance(blueprint, dict):
             continue
         name = str(blueprint.get("name") or "")
-        description = str(blueprint.get("description") or "")
-        owner = str(blueprint.get("owner") or "Cloudera")
-        version = str(blueprint.get("latestVersion") or "")
         items.append(
             {
                 "id": name,
                 "blueprint_id": blueprint.get("blueprintId"),
-                "name": str(blueprint.get("displayName") or name),
-                "description": description,
-                "outcome": description,
-                "features": [
-                    f"Blueprint: {name}",
-                    f"Owner: {owner}",
-                    f"Latest version: {version}",
-                ],
-                "owner": owner,
-                "version": version,
-                "popular": name in POPULAR_BLUEPRINTS,
+                "title": str(blueprint.get("displayName") or name),
+                "description": str(blueprint.get("description") or ""),
+                "owner": str(blueprint.get("owner") or "Cloudera"),
+                "version": str(blueprint.get("latestVersion") or ""),
+                "doc_path": f"/marketplace/{name}",
             }
         )
-    return sorted(items, key=lambda item: (not item["popular"], item["name"].lower()))
+    return sorted(items, key=lambda item: item["title"].lower())
+
+
+def get_marketplace_item(item_key: str) -> dict[str, Any] | None:
+    key = item_key.strip()
+    for item in marketplace_items():
+        if item["id"] == key:
+            return item
+    return None
+
+
+def blueprint_plans() -> list[dict[str, Any]]:
+    return [
+        {
+            **item,
+            "name": item["title"],
+            "outcome": item["description"],
+            "features": [
+                f"Blueprint: {item['id']}",
+                f"Owner: {item['owner']}",
+                f"Latest version: {item['version']}",
+            ],
+            "popular": item["id"] in POPULAR_BLUEPRINTS,
+        }
+        for item in marketplace_items()
+    ]
 
 
 def playground_blueprints(limit: int = 3) -> list[dict[str, Any]]:
@@ -218,20 +235,12 @@ def playground_blueprints(limit: int = 3) -> list[dict[str, Any]]:
 
 
 def playground_deploy_targets(limit: int = 3) -> list[dict[str, Any]]:
-    seen_titles: set[str] = set()
-    items: list[dict[str, Any]] = []
-    for exp in marketplace_experiences():
-        if exp["title"] in seen_titles:
-            continue
-        seen_titles.add(exp["title"])
-        items.append(
-            {
-                "id": exp["name"],
-                "title": exp["title"],
-                "description": exp["description"],
-                "version": exp["version"],
-            }
-        )
-        if len(items) >= limit:
-            break
-    return items
+    return [
+        {
+            "id": item["id"],
+            "title": item["title"],
+            "description": item["description"],
+            "version": item["version"],
+        }
+        for item in marketplace_items()[:limit]
+    ]

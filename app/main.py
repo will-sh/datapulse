@@ -7,10 +7,10 @@ from fastapi.templating import Jinja2Templates
 
 from app.api.events import capture_router, router as events_router
 from app.console_catalog import (
-    blueprint_plans,
     catalog_meta,
+    get_marketplace_item,
     marketplace_experiences,
-    get_experience,
+    marketplace_items,
     playground_blueprints,
     playground_deploy_targets,
 )
@@ -77,36 +77,36 @@ async def features(request: Request) -> HTMLResponse:
         template_context(
             request,
             catalog=catalog_meta(),
-            experiences=marketplace_experiences(),
+            items=marketplace_items(),
         ),
     )
 
 
-@app.get("/experiences/{experience_key}", response_class=HTMLResponse)
-async def experience_doc(request: Request, experience_key: str) -> HTMLResponse:
-    experience = get_experience(experience_key)
-    if experience is None:
-        raise HTTPException(status_code=404, detail="Experience not found")
+@app.get("/marketplace/{item_key}", response_class=HTMLResponse)
+async def marketplace_doc(request: Request, item_key: str) -> HTMLResponse:
+    item = get_marketplace_item(item_key)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Marketplace item not found")
     return templates.TemplateResponse(
         request,
-        "experience_doc.html",
+        "marketplace_doc.html",
         template_context(
             request,
             catalog=catalog_meta(),
-            experience=experience,
+            item=item,
         ),
     )
 
 
 @app.get("/pricing", response_class=HTMLResponse)
-async def pricing(request: Request) -> HTMLResponse:
+async def experiences(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
-        "pricing.html",
+        "experiences.html",
         template_context(
             request,
             catalog=catalog_meta(),
-            plans=blueprint_plans(),
+            experiences=marketplace_experiences(),
         ),
     )
 

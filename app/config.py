@@ -36,8 +36,9 @@ def get_settings() -> dict[str, str | bool]:
         "kafka_enabled": kafka.enabled,
         "kafka_ready": kafka.is_ready(),
         "consumer_url": consumer_url,
-        "monitoring_url": monitoring_url,
-        "project_id": project_id,
+    "monitoring_url": monitoring_url,
+    "docs_base_url": os.getenv("CLOUDERA_DOCS_BASE_URL", "https://docs-beta.cloudera.com/"),
+    "project_id": project_id,
         "capture_endpoint": capture_endpoint,
         "app_title": "Cloudera Anywhere Cloud — DataPulse Demo",
     }

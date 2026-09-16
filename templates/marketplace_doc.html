@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.title }} — Marketplace — {{ settings.app_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a href="/features" class="back-link" data-track="marketplace_doc_back" data-track-props='{{ {"blueprint": item.id} | tojson }}'>← Back to Marketplace</a>
+  <p class="marketplace-owner">{{ item.owner }}</p>
+  <h1>{{ item.title }}</h1>
+  <p class="page-desc"><code>{{ item.id }}</code>{% if item.version %} · v{{ item.version }}{% endif %}</p>
+</div>
+
+<div class="doc-layout">
+  <section class="card doc-summary">
+    <h2>Overview</h2>
+    <p>{{ item.description }}</p>
+  </section>
+
+  <section class="card doc-meta">
+    <h2>Blueprint details</h2>
+    <dl class="doc-details">
+      <div><dt>Blueprint ID</dt><dd><code>{{ item.id }}</code></dd></div>
+      <div><dt>Display name</dt><dd>{{ item.title }}</dd></div>
+      <div><dt>Owner</dt><dd>{{ item.owner }}</dd></div>
+      <div><dt>Latest version</dt><dd>{{ item.version or "—" }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="card doc-placeholder">
+    <h2>Documentation</h2>
+    <p class="text-muted">
+      Official product documentation will be integrated here from
+      <a href="{{ settings.docs_base_url }}" target="_blank" rel="noopener">Cloudera documentation</a>.
+      This page is a placeholder for architecture notes, getting started, and operational guidance.
+    </p>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    DataPulse.capture("marketplace_doc_viewed", {
+      blueprint: {{ item.id | tojson }},
+      title: {{ item.title | tojson }},
+    });
+  });
+</script>
+{% endblock %}
