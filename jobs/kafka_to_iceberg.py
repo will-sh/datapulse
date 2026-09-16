@@ -62,47 +62,76 @@ def _configure_iceberg_catalog(spark, settings) -> None:
         spark.conf.set("spark.yarn.access.hadoopFileSystems", settings.ozone_filesystems)
 
 
-def _build_lakehouse_spark_session():
-    settings = get_lakehouse_settings()
-    _, allowed_urls, dist_files = _kafka_options()
+def _configure_ozone_s3a(spark, settings) -> None:
+    ozone_host = _env("OZONE_HOST", "lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work")
+    if not ozone_host or not settings.warehouse.startswith("s3a://"):
+        return
+    spark.conf.set("spark.hadoop.fs.s3a.endpoint", ozone_host)
+    spark.conf.set("spark.hadoop.fs.s3a.path.style.access", "true")
+    spark.conf.set("spark.hadoop.fs.s3a.connection.ssl.enabled", "true")
+    spark.conf.set("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
 
+
+def _spark_packages(include_kafka: bool = True) -> str:
+    settings = get_lakehouse_settings()
+    if include_kafka:
+        return settings.spark_packages
+    return settings.iceberg_package
+
+
+def _build_lakehouse_spark_session(*, include_kafka: bool = True):
+    settings = get_lakehouse_settings()
+    allowed_urls = ""
+    dist_files = ""
+    if include_kafka:
+        _, allowed_urls, dist_files = _kafka_options()
+
+    local_master = _env("LAKEHOUSE_SPARK_MASTER") or _env("SPARK_MASTER")
     connect_url = _env("SPARK_REMOTE") or _env("SPARK_CONNECT_URL")
-    if not connect_url:
+    if not connect_url and not local_master:
         from app.spark_stream.kafka_stream import _spark_connect_url
 
         connect_url = _spark_connect_url()
-    if not connect_url:
-        raise RuntimeError("Spark Connect URL not found (missing CDSW_ENGINE_ID or DS_RUNTIME port)")
+    if not connect_url and not local_master:
+        raise RuntimeError(
+            "Spark session config missing (set LAKEHOUSE_SPARK_MASTER=local[*] or Spark Connect URL)"
+        )
 
     from pyspark.sql import SparkSession
 
     builder = (
         SparkSession.builder.appName("datapulse-kafka-to-iceberg")
-        .remote(connect_url)
         .config("spark.sql.shuffle.partitions", "2")
-        .config("spark.driver.extraJavaOptions", allowed_urls)
-        .config("spark.executor.extraJavaOptions", allowed_urls)
-        .config("spark.jars.packages", settings.spark_packages)
+        .config("spark.jars.packages", _spark_packages(include_kafka=include_kafka))
     )
+    if local_master:
+        builder = builder.master(local_master)
+        print(f"Using local Spark master: {local_master}")
+    else:
+        builder = builder.remote(connect_url)
+        print(f"Using Spark Connect: {connect_url}")
+        if allowed_urls:
+            builder = builder.config("spark.driver.extraJavaOptions", allowed_urls).config(
+                "spark.executor.extraJavaOptions", allowed_urls
+            )
     if dist_files:
         builder = builder.config("spark.files", dist_files)
 
     spark = builder.getOrCreate()
     _configure_iceberg_catalog(spark, settings)
+    _configure_ozone_s3a(spark, settings)
     return spark, settings
 
 
-def _create_lakehouse_spark_session():
-    timeout = int(_env("SPARK_SESSION_TIMEOUT_SEC", "120"))
-    connect_url = _env("SPARK_REMOTE") or _env("SPARK_CONNECT_URL")
+def _create_lakehouse_spark_session(*, include_kafka: bool = True):
+    timeout = int(_env("SPARK_SESSION_TIMEOUT_SEC", "180"))
+    target = _env("LAKEHOUSE_SPARK_MASTER") or _env("SPARK_REMOTE") or _env("SPARK_CONNECT_URL") or "spark"
     with ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(_build_lakehouse_spark_session)
+        future = pool.submit(_build_lakehouse_spark_session, include_kafka=include_kafka)
         try:
             return future.result(timeout=timeout)
         except FuturesTimeoutError as exc:
-            raise RuntimeError(
-                f"Spark Connect session timed out after {timeout}s (url={connect_url or 'missing'})"
-            ) from exc
+            raise RuntimeError(f"Spark session timed out after {timeout}s (target={target})") from exc
 
 
 def _ensure_table(spark, settings) -> None:
@@ -189,7 +218,7 @@ def _write_batch_to_iceberg(batch_df, batch_id: int, settings) -> None:
 
 
 def bootstrap_table() -> int:
-    spark, settings = _create_lakehouse_spark_session()
+    spark, settings = _create_lakehouse_spark_session(include_kafka=False)
     print(f"Spark session ready: version={spark.version} url={_env('SPARK_CONNECT_URL')}")
     _ensure_table(spark, settings)
     _print_json(
@@ -305,7 +334,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def spark_probe() -> int:
-    spark, settings = _create_lakehouse_spark_session()
+    spark, settings = _create_lakehouse_spark_session(include_kafka=False)
     _print_json(
         "spark-probe",
         {

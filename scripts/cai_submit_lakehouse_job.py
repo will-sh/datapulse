@@ -24,8 +24,8 @@ DEFAULT_RUNTIME = (
     "container.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-workbench-python3.11-hardened:2026.04.2-b16"
 )
 DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
-# sparkconnect354 alone works; combining it with hadoop-cli breaks CAI Job engine startup.
-SPARK_ADDONS = ["sparkconnect354-731-26"]
+# sparkconnect354 combined with hadoop-cli breaks CAI Job engine startup; local Spark uses hadoop-cli only.
+SPARK_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
 JOB_ID = os.getenv("CAI_LAKEHOUSE_JOB_ID", "4i8v-y6x8-2nsp-8ctv")
@@ -42,10 +42,13 @@ DEFAULT_ENV = {
     "ICEBERG_CATALOG": "iceberg_catalog",
     "ICEBERG_DATABASE": "datapulse",
     "ICEBERG_TABLE": "events",
+    "OZONE_HOST": "lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work",
     "OZONE_VOLUME": "s3v",
     "OZONE_BUCKET": "warehouse",
     "OZONE_WAREHOUSE_PREFIX": "datapulse",
     "LAKEHOUSE_CHECKPOINT_DIR": "config/lakehouse/.checkpoints/kafka-to-iceberg",
+    "LAKEHOUSE_SPARK_MASTER": "local[2]",
+    "SPARK_SESSION_TIMEOUT_SEC": "300",
 }
 
 POLL_INTERVAL = int(os.getenv("CAI_JOB_POLL_INTERVAL", "10"))
