@@ -204,7 +204,7 @@ def _kafka_source(spark):
     )
 
 
-def run_batch_ingest(max_batches: int = 1, timeout_sec: int = 120) -> int:
+def run_batch_ingest(max_batches: int = 1, timeout_sec: int = 600) -> int:
     spark, settings = _create_lakehouse_spark_session()
     _ensure_table(spark, settings)
 
@@ -284,7 +284,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="discover env, create table, one-shot batch ingest, continuous stream, or verify table",
     )
     parser.add_argument("--max-batches", type=int, default=1)
-    parser.add_argument("--timeout-sec", type=int, default=120)
+    parser.add_argument("--timeout-sec", type=int, default=600)
     parser.add_argument("--processing-interval", default="30 seconds")
     return parser.parse_args(argv)
 

@@ -62,11 +62,10 @@ FILES = [
     "scripts/cai_lakehouse_discover_only.py",
     "scripts/cai_lakehouse_job_probe.py",
     "scripts/cai_submit_lakehouse_job.py",
+    "config/kafka/kafka-ca.crt",
+    "config/kafka/oauth-ca.crt",
     "config/lakehouse/.gitkeep",
 ]
-
-
-def ssl_context() -> ssl.SSLContext:
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE

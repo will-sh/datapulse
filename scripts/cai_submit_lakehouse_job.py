@@ -47,7 +47,7 @@ DEFAULT_ENV = {
 }
 
 POLL_INTERVAL = int(os.getenv("CAI_JOB_POLL_INTERVAL", "10"))
-WAIT_TIMEOUT = int(os.getenv("WAIT_TIMEOUT", "900"))
+WAIT_TIMEOUT = int(os.getenv("WAIT_TIMEOUT", "1800"))
 
 
 def ssl_context() -> ssl.SSLContext:
@@ -148,8 +148,8 @@ def build_job_payload(mode: str, extra_env: dict[str, str] | None = None, *, str
         "name": JOB_NAME,
         "script": JOB_SCRIPT,
         "arguments": mode,
-        "cpu": 1,
-        "memory": 2,
+        "cpu": 2 if mode in SPARK_MODES else 1,
+        "memory": 4 if mode in SPARK_MODES else 2,
         "type": "manual",
         "timeout": str(WAIT_TIMEOUT),
         "runtime_identifier": DEFAULT_RUNTIME,
@@ -213,6 +213,17 @@ def get_job_run(job_id: str, run_id: str) -> dict[str, Any]:
     return payload
 
 
+TERMINAL_STATUSES = {
+    "succeeded",
+    "failed",
+    "stopped",
+    "timed out",
+    "skipped",
+    "ENGINE_SUCCEEDED",
+    "ENGINE_FAILED",
+}
+
+
 def wait_for_job_run(job_id: str, run_id: str) -> dict[str, Any]:
     deadline = time.time() + WAIT_TIMEOUT
     last_status = "unknown"
@@ -220,7 +231,7 @@ def wait_for_job_run(job_id: str, run_id: str) -> dict[str, Any]:
         run = get_job_run(job_id, run_id)
         last_status = str(run.get("status", "unknown"))
         print(f"  run {run_id}: {last_status}")
-        if last_status in {"succeeded", "failed", "stopped", "timed out", "skipped"}:
+        if last_status in TERMINAL_STATUSES:
             return run
         time.sleep(POLL_INTERVAL)
     raise TimeoutError(f"job run {run_id} did not finish within {WAIT_TIMEOUT}s (last={last_status})")
@@ -291,7 +302,7 @@ def main() -> int:
     final = wait_for_job_run(job_id, run_id)
     print("\nFinal run status:")
     print(json.dumps(final, indent=2, default=str))
-    return 0 if final.get("status") == "succeeded" else 1
+    return 0 if final.get("status") in {"succeeded", "ENGINE_SUCCEEDED"} else 1
 
 
 if __name__ == "__main__":
