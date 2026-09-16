@@ -28,7 +28,7 @@ DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 SPARK_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
-JOB_ID = os.getenv("CAI_LAKEHOUSE_JOB_ID", "4i8v-y6x8-2nsp-8ctv")
+JOB_ID = os.getenv("CAI_LAKEHOUSE_JOB_ID", "4h98-444z-iu1n-5x3m")
 JOB_SCRIPT = "scripts/cai_lakehouse_discover_only.py"
 
 DEFAULT_ENV = {

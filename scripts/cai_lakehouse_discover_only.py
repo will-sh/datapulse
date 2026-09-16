@@ -175,6 +175,32 @@ def ensure_kafka_config_dir() -> None:
                 print(f"copied {src} -> {dst}")
 
 
+def run_spark_job_subprocess(mode: str, extra_args: list[str]) -> tuple[int, str, str]:
+    argv = [mode, *extra_args]
+    script = f"""
+import json
+import sys
+from pathlib import Path
+
+root = Path({str(ROOT)!r})
+sys.path[:0] = [str(root), str(root / "jobs")]
+from kafka_to_iceberg import main
+
+raise SystemExit(main(json.loads({json.dumps(json.dumps(argv))})))
+"""
+    timeout = int(os.getenv("SPARK_SESSION_TIMEOUT_SEC", "300")) + 180
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=os.environ.copy(),
+        cwd=str(ROOT),
+        check=False,
+    )
+    return result.returncode, result.stdout, result.stderr
+
+
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -212,11 +238,19 @@ try:
     if str(jobs_dir) not in sys.path:
         sys.path.insert(0, str(jobs_dir))
 
-    from kafka_to_iceberg import main as job_main
-
     payload["steps"].append("import_ok")
     write_run_log(payload)
-    exit_code = job_main([mode, *extra_args])
+
+    if mode in SPARK_MODES:
+        exit_code, stdout, stderr = run_spark_job_subprocess(mode, extra_args)
+        if stdout.strip():
+            payload["stdout_tail"] = stdout.strip()[-4000:]
+        if stderr.strip():
+            payload["stderr_tail"] = stderr.strip()[-4000:]
+    else:
+        from kafka_to_iceberg import main as job_main
+
+        exit_code = job_main([mode, *extra_args])
     payload["status"] = "ok" if exit_code == 0 else "failed"
     payload["exit_code"] = exit_code
     write_run_log(payload)
