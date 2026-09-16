@@ -147,29 +147,43 @@ def _create_lakehouse_spark_session(*, include_kafka: bool = True):
 
 
 def _ensure_table(spark, settings) -> None:
-    spark.sql(f"CREATE DATABASE IF NOT EXISTS {settings.catalog}.{settings.database}")
-    spark.sql(
-        f"""
-        CREATE TABLE IF NOT EXISTS {settings.qualified_table} (
-          event_id STRING,
-          project_id STRING,
-          event_name STRING,
-          properties_json STRING,
-          event_timestamp BIGINT,
-          source STRING,
-          user_id STRING,
-          anonymous_id STRING,
-          session_id STRING,
-          page_path STRING,
-          kafka_partition INT,
-          kafka_offset BIGINT,
-          kafka_timestamp TIMESTAMP,
-          ingested_at TIMESTAMP,
-          raw_payload STRING
-        )
-        USING iceberg
-        """
-    )
+    retries = int(_env("HMS_RETRY_COUNT", "3"))
+    delay_sec = int(_env("HMS_RETRY_DELAY_SEC", "5"))
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            spark.sql(f"CREATE DATABASE IF NOT EXISTS {settings.catalog}.{settings.database}")
+            spark.sql(
+                f"""
+                CREATE TABLE IF NOT EXISTS {settings.qualified_table} (
+                  event_id STRING,
+                  project_id STRING,
+                  event_name STRING,
+                  properties_json STRING,
+                  event_timestamp BIGINT,
+                  source STRING,
+                  user_id STRING,
+                  anonymous_id STRING,
+                  session_id STRING,
+                  page_path STRING,
+                  kafka_partition INT,
+                  kafka_offset BIGINT,
+                  kafka_timestamp TIMESTAMP,
+                  ingested_at TIMESTAMP,
+                  raw_payload STRING
+                )
+                USING iceberg
+                """
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+            print(f"HMS DDL attempt {attempt}/{retries} failed: {exc}")
+            if attempt < retries:
+                import time
+
+                time.sleep(delay_sec)
+    raise RuntimeError(f"failed to create Iceberg table via HMS after {retries} attempts: {last_error}")
 
 
 def _parse_events_df(spark, batch_df):
