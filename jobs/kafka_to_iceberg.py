@@ -350,13 +350,49 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Kafka -> Iceberg lakehouse ingest job")
     parser.add_argument(
         "mode",
-        choices=("discover", "bootstrap", "batch", "stream", "verify", "spark-probe"),
-        help="discover env, create table, one-shot batch ingest, continuous stream, verify table, or spark connect probe",
+        choices=("discover", "bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"),
+        help="discover env, create table, batch/stream ingest, verify, spark probe, or spark pi smoke test",
     )
     parser.add_argument("--max-batches", type=int, default=1)
     parser.add_argument("--timeout-sec", type=int, default=600)
     parser.add_argument("--processing-interval", default="30 seconds")
     return parser.parse_args(argv)
+
+
+def spark_pi() -> int:
+    import random
+
+    master = _env("LAKEHOUSE_SPARK_MASTER") or _env("SPARK_MASTER") or "local[2]"
+    partitions = int(_env("SPARK_PI_PARTITIONS", "2"))
+    samples = int(_env("SPARK_PI_SAMPLES", "100000"))
+
+    from pyspark.sql import SparkSession
+
+    spark = (
+        SparkSession.builder.appName("datapulse-spark-pi-smoke")
+        .master(master)
+        .config("spark.sql.shuffle.partitions", str(partitions))
+        .getOrCreate()
+    )
+
+    def inside(_: int) -> int:
+        x, y = random.random(), random.random()
+        return 1 if x * x + y * y <= 1 else 0
+
+    hits = spark.sparkContext.parallelize(range(samples), partitions).map(inside).reduce(lambda a, b: a + b)
+    pi = 4.0 * hits / samples
+    _print_json(
+        "spark-pi",
+        {
+            "spark_version": spark.version,
+            "master": master,
+            "partitions": partitions,
+            "samples": samples,
+            "pi_estimate": pi,
+        },
+    )
+    spark.stop()
+    return 0
 
 
 def spark_probe() -> int:
@@ -379,6 +415,8 @@ def main(argv: list[str] | None = None) -> int:
         return discover_environment()
     if args.mode == "spark-probe":
         return spark_probe()
+    if args.mode == "spark-pi":
+        return spark_pi()
     if args.mode == "bootstrap":
         return bootstrap_table()
     if args.mode == "batch":

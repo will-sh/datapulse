@@ -26,7 +26,7 @@ DEFAULT_RUNTIME = (
 DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 # sparkconnect354 combined with hadoop-cli breaks CAI Job engine startup; local Spark uses hadoop-cli only.
 SPARK_ADDONS = ["hadoop-cli-7.3.1.709-1"]
-SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe"}
+SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
 JOB_ID = os.getenv("CAI_LAKEHOUSE_JOB_ID", "4h98-444z-iu1n-5x3m")
 JOB_SCRIPT = "scripts/cai_lakehouse_discover_only.py"
@@ -259,7 +259,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mode",
         default="discover",
-        choices=("discover", "bootstrap", "batch", "stream", "verify", "spark-probe"),
+        choices=("discover", "bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"),
         help="passed to jobs/kafka_to_iceberg.py via LAKEHOUSE_JOB_MODE",
     )
     parser.add_argument(
