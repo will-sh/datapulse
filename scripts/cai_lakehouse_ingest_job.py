@@ -87,7 +87,11 @@ def main() -> int:
     if len(sys.argv) > 2:
         extra_args.extend(sys.argv[2:])
 
-    from jobs.kafka_to_iceberg import main as job_main
+    jobs_dir = ROOT / "jobs"
+    if str(jobs_dir) not in sys.path:
+        sys.path.insert(0, str(jobs_dir))
+
+    from kafka_to_iceberg import main as job_main
 
     return job_main([mode, *extra_args])
 

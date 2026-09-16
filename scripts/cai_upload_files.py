@@ -58,7 +58,6 @@ FILES = [
     "scripts/cai_stop_applications.py",
     "scripts/cai_upload_files.py",
     "app/lakehouse_settings.py",
-    "jobs/__init__.py",
     "jobs/kafka_to_iceberg.py",
     "scripts/cai_lakehouse_ingest_job.py",
     "scripts/cai_submit_lakehouse_job.py",
