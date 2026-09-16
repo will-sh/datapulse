@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{{ settings.app_title }}{% endblock %}</title>
-  <meta name="description" content="基于 PostHog 的 DataPulse 演示应用，实时采集并展示用户行为事件。">
+  <meta name="description" content="Cloudera Anywhere Cloud 产品页用户行为分析 Demo — 通过 DataPulse 实时采集访问、Marketplace 与 Blueprint 互动事件。">
   <link rel="stylesheet" href="/static/css/styles.css">
   {% block head %}{% endblock %}
 </head>
@@ -13,18 +13,21 @@
     <header class="site-header">
       <div class="header-inner">
         <a href="/" class="logo" data-track="nav_logo_clicked">
-          <span class="logo-icon">◉</span>
-          <span>DataPulse</span>
+          <span class="logo-icon">AWC</span>
+          <span class="logo-text">
+            <span class="logo-title">Anywhere Cloud</span>
+            <span class="logo-sub">DataPulse Analytics</span>
+          </span>
         </a>
 
         <nav class="nav-desktop">
-          <a href="/" class="nav-link{% if active_path == '/' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"首页","href":"/"}'>首页</a>
-          <a href="/features" class="nav-link{% if active_path == '/features' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"功能","href":"/features"}'>功能</a>
-          <a href="/playground" class="nav-link{% if active_path == '/playground' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"行为实验室","href":"/playground"}'>行为实验室</a>
-          <a href="/pricing" class="nav-link{% if active_path == '/pricing' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"定价","href":"/pricing"}'>定价</a>
+          <a href="/" class="nav-link{% if active_path == '/' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"平台概览","href":"/"}'>平台概览</a>
+          <a href="/features" class="nav-link{% if active_path == '/features' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"Marketplace","href":"/features"}'>Marketplace</a>
+          <a href="/pricing" class="nav-link{% if active_path == '/pricing' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"Blueprints","href":"/pricing"}'>Blueprints</a>
+          <a href="/playground" class="nav-link{% if active_path == '/playground' %} active{% endif %}" data-track="nav_link_clicked" data-track-props='{"label":"交互演示","href":"/playground"}'>交互演示</a>
         </nav>
 
-        <a href="/playground" class="btn btn-primary btn-sm" data-track="cta_header_clicked">开始体验</a>
+        <a href="/playground" class="btn btn-primary btn-sm" data-track="cta_header_clicked" data-track-props='{"target":"playground","label":"Launch Demo"}'>Launch Demo</a>
       </div>
     </header>
 
@@ -32,11 +35,40 @@
       {% block content %}{% endblock %}
     </main>
 
+    <footer class="site-footer">
+      <div class="footer-grid">
+        <div>
+          <h3>Cloudera Anywhere Cloud™</h3>
+          <p>面向主权时代的模块化混合数据与 AI 平台 — Hybrid by default · Modular by design · Sovereign by deployment。</p>
+          <p>本站点为 AWC 产品页行为分析 Demo，右下角面板与 Kafka 链路实时展示用户互动。</p>
+        </div>
+        <div>
+          <h3>DataPulse 链路</h3>
+          <div class="footer-links">
+            <a href="/playground">触发演示事件</a>
+            {% if settings.consumer_url %}
+            <a href="{{ settings.consumer_url }}/live" target="_blank" rel="noopener">Live Events 看板</a>
+            {% endif %}
+            {% if settings.monitoring_url %}
+            <a href="{{ settings.monitoring_url }}" target="_blank" rel="noopener">Grafana 行为面板</a>
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <h3>参考</h3>
+          <div class="footer-links">
+            <a href="https://www.cloudera.com/products/anywhere-cloud.html" target="_blank" rel="noopener">AWC 产品页</a>
+            <a href="https://www.cloudera.com/products.html" target="_blank" rel="noopener">Cloudera Products</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
     <aside id="event-panel" class="event-panel expanded">
       <div class="event-panel-header">
         <div class="event-panel-title">
           <span class="event-panel-icon">◎</span>
-          <span class="event-panel-label">事件采集面板</span>
+          <span class="event-panel-label">行为采集 · DataPulse</span>
           <span id="posthog-badge" class="badge badge-secondary">本地模式</span>
         </div>
         <div class="event-panel-actions">
@@ -45,9 +77,9 @@
         </div>
       </div>
       <div id="event-panel-body" class="event-panel-body">
-        <div id="event-count" class="event-count">已采集 0 条事件 · 配置 PostHog Key 后可同步到云端</div>
+        <div id="event-count" class="event-count">已采集 0 条 AWC 页面互动事件</div>
         <div id="event-list" class="event-list">
-          <p class="event-empty">在页面上操作，事件会实时出现在这里</p>
+          <p class="event-empty">浏览 Marketplace、选择 Blueprint 或 Launch Demo，事件将实时出现在这里</p>
         </div>
       </div>
     </aside>

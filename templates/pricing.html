@@ -1,23 +1,26 @@
 {% extends "base.html" %}
 
+{% block title %}Blueprints — {{ settings.app_title }}{% endblock %}
+
 {% block content %}
 <div class="page-header page-header-center">
-  <span class="badge badge-primary">定价方案</span>
-  <h1>选择适合你的方案</h1>
+  <span class="badge badge-primary">AWC Blueprints</span>
+  <h1>治理批准的架构模板</h1>
   <p class="page-desc">
-    点击选择方案，触发 <code>plan_selected</code> 转化事件
+    选择 Blueprint 模拟企业客户从评估到启动的路径。每次选择触发
+    <code>plan_selected</code> 转化事件（properties 含 blueprint 信息）。
   </p>
 </div>
 
 <div class="pricing-grid">
   {% for plan in plans %}
-  <div class="card pricing-card{% if plan.popular %} pricing-popular{% endif %}" data-plan-id="{{ plan.id }}">
+  <div class="card pricing-card blueprint-card{% if plan.popular %} pricing-popular{% endif %}" data-plan-id="{{ plan.id }}">
     {% if plan.popular %}
-    <span class="badge badge-primary">最受欢迎</span>
+    <span class="badge badge-primary">推荐</span>
     {% endif %}
     <h2>{{ plan.name }}</h2>
     <p class="plan-desc">{{ plan.description }}</p>
-    <p class="plan-price">{{ plan.price }}</p>
+    <p class="blueprint-outcome">{{ plan.outcome }}</p>
     <ul class="plan-features">
       {% for feature in plan.features %}
       <li>✓ {{ feature }}</li>
@@ -28,8 +31,10 @@
       class="btn btn-primary btn-block plan-select"
       data-plan-id="{{ plan.id }}"
       data-plan-name="{{ plan.name }}"
+      data-track="blueprint_evaluated"
+      data-track-props='{"blueprint":"{{ plan.id }}"}'
     >
-      选择方案
+      选择 Blueprint
     </button>
   </div>
   {% endfor %}
@@ -39,8 +44,6 @@
 {% block scripts %}
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    let selectedPlan = null;
-
     document.querySelectorAll(".plan-select").forEach((btn) => {
       btn.addEventListener("click", () => {
         const planId = btn.dataset.planId;
@@ -50,16 +53,17 @@
           card.classList.remove("plan-selected");
         });
         document.querySelectorAll(".plan-select").forEach((b) => {
-          b.textContent = "选择方案";
+          b.textContent = "选择 Blueprint";
         });
 
-        selectedPlan = planId;
         btn.closest(".pricing-card").classList.add("plan-selected");
         btn.textContent = "已选择";
 
         DataPulse.trackEvent("plan_selected", {
           plan_id: planId,
           plan_name: planName,
+          blueprint: planId,
+          blueprint_name: planName,
         });
       });
     });

@@ -1,19 +1,22 @@
 {% extends "base.html" %}
 
+{% block title %}Marketplace — {{ settings.app_title }}{% endblock %}
+
 {% block content %}
 <div class="page-header">
-  <span class="badge badge-primary">功能展示</span>
-  <h1>DataPulse 核心能力</h1>
+  <span class="badge badge-primary">Anywhere Cloud Marketplace</span>
+  <h1>模块化数据与 AI 服务目录</h1>
   <p class="page-desc">
-    点击功能卡片标记感兴趣项，每次操作都会触发
-    <code>feature_interest_toggled</code> 事件。
+    模拟 AWC Marketplace 浏览体验。标记感兴趣的服务会触发
+    <code>feature_interest_toggled</code> 事件，并写入 Kafka 供 Live Events 与湖仓分析使用。
   </p>
 </div>
 
 <div class="feature-grid">
   {% for feature in features %}
-  <div class="card feature-card" data-feature-id="{{ feature.id }}">
-    <div class="feature-icon">{{ loop.index }}</div>
+  <div class="card feature-card marketplace-card" data-feature-id="{{ feature.id }}">
+    <p class="service-category">{{ feature.category }}</p>
+    <div class="feature-icon">{{ feature.icon }}</div>
     <h2 class="feature-title">{{ feature.title }}</h2>
     <p class="feature-desc">{{ feature.description }}</p>
     <button
@@ -21,6 +24,8 @@
       class="btn btn-outline feature-toggle"
       data-feature-id="{{ feature.id }}"
       data-feature-title="{{ feature.title }}"
+      data-track="marketplace_service_viewed"
+      data-track-props='{"service":"{{ feature.id }}","action":"toggle_interest"}'
     >
       标记感兴趣
     </button>
@@ -49,7 +54,7 @@
           card.classList.remove("feature-active");
         } else {
           interested.add(id);
-          btn.textContent = "已标记感兴趣";
+          btn.textContent = "已加入关注";
           btn.classList.remove("btn-outline");
           btn.classList.add("btn-primary");
           card.classList.add("feature-active");
@@ -58,6 +63,7 @@
         DataPulse.trackEvent("feature_interest_toggled", {
           feature_id: id,
           feature_title: title,
+          marketplace_service: id,
           interested: !wasInterested,
         });
       });

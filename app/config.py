@@ -13,6 +13,18 @@ def get_settings() -> dict[str, str | bool]:
         or "https://us.i.posthog.com"
     )
     kafka = get_kafka_settings()
+    domain = os.getenv(
+        "CDSW_DOMAIN",
+        "ray-ml.cldr-csk-cai-readygo.a70735.test.cldr.work",
+    )
+    consumer_url = os.getenv(
+        "CONSUMER_URL",
+        f"https://datapulse-spark-consumer.{domain}",
+    ).rstrip("/")
+    monitoring_url = os.getenv(
+        "MONITORING_URL",
+        os.getenv("GRAFANA_ROOT_URL", f"https://datapulse-mon-7rrlwp.{domain}"),
+    ).rstrip("/")
 
     return {
         "posthog_key": posthog_key,
@@ -20,5 +32,7 @@ def get_settings() -> dict[str, str | bool]:
         "posthog_enabled": bool(posthog_key),
         "kafka_enabled": kafka.enabled,
         "kafka_ready": kafka.is_ready(),
-        "app_title": "DataPulse — 用户行为分析 Demo",
+        "consumer_url": consumer_url,
+        "monitoring_url": monitoring_url,
+        "app_title": "Cloudera Anywhere Cloud — DataPulse Demo",
     }

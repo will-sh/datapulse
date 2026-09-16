@@ -1,53 +1,69 @@
 {% extends "base.html" %}
 
+{% block title %}交互演示 — {{ settings.app_title }}{% endblock %}
+
 {% block content %}
 <div class="page-header">
-  <span class="badge badge-primary">行为实验室</span>
-  <h1>交互式事件采集</h1>
+  <span class="badge badge-primary">AWC Interactive Demo</span>
+  <h1>模拟 AWC 控制台关键用户路径</h1>
   <p class="page-desc">
-    在下方尝试不同操作，观察右侧事件面板的实时反馈。
+    以下操作对应真实 AWC 产品页/自助 provisioning 场景。每次互动写入 Kafka，
+    可在 Consumer <code>/live</code> 与 Grafana User Behavior 面板查看。
   </p>
 </div>
 
 <div class="tabs">
   <div class="tabs-list">
-    <button type="button" class="tab-trigger active" data-tab="events">自定义事件</button>
-    <button type="button" class="tab-trigger" data-tab="form">表单提交</button>
-    <button type="button" class="tab-trigger" data-tab="identity">用户识别</button>
+    <button type="button" class="tab-trigger active" data-tab="deploy">Deploy Service</button>
+    <button type="button" class="tab-trigger" data-tab="blueprint">Launch Blueprint</button>
+    <button type="button" class="tab-trigger" data-tab="form">Request Demo</button>
+    <button type="button" class="tab-trigger" data-tab="identity">Enterprise Sign-in</button>
   </div>
 
-  <div class="tab-content active" data-tab-content="events">
+  <div class="tab-content active" data-tab-content="deploy">
     <div class="card">
-      <h2>一键触发事件</h2>
-      <p class="card-subtitle">模拟产品中的常见用户行为</p>
+      <h2>Marketplace 一键部署</h2>
+      <p class="card-subtitle">模拟从 Marketplace 启动 Cloudera 数据服务（Push-button simplicity）</p>
       <div class="button-row">
-        <button type="button" class="btn btn-primary" data-track="button_clicked" data-track-props='{"button":"primary_action"}'>主要操作</button>
-        <button type="button" class="btn btn-outline" data-track="button_clicked" data-track-props='{"button":"secondary_action"}'>次要操作</button>
-        <button type="button" class="btn btn-secondary" data-track="feature_used" data-track-props='{"feature":"export","format":"csv"}'>导出数据</button>
-        <button type="button" class="btn btn-destructive" data-track="account_action" data-track-props='{"action":"delete_requested"}'>删除账户（模拟）</button>
+        <button type="button" class="btn btn-primary" data-track="feature_used" data-track-props='{"feature":"deploy","service":"streams_messaging","label":"CSM Kafka"}'>Deploy Streams Messaging</button>
+        <button type="button" class="btn btn-outline" data-track="feature_used" data-track-props='{"feature":"deploy","service":"lakehouse_engine","label":"Iceberg + Trino"}'>Deploy Lakehouse Engine</button>
+        <button type="button" class="btn btn-secondary" data-track="feature_used" data-track-props='{"feature":"deploy","service":"cloudera_ai","label":"Cloudera AI"}'>Deploy Cloudera AI</button>
+        <button type="button" class="btn btn-outline" data-track="button_clicked" data-track-props='{"button":"view_docs","target":"awc_marketplace"}'>View Marketplace Docs</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" data-tab-content="blueprint">
+    <div class="card">
+      <h2>Blueprint 快速启动</h2>
+      <p class="card-subtitle">模拟选择治理批准的架构模板并启动环境</p>
+      <div class="button-row">
+        <button type="button" class="btn btn-primary" data-track="button_clicked" data-track-props='{"button":"launch_blueprint","blueprint":"connected_enterprise_intelligence"}'>Connected Enterprise Intelligence</button>
+        <button type="button" class="btn btn-outline" data-track="button_clicked" data-track-props='{"button":"launch_blueprint","blueprint":"sovereign_ai"}'>Sovereign AI</button>
+        <button type="button" class="btn btn-secondary" data-track="button_clicked" data-track-props='{"button":"launch_blueprint","blueprint":"multi_cloud_lakehouse"}'>Multi-cloud Lakehouse</button>
       </div>
     </div>
   </div>
 
   <div class="tab-content" data-tab-content="form">
     <div class="card">
-      <h2>订阅表单</h2>
-      <p class="card-subtitle">提交后触发 <code>demo_form_submitted</code> 事件</p>
+      <h2>Request AWC Demo</h2>
+      <p class="card-subtitle">提交后触发 <code>demo_form_submitted</code>（AWC 销售线索转化）</p>
       <form id="demo-form" class="form-row">
-        <input type="email" id="demo-email" placeholder="your@email.com" required class="input">
-        <button type="submit" class="btn btn-primary">提交</button>
+        <input type="email" id="demo-email" placeholder="work@enterprise.com" required class="input">
+        <button type="submit" class="btn btn-primary">Request Demo</button>
       </form>
-      <p id="form-success" class="form-success hidden">表单已提交，事件已采集！</p>
+      <p id="form-success" class="form-success hidden">Demo 申请已提交，事件已写入 Kafka。</p>
     </div>
   </div>
 
   <div class="tab-content" data-tab-content="identity">
     <div class="card">
-      <h2>用户识别</h2>
-      <p class="card-subtitle">调用 PostHog identify，将匿名用户关联到具体 ID</p>
+      <h2>Enterprise Sign-in</h2>
+      <p class="card-subtitle">关联企业用户身份，便于 cohort 与转化分析</p>
       <div class="form-row">
         <input type="text" id="user-id-input" placeholder="用户 ID（留空自动生成）" class="input">
-        <button type="button" id="identify-btn" class="btn btn-primary">识别用户</button>
+        <button type="button" id="identify-btn" class="btn btn-primary">Sign in</button>
       </div>
       <p id="current-user" class="user-id-display hidden"></p>
     </div>
@@ -68,7 +84,10 @@
         contents.forEach((c) => c.classList.remove("active"));
         tab.classList.add("active");
         document.querySelector(`[data-tab-content="${value}"]`).classList.add("active");
-        DataPulse.trackEvent("playground_tab_changed", { tab: value });
+        DataPulse.trackEvent("playground_tab_changed", {
+          tab: value,
+          awc_section: value,
+        });
       });
     });
 
@@ -78,6 +97,8 @@
       DataPulse.trackEvent("demo_form_submitted", {
         email,
         has_email: Boolean(email),
+        form: "awc_demo_request",
+        source: "playground",
       });
       const success = document.getElementById("form-success");
       success.classList.remove("hidden");
@@ -86,12 +107,16 @@
 
     document.getElementById("identify-btn").addEventListener("click", () => {
       const input = document.getElementById("user-id-input");
-      const id = input.value || `demo-user-${Date.now()}`;
+      const id = input.value || `awc-user-${Date.now()}`;
       const email = document.getElementById("demo-email").value;
-      DataPulse.identifyUser(id, { email: email || undefined, plan: "demo" });
+      DataPulse.identifyUser(id, {
+        email: email || undefined,
+        plan: "enterprise_eval",
+        product: "anywhere_cloud",
+      });
       input.value = id;
       const display = document.getElementById("current-user");
-      display.textContent = `当前用户 ID：${id}`;
+      display.textContent = `当前企业用户：${id}`;
       display.classList.remove("hidden");
     });
   });

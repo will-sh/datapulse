@@ -1,35 +1,93 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="hero-grid">
-  <div class="hero-content">
-    <div class="badge-row">
-      <span class="pill pill-indigo">基于 PostHog 的用户行为分析 Demo</span>
-      <span class="pill pill-emerald">无需 API Key，本地模式即可体验</span>
+<section class="hero-dark">
+  <div class="hero-grid">
+    <div class="hero-content">
+      <div class="badge-row">
+        <span class="pill pill-orange">Cloudera Anywhere Cloud™</span>
+        <span class="pill pill-teal">Hybrid · Modular · Sovereign</span>
+      </div>
+      <h1 class="hero-title">
+        在任意环境激活 AI
+        <span class="hero-accent">以云原生敏捷与企业级管控</span>
+      </h1>
+      <p class="hero-desc">
+        这是 AWC 官方产品页的交互式 Demo。用户在 Marketplace 浏览服务、选择 Blueprint、提交 Demo 申请——
+        DataPulse 实时采集每一次互动，经 Kafka 进入 Spark Consumer 与 Lakehouse 分析链路。
+      </p>
+      <div class="hero-actions">
+        <a href="/playground" class="btn btn-primary" data-track="hero_cta_clicked" data-track-props='{"target":"playground","label":"launch_demo"}'>
+          Launch Demo →
+        </a>
+        <a href="/features" class="btn btn-outline" data-track="hero_secondary_clicked" data-track-props='{"target":"marketplace"}'>浏览 Marketplace</a>
+      </div>
     </div>
-    <h1 class="hero-title">
-      DataPulse
-      <span class="hero-accent">洞察每一次用户互动</span>
-    </h1>
-    <p class="hero-desc">
-      DataPulse 是一个轻量级行为分析应用演示。点击按钮、切换页面、提交表单——
-      所有互动都会实时出现在右下角的事件面板中。没有 PostHog 账号也没关系，本地模式已覆盖全部演示功能。
-    </p>
-    <div class="hero-actions">
-      <a href="/playground" class="btn btn-primary" data-track="hero_cta_clicked" data-track-props='{"target":"playground"}'>
-        进入行为实验室 →
-      </a>
-      <a href="/features" class="btn btn-outline" data-track="hero_secondary_clicked">了解功能</a>
+
+    <div class="hero-card card">
+      <p class="card-subtitle">DataPulse 采集的 AWC 用户行为</p>
+      <div class="highlight-list">
+        <div class="highlight-item"><span class="highlight-icon">🌐</span><span>产品页浏览与导航</span></div>
+        <div class="highlight-item"><span class="highlight-icon">🧩</span><span>Marketplace 服务兴趣</span></div>
+        <div class="highlight-item"><span class="highlight-icon">📐</span><span>Blueprint 选择与转化</span></div>
+        <div class="highlight-item"><span class="highlight-icon">🚀</span><span>Demo / 部署意图事件</span></div>
+      </div>
     </div>
   </div>
+</section>
 
-  <div class="hero-card card">
-    <p class="card-subtitle">支持采集的行为类型</p>
-    <div class="highlight-list">
-      <div class="highlight-item"><span class="highlight-icon">👆</span><span>点击追踪</span></div>
-      <div class="highlight-item"><span class="highlight-icon">📊</span><span>页面浏览</span></div>
-      <div class="highlight-item"><span class="highlight-icon">⚡</span><span>自定义事件</span></div>
+<section class="pillars-grid">
+  <article class="pillar-card">
+    <h3>Push-button simplicity</h3>
+    <p>通过 Marketplace Blueprint 分钟级部署数据与 AI 服务，Agentic Copilot 引导自助 provisioning。</p>
+  </article>
+  <article class="pillar-card">
+    <h3>Deployment freedom</h3>
+    <p>公有云、主权云、本地数据中心或 air-gapped 网络 — Apache Iceberg 零拷贝标准统一查询。</p>
+  </article>
+  <article class="pillar-card">
+    <h3>Digital sovereignty</h3>
+    <p>敏感数据不出域，统一零信任数据 fabric 继承治理、PII 脱敏与审计血缘。</p>
+  </article>
+</section>
+
+<section class="pipeline-section">
+  <h2>DataPulse 在 AWC 架构中的位置</h2>
+  <p class="section-lead">
+    本 Demo 模拟 AWC 产品官网的用户行为分析路径：前端埋点 → CAI Application → CSM(Kafka) → 实时消费与湖仓分析。
+  </p>
+  <div class="pipeline-flow">
+    <div class="pipeline-step highlight">
+      <strong>AWC 产品页</strong>
+      <span>用户浏览 / Marketplace / Blueprint</span>
+      <span class="service-tag">datapulse-app</span>
     </div>
+    <div class="pipeline-step">
+      <strong>Streams Messaging</strong>
+      <span>CSM · Kafka 事件总线</span>
+      <span class="service-tag">datapulse-events</span>
+    </div>
+    <div class="pipeline-step">
+      <strong>Live Events</strong>
+      <span>Spark Consumer 实时看板</span>
+      <span class="service-tag">/live</span>
+    </div>
+    <div class="pipeline-step">
+      <strong>Lakehouse Engine</strong>
+      <span>Iceberg + Trino 历史分析</span>
+      <span class="service-tag">规划中</span>
+    </div>
+    <div class="pipeline-step">
+      <strong>Observability</strong>
+      <span>Grafana 行为与运维面板</span>
+      <span class="service-tag">Prometheus</span>
+    </div>
+  </div>
+  <div class="link-row">
+    <a href="/playground" class="btn btn-primary btn-sm" data-track="pipeline_cta_clicked" data-track-props='{"target":"playground"}'>开始交互演示</a>
+    {% if settings.consumer_url %}
+    <a href="{{ settings.consumer_url }}/live" class="btn btn-outline btn-sm" target="_blank" rel="noopener" data-track="pipeline_live_clicked">打开 Live Events</a>
+    {% endif %}
   </div>
 </section>
 
@@ -39,13 +97,13 @@
     <p id="metric-pageviews" class="metric-value">0</p>
   </div>
   <div class="card metric-card">
-    <p class="metric-label">自定义事件</p>
+    <p class="metric-label">互动事件</p>
     <p id="metric-custom" class="metric-value">0</p>
   </div>
   <div class="card metric-card">
-    <p class="metric-label">采集状态</p>
+    <p class="metric-label">采集链路</p>
     <p id="metric-status" class="metric-status">本地面板</p>
-    <p id="metric-session" class="metric-sub">会话约 1 分钟</p>
+    <p id="metric-session" class="metric-sub">会话计时中</p>
   </div>
 </section>
 {% endblock %}

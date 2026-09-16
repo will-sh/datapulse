@@ -27,10 +27,10 @@
     const badge = document.getElementById("posthog-badge");
     if (!badge) return;
     if (config.kafkaEnabled && config.posthogEnabled) {
-      badge.textContent = "PostHog + Kafka";
+      badge.textContent = "Kafka + PostHog";
       badge.className = "badge badge-primary";
     } else if (config.kafkaEnabled) {
-      badge.textContent = "Kafka 已启用";
+      badge.textContent = "Kafka · AWC Pipeline";
       badge.className = "badge badge-primary";
     } else if (config.posthogEnabled) {
       badge.textContent = "PostHog 已连接";
@@ -69,12 +69,12 @@
       ? " · 同步到 Kafka"
       : config.posthogEnabled
         ? ""
-        : " · 配置 PostHog Key 后可同步到云端";
-    count.textContent = `已采集 ${events.length} 条事件${suffix}`;
+        : " · 本地采集模式";
+    count.textContent = `已采集 ${events.length} 条 AWC 互动${suffix}`;
 
     if (events.length === 0) {
       list.innerHTML =
-        '<p class="event-empty">在页面上操作，事件会实时出现在这里</p>';
+        '<p class="event-empty">浏览 Marketplace、选择 Blueprint 或 Launch Demo，事件将实时出现在这里</p>';
       return;
     }
 
@@ -148,7 +148,7 @@
 
     if (status) {
       if (config.kafkaEnabled) {
-        status.textContent = "Kafka 平台";
+        status.textContent = "Kafka → Live Events";
       } else if (config.posthogEnabled) {
         status.textContent = "PostHog 云端";
       } else {
