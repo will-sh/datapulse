@@ -209,8 +209,10 @@ extra_args: list[str] = []
 raw_args = os.getenv("LAKEHOUSE_JOB_EXTRA_ARGS", "").strip()
 if raw_args:
     extra_args.extend(raw_args.split())
-if len(sys.argv) > 2:
-    extra_args.extend(sys.argv[2:])
+for arg in sys.argv[2:]:
+    if arg.endswith(".json") and "jupyter/runtime/kernel-" in arg:
+        continue
+    extra_args.append(arg)
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 payload: dict[str, object] = {
