@@ -1,0 +1,4 @@
+# Lakehouse Kafka -> Iceberg ingest
+
+This directory holds Spark Structured Streaming checkpoint state for the isolated CAI Job
+`datapulse-lakehouse-kafka-ingest`. It is separate from the live consumer Application buffer.

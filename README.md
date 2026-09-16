@@ -222,6 +222,70 @@ CAI Application 启动脚本会在 `KAFKA_ENABLED=true` 时自动下载 Kafka CL
 
 在 CAI 中创建第二个 Application，启动脚本设为 `scripts/cai_spark_kafka_stream.py`，并配置与 Producer 相同的 Kafka OAuth 环境变量。推荐 Runtime Addon：`sparkconnect354-731-26`（Spark Connect 不可用时自动 fallback 到 Kafka CLI）。
 
+### Lakehouse：Kafka → Iceberg（独立 CAI Job）
+
+**不要**把入湖逻辑放进 `datapulse-spark-consumer` Application。Consumer 只负责内存实时看板；历史分析走 Lakehouse。
+
+| 组件 | 作用 |
+|------|------|
+| CSM(Kafka) `datapulse-events` | 事件总线（Producer 已写入） |
+| CAI Job `datapulse-lakehouse-kafka-ingest` | Spark Structured Streaming + `foreachBatch` 写入 Iceberg |
+| Lakehouse HMS + Ozone | `iceberg_catalog.datapulse.events` 表元数据与存储 |
+| Trino (`lakehouse-bp-trino`) | SQL 验证与后续漏斗/留存分析 |
+
+推荐路径（与 README 架构图一致）：
+
+```
+Kafka(datapulse-events) → Spark Job(foreachBatch) → Iceberg(datapulse.events) → Trino SQL
+```
+
+**隔离测试**（不影响现有 Application）：
+
+```bash
+export CAI_BASE=https://ray-ml.cldr-csk-cai-readygo.a70735.test.cldr.work
+export CAI_PID=k87h-zej9-dugs-473y
+export CAI_KEY=$CDSW_APIV2_KEY
+
+# 上传新脚本
+python3 scripts/cai_upload_files.py
+
+# 1) discover — 打印 HMS / warehouse / Kafka 配置
+python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode discover
+
+# 2) bootstrap — 创建 Iceberg 表
+python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode bootstrap
+
+# 3) batch — 跑一轮 micro-batch 写入（测通写入路径）
+python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode batch
+
+# 4) verify — 查表行数与样例
+python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode verify
+```
+
+Job 脚本：`scripts/cai_lakehouse_ingest_job.py` → `jobs/kafka_to_iceberg.py`  
+Runtime Addon：`sparkconnect354-731-26` + `hadoop-cli-7.3.1.709-1`
+
+常用 Lakehouse 环境变量（可在 `--env KEY=VALUE` 覆盖）：
+
+```env
+HIVE_METASTORE_URI=thrift://hivemetastore.cldr-csk-lakehouse.a70735.test.cldr.work:9083
+ICEBERG_WAREHOUSE=s3a://s3v/warehouse/datapulse
+ICEBERG_CATALOG=iceberg_catalog
+ICEBERG_DATABASE=datapulse
+ICEBERG_TABLE=events
+```
+
+写入成功后，可在 Trino Admin UI 查询：
+
+```sql
+SELECT event_name, user_id, anonymous_id, event_timestamp
+FROM iceberg_catalog.datapulse.events
+ORDER BY ingested_at DESC
+LIMIT 20;
+```
+
+> 说明：Iceberg **Structured Streaming sink** 在部分 CDE 版本仍为 Technical Preview；本 Job 使用 **`foreachBatch` + `writeTo(...).append()`**，与现有 Consumer 的 Spark 路径一致，更便于在 CAI 中逐步测通。
+
 ### Monitoring Application（Prometheus + Grafana）
 
 第三个 CAI Application 用于 Observability，启动脚本：`scripts/cai_start_monitoring.py`。
@@ -288,7 +352,11 @@ scripts/
   cai_stop_applications.py        # 仅 stop（排查用；日常部署请用 recreate）
   cai_start_application.py        # Producer CAI 启动脚本
   cai_spark_kafka_stream.py       # Consumer CAI 启动脚本
+  cai_lakehouse_ingest_job.py     # Lakehouse 入湖 CAI Job 入口（独立）
+  cai_submit_lakehouse_job.py     # 创建/运行 Lakehouse Job（不动 Application）
   cai_start_monitoring.py         # Monitoring CAI 启动脚本
+jobs/
+  kafka_to_iceberg.py            # Spark Kafka -> Iceberg 逻辑
 requirements-spark.txt     # Consumer 依赖
 monitoring/                # Prometheus + Grafana + DataPulse exporter
   DataPulseExporter.py
