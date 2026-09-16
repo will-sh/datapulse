@@ -50,26 +50,36 @@ def discover_environment() -> int:
     return 0
 
 
-def _configure_iceberg_catalog(spark, settings) -> None:
+def _apply_iceberg_catalog_builder(builder, settings):
     catalog = settings.catalog
-    spark.conf.set("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-    spark.conf.set(f"spark.sql.catalog.{catalog}", "org.apache.iceberg.spark.SparkCatalog")
-    spark.conf.set(f"spark.sql.catalog.{catalog}.type", "hive")
-    spark.conf.set(f"spark.sql.catalog.{catalog}.uri", settings.hive_metastore_uri)
+    builder = (
+        builder.config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+        .config(f"spark.sql.catalog.{catalog}", "org.apache.iceberg.spark.SparkCatalog")
+        .config(f"spark.sql.catalog.{catalog}.type", "hive")
+        .config(f"spark.sql.catalog.{catalog}.uri", settings.hive_metastore_uri)
+    )
     if settings.warehouse:
-        spark.conf.set(f"spark.sql.catalog.{catalog}.warehouse", settings.warehouse)
+        builder = builder.config(f"spark.sql.catalog.{catalog}.warehouse", settings.warehouse)
     if settings.ozone_filesystems:
-        spark.conf.set("spark.yarn.access.hadoopFileSystems", settings.ozone_filesystems)
+        builder = builder.config("spark.yarn.access.hadoopFileSystems", settings.ozone_filesystems)
+    return builder
 
 
-def _configure_ozone_s3a(spark, settings) -> None:
+def _apply_ozone_s3a_builder(builder, settings):
     ozone_host = _env("OZONE_HOST", "lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work")
     if not ozone_host or not settings.warehouse.startswith("s3a://"):
-        return
-    spark.conf.set("spark.hadoop.fs.s3a.endpoint", ozone_host)
-    spark.conf.set("spark.hadoop.fs.s3a.path.style.access", "true")
-    spark.conf.set("spark.hadoop.fs.s3a.connection.ssl.enabled", "true")
-    spark.conf.set("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+        return builder
+    return (
+        builder.config("spark.hadoop.fs.s3a.endpoint", ozone_host)
+        .config("spark.hadoop.fs.s3a.path.style.access", "true")
+        .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "true")
+        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+    )
+
+
+def _configure_iceberg_catalog(spark, settings) -> None:
+    # Dynamic post-create tweaks only; static catalog configs belong on the builder.
+    _ = settings
 
 
 def _spark_packages(include_kafka: bool = True) -> str:
@@ -117,9 +127,11 @@ def _build_lakehouse_spark_session(*, include_kafka: bool = True):
     if dist_files:
         builder = builder.config("spark.files", dist_files)
 
+    builder = _apply_iceberg_catalog_builder(builder, settings)
+    builder = _apply_ozone_s3a_builder(builder, settings)
+
     spark = builder.getOrCreate()
     _configure_iceberg_catalog(spark, settings)
-    _configure_ozone_s3a(spark, settings)
     return spark, settings
 
 
