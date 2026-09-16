@@ -161,6 +161,28 @@ scripts/cai-start-application.sh
 
 Application 的 `script` 字段应设为 `scripts/cai_start_application.py` 或 `scripts/start_datapulse.py`（PBJ Python runtime 会将脚本作为 Python 代码执行，不能使用 bash 脚本路径；脚本内请使用 `os.getcwd()` 而非 `__file__`，且不要用 `raise SystemExit` 包裹 uvicorn）。
 
+## CAI 日常部署
+
+代码变更后，**upload → delete + recreate**，不要使用 `:restart`（容易在 `APPLICATION_STARTING` 卡住并留下 orphan engine session）。
+
+```bash
+export CAI_BASE=https://<your-cai-domain>
+export CAI_PID=<project-id>
+export CAI_KEY=$CDSW_APIV2_KEY
+
+# 一键：上传文件 + 重建全部 Application
+python3 scripts/cai_deploy.py
+
+# 或分步执行
+python3 scripts/cai_upload_files.py
+python3 scripts/cai_recreate_applications.py
+
+# 只重建单个 app（例如 producer）
+python3 scripts/cai_recreate_applications.py --apps datapulse-app
+```
+
+`cai_recreate_applications.py` 会按名称查找现有 Application，快照其 runtime / env / subdomain 配置，删除旧实例后重新 create（`environment` 以 object 提交）。若 monitoring 的 subdomain 发生变化，请同步更新 `datapulse.env` 中的 `GRAFANA_ROOT_URL` / `GRAFANA_DOMAIN`。
+
 ## 配置 PostHog（可选）
 
 1. 在 [PostHog](https://posthog.com) 注册并创建项目
@@ -172,7 +194,7 @@ POSTHOG_KEY=phc_your_project_api_key_here
 POSTHOG_HOST=https://us.i.posthog.com
 ```
 
-4. 重启应用
+4. 执行 `python3 scripts/cai_recreate_applications.py --apps datapulse-app` 使配置生效
 
 配置后，事件面板会显示「PostHog 已连接」，数据同步到 PostHog 后台的 Live Events。
 
@@ -192,7 +214,7 @@ KAFKA_TOKEN_URL=https://console.readygo.a70735.test.cldr.work/api/v0/auth/access
 KAFKA_CONFIG_DIR=config/kafka
 ```
 
-4. 重启应用。浏览器事件会通过 `POST /api/events` 写入 Kafka topic。
+4. 执行 `python3 scripts/cai_recreate_applications.py --apps datapulse-app` 使配置生效。浏览器事件会通过 `POST /api/events` 或 `POST /v1/capture` 写入 Kafka topic。
 
 CAI Application 启动脚本会在 `KAFKA_ENABLED=true` 时自动下载 Kafka CLI（`KAFKA_HOME`）。
 
@@ -260,10 +282,13 @@ static/
   css/styles.css
   js/analytics.js          # 事件采集与 PostHog 集成
 scripts/
-  cai_start_application.py       # Producer CAI 启动脚本
-  cai_spark_kafka_stream.py      # Consumer CAI 启动脚本
-  cai_start_monitoring.py        # Monitoring CAI 启动脚本
-  cai-start-application.sh
+  cai_deploy.py                 # upload + recreate 一键部署
+  cai_upload_files.py             # 上传项目文件到 Workbench
+  cai_recreate_applications.py    # delete + create 重建 Application
+  cai_stop_applications.py        # 仅 stop（排查用；日常部署请用 recreate）
+  cai_start_application.py        # Producer CAI 启动脚本
+  cai_spark_kafka_stream.py       # Consumer CAI 启动脚本
+  cai_start_monitoring.py         # Monitoring CAI 启动脚本
 requirements-spark.txt     # Consumer 依赖
 monitoring/                # Prometheus + Grafana + DataPulse exporter
   DataPulseExporter.py

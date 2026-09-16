@@ -42,7 +42,9 @@ FILES = [
     "monitoring/relay/placeholder.txt",
     "datapulse.env",
     "scripts/e2e_playground_metrics.py",
-    "scripts/cai_restart_applications.py",
+    "scripts/cai_deploy.py",
+    "scripts/cai_recreate_applications.py",
+    "scripts/cai_stop_applications.py",
     "scripts/cai_upload_files.py",
 ]
 

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import ssl
@@ -15,9 +16,10 @@ CAI_BASE = os.getenv("CAI_BASE", "https://ray-ml.cldr-csk-cai-readygo.a70735.tes
 CAI_PID = os.getenv("CAI_PID", "k87h-zej9-dugs-473y")
 CAI_KEY = os.getenv("CAI_KEY", os.getenv("CDSW_APIV2_KEY", ""))
 
-APPS = [
-    ("aetz-l0sy-jjut-2pah", "datapulse-app"),
-    ("28q4-ntv8-nley-e5nj", "datapulse-monitoring"),
+DEFAULT_NAMES = [
+    "datapulse-app",
+    "datapulse-spark-consumer",
+    "datapulse-monitoring",
 ]
 
 POLL_INTERVAL = int(os.getenv("CAI_STOP_POLL_INTERVAL", "10"))
@@ -63,6 +65,13 @@ def list_applications() -> list[dict]:
     return apps if isinstance(apps, list) else []
 
 
+def find_application(name: str) -> dict | None:
+    for app in list_applications():
+        if app.get("name") == name:
+            return app
+    return None
+
+
 def get_application(app_id: str) -> dict:
     status, payload = api_request("GET", f"/api/v2/projects/{CAI_PID}/applications/{app_id}")
     if status != 200 or not isinstance(payload, dict):
@@ -76,13 +85,6 @@ def stop_application(app_id: str) -> tuple[int, object]:
         f"/api/v2/projects/{CAI_PID}/applications/{app_id}:stop",
         timeout=30,
     )
-
-
-def stop_by_name(name: str) -> dict | None:
-    for app in list_applications():
-        if app.get("name") == name:
-            return app
-    return None
 
 
 def ensure_stopped(app_id: str, name: str) -> dict:
@@ -106,25 +108,37 @@ def ensure_stopped(app_id: str, name: str) -> dict:
     raise TimeoutError(f"{name} did not stop within {WAIT_TIMEOUT}s (last={last_status})")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--apps",
+        default=",".join(DEFAULT_NAMES),
+        help=f"Comma-separated app names (default: {','.join(DEFAULT_NAMES)})",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
     if not CAI_KEY:
         print("CAI_KEY (or CDSW_APIV2_KEY) is required", file=sys.stderr)
         return 1
 
-    targets = APPS[:]
-    consumer = stop_by_name("datapulse-spark-consumer")
-    if consumer:
-        targets.append((consumer["id"], consumer["name"]))
-
+    names = [part.strip() for part in parse_args().apps.split(",") if part.strip()]
     results = []
-    for app_id, name in targets:
+    for name in names:
+        app = find_application(name)
+        if not app:
+            print(f"Skipping {name}: not found")
+            results.append({"name": name, "status": "not_found"})
+            continue
+        app_id = app["id"]
         print(f"Ensuring {name} ({app_id}) is stopped ...")
         try:
-            app = ensure_stopped(app_id, name)
+            stopped = ensure_stopped(app_id, name)
         except TimeoutError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             print(
-                f"  {name} may be stuck in a transition state; cluster ops may need to kill the engine pod.",
+                f"  {name} may be stuck in a transition state; use cai_recreate_applications.py instead of :restart.",
                 file=sys.stderr,
             )
             results.append({"id": app_id, "name": name, "status": get_application(app_id).get("status")})
@@ -133,14 +147,23 @@ def main() -> int:
             {
                 "id": app_id,
                 "name": name,
-                "status": app.get("status"),
-                "updated_at": app.get("updated_at"),
+                "status": stopped.get("status"),
+                "updated_at": stopped.get("updated_at"),
             }
         )
 
     print("\nStop results:")
     print(json.dumps(results, indent=2))
-    stuck = [r for r in results if r.get("status") not in {"APPLICATION_STOPPED", "APPLICATION_FAILED", "APPLICATION_KILLED"}]
+    stuck = [
+        r
+        for r in results
+        if r.get("status") not in {
+            "APPLICATION_STOPPED",
+            "APPLICATION_FAILED",
+            "APPLICATION_KILLED",
+            "not_found",
+        }
+    ]
     return 1 if stuck else 0
 
 
