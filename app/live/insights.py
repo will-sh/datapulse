@@ -87,6 +87,77 @@ def _build_sessions(events: list[StreamEvent]) -> dict[str, list[StreamEvent]]:
     return grouped
 
 
+def _truncate_id(value: str | None, *, limit: int = 14) -> str | None:
+    if not value:
+        return None
+    text = str(value)
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "…"
+
+
+def _session_user_display(session_events: list[StreamEvent]) -> str | None:
+    for event in reversed(session_events):
+        if event.user_id:
+            text = str(event.user_id)
+            return _mask_email(text) if "@" in text else text
+        email = _form_email(event)
+        if email:
+            return _mask_email(email)
+    return None
+
+
+def _session_paths(session_events: list[StreamEvent]) -> list[str]:
+    paths: list[str] = []
+    seen: set[str] = set()
+    for event in session_events:
+        if event.page_path and event.page_path not in seen:
+            seen.add(event.page_path)
+            paths.append(event.page_path)
+    return paths
+
+
+def _build_session_rows(sessions: dict[str, list[StreamEvent]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for sid, session_events in sessions.items():
+        if not session_events:
+            continue
+
+        submit_event = next(
+            (event for event in session_events if event.name in FORM_SUBMIT_EVENTS),
+            None,
+        )
+        anonymous_id = next(
+            (event.anonymous_id for event in session_events if event.anonymous_id),
+            None,
+        )
+        first_at = session_events[0].received_at
+        last_at = session_events[-1].received_at
+        marketplace_engaged = any(
+            event.name in MARKETPLACE_EVENTS for event in session_events
+        )
+
+        rows.append(
+            {
+                "session_id": sid,
+                "session_id_short": _truncate_id(sid),
+                "anonymous_id": anonymous_id,
+                "anonymous_id_short": _truncate_id(anonymous_id),
+                "user_display": _session_user_display(session_events),
+                "converted": submit_event is not None,
+                "form_event": submit_event.name if submit_event else None,
+                "marketplace_engaged": marketplace_engaged,
+                "pages": _session_paths(session_events),
+                "event_count": len(session_events),
+                "first_activity_at": first_at,
+                "last_activity_at": last_at,
+            }
+        )
+
+    rows.sort(key=lambda row: row["last_activity_at"], reverse=True)
+    return rows
+
+
 def compute_insights(window_seconds: int | None = None) -> dict[str, Any]:
     window = window_seconds if window_seconds is not None else _default_window()
     events = STORE.events_in_window(window)
@@ -191,6 +262,9 @@ def compute_insights(window_seconds: int | None = None) -> dict[str, Any]:
     top_events = Counter(event.name for event in events).most_common(10)
 
     form_submits = sum(1 for event in events if event.name in FORM_SUBMIT_EVENTS)
+    all_sessions = _build_session_rows(sessions)
+    converted_count = sum(1 for row in all_sessions if row["converted"])
+    anonymous_only_count = sum(1 for row in all_sessions if not row["user_display"])
 
     return {
         "generated_at": time.time(),
@@ -219,4 +293,12 @@ def compute_insights(window_seconds: int | None = None) -> dict[str, Any]:
         "top_pages": [{"path": path, "views": count} for path, count in top_pages],
         "top_events": [{"name": name, "count": count} for name, count in top_events],
         "recent_converters": converters[:20],
+        "all_sessions": all_sessions,
+        "session_summary": {
+            "total": len(all_sessions),
+            "converted": converted_count,
+            "not_converted": len(all_sessions) - converted_count,
+            "anonymous_only": anonymous_only_count,
+            "identified": len(all_sessions) - anonymous_only_count,
+        },
     }

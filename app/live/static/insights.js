@@ -3,12 +3,17 @@
 
   const REFRESH_MS = 5000;
   let timer = null;
+  let cachedSessions = [];
+  let cachedSessionSummary = {};
 
   const els = {
     statusBar: document.getElementById("status-bar"),
     kpiGrid: document.getElementById("kpi-grid"),
     funnelPanel: document.getElementById("funnel-panel"),
     retentionPanel: document.getElementById("retention-panel"),
+    sessionsPanel: document.getElementById("sessions-panel"),
+    sessionFilter: document.getElementById("session-filter"),
+    sessionCountLabel: document.getElementById("session-count-label"),
     convertersPanel: document.getElementById("converters-panel"),
     pagesPanel: document.getElementById("pages-panel"),
     eventsPanel: document.getElementById("events-panel"),
@@ -97,6 +102,67 @@
     `;
   }
 
+  function filterSessions(rows) {
+    const mode = els.sessionFilter?.value || "all";
+    return rows.filter((row) => {
+      if (mode === "converted") return row.converted;
+      if (mode === "not_converted") return !row.converted;
+      if (mode === "anonymous") return !row.user_display;
+      if (mode === "identified") return Boolean(row.user_display);
+      return true;
+    });
+  }
+
+  function renderSessions(rows, summary) {
+    const filtered = filterSessions(rows);
+    if (els.sessionCountLabel) {
+      els.sessionCountLabel.textContent = `${filtered.length} shown · ${summary.total || 0} total · ${summary.converted || 0} converted · ${summary.anonymous_only || 0} anonymous`;
+    }
+
+    if (!filtered.length) {
+      els.sessionsPanel.innerHTML =
+        '<p class="empty">当前筛选下暂无 session。在 Producer 站点浏览或提交表单后刷新。</p>';
+      return;
+    }
+
+    els.sessionsPanel.innerHTML = `
+      <table class="converters-table">
+        <thead>
+          <tr>
+            <th>Last active</th>
+            <th>Session</th>
+            <th>Anonymous ID</th>
+            <th>User ID</th>
+            <th>Status</th>
+            <th>Journey</th>
+            <th>Events</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered
+            .map((row) => {
+              const status = row.converted
+                ? `<span class="status-badge status-badge--ok">Converted</span>`
+                : row.marketplace_engaged
+                  ? `<span class="status-badge status-badge--warn">Engaged</span>`
+                  : `<span class="status-badge status-badge--muted">Browsing</span>`;
+              return `
+            <tr>
+              <td>${fmtTime(row.last_activity_at)}</td>
+              <td class="mono-cell" title="${row.session_id || ""}">${row.session_id_short || "-"}</td>
+              <td class="mono-cell" title="${row.anonymous_id || ""}">${row.anonymous_id_short || "-"}</td>
+              <td>${row.user_display || "—"}</td>
+              <td>${status}</td>
+              <td>${(row.pages || []).map((path) => `<span class="path-chip">${path}</span>`).join("") || "-"}</td>
+              <td>${row.event_count}</td>
+            </tr>`;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
   function renderConverters(rows) {
     if (!rows.length) {
       els.convertersPanel.innerHTML =
@@ -158,6 +224,9 @@
       renderKpis(data.kpis);
       renderFunnel(data.funnel);
       renderRetention(data.kpis, data.retention);
+      cachedSessions = data.all_sessions || [];
+      cachedSessionSummary = data.session_summary || {};
+      renderSessions(cachedSessions, cachedSessionSummary);
       renderConverters(data.recent_converters);
       renderSimpleStats(els.pagesPanel, data.top_pages, "path", "views", "暂无页面浏览");
       renderSimpleStats(els.eventsPanel, data.top_events, "name", "count", "暂无事件");
@@ -174,6 +243,9 @@
   }
 
   els.autoRefresh.addEventListener("change", schedule);
+  els.sessionFilter?.addEventListener("change", () => {
+    renderSessions(cachedSessions, cachedSessionSummary);
+  });
   refresh();
   schedule();
 })();

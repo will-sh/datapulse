@@ -144,6 +144,72 @@
   font-size: 11px;
 }
 
+.panel-head--toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.session-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.session-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.session-filter select {
+  border: 1px solid var(--border);
+  background: #0f172a;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font: inherit;
+}
+
+.session-count-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-badge--ok {
+  background: rgb(52 211 153 / 0.15);
+  color: var(--ok);
+}
+
+.status-badge--muted {
+  background: rgb(148 163 184 / 0.12);
+  color: var(--muted);
+}
+
+.status-badge--warn {
+  background: rgb(251 191 36 / 0.15);
+  color: var(--warn);
+}
+
+.mono-cell {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--accent);
+}
+
 @media (max-width: 900px) {
   .insights-grid {
     grid-template-columns: 1fr;

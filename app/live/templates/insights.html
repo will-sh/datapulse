@@ -49,6 +49,29 @@
       </section>
 
       <section class="panel panel-wide">
+        <div class="panel-head panel-head--toolbar">
+          <div>
+            <h2>All sessions</h2>
+            <p class="hint">Every visitor session in the buffer · anonymous until form identify</p>
+          </div>
+          <div class="session-toolbar">
+            <label class="session-filter">
+              <span>Show</span>
+              <select id="session-filter">
+                <option value="all">All sessions</option>
+                <option value="converted">Converted only</option>
+                <option value="not_converted">Not converted</option>
+                <option value="anonymous">Anonymous only</option>
+                <option value="identified">Identified (form submit)</option>
+              </select>
+            </label>
+            <span id="session-count-label" class="session-count-label"></span>
+          </div>
+        </div>
+        <div id="sessions-panel" class="converters-panel"></div>
+      </section>
+
+      <section class="panel panel-wide">
         <div class="panel-head">
           <h2>Recent form submissions</h2>
           <p class="hint">Sessions that reached <code>awc_lead_form_submitted</code> or <code>demo_form_submitted</code></p>
