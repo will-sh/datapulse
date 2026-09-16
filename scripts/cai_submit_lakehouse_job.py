@@ -135,7 +135,7 @@ def addons_for_mode(mode: str) -> list[str]:
     return SPARK_ADDONS if mode in SPARK_MODES else DEFAULT_ADDONS
 
 
-def build_job_payload(mode: str, extra_env: dict[str, str] | None = None) -> dict[str, Any]:
+def build_job_payload(mode: str, extra_env: dict[str, str] | None = None, *, stringify_env: bool = False) -> dict[str, Any]:
     environment = dict(DEFAULT_ENV)
     environment.update(fetch_kafka_env_from_consumer())
     if extra_env:
@@ -144,7 +144,7 @@ def build_job_payload(mode: str, extra_env: dict[str, str] | None = None) -> dic
     environment["LAKEHOUSE_JOB_ARGS"] = mode
     addons = addons_for_mode(mode)
 
-    return {
+    payload = {
         "name": JOB_NAME,
         "script": JOB_SCRIPT,
         "arguments": mode,
@@ -154,12 +154,13 @@ def build_job_payload(mode: str, extra_env: dict[str, str] | None = None) -> dic
         "timeout": str(WAIT_TIMEOUT),
         "runtime_identifier": DEFAULT_RUNTIME,
         "runtime_addon_identifiers": addons,
-        "environment": environment,
+        "environment": json.dumps(environment) if stringify_env else environment,
     }
+    return payload
 
 
 def create_job(mode: str, extra_env: dict[str, str] | None = None) -> dict[str, Any]:
-    payload = build_job_payload(mode, extra_env)
+    payload = build_job_payload(mode, extra_env, stringify_env=False)
     status, response = api_request("POST", f"/api/v2/projects/{CAI_PID}/jobs", payload, timeout=120)
     if status not in {200, 201} or not isinstance(response, dict):
         raise RuntimeError(f"create job failed: status={status} payload={response}")
@@ -167,7 +168,7 @@ def create_job(mode: str, extra_env: dict[str, str] | None = None) -> dict[str, 
 
 
 def update_job(job_id: str, mode: str, extra_env: dict[str, str] | None = None) -> dict[str, Any]:
-    payload = build_job_payload(mode, extra_env)
+    payload = build_job_payload(mode, extra_env, stringify_env=True)
     status, response = api_request(
         "PATCH",
         f"/api/v2/projects/{CAI_PID}/jobs/{job_id}",
