@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DataPulse Live Events</title>
   <link rel="stylesheet" href="/live/static/live.css">
+  <link rel="stylesheet" href="/live/static/insights.css">
 </head>
 <body>
   <header class="topbar">
@@ -14,6 +15,10 @@
       <p class="subtitle">Topic: <strong id="topic-label">{{ topic }}</strong> · 仅显示内存窗口内最近事件</p>
     </div>
     <div class="topbar-actions">
+      <nav class="consumer-nav">
+        <a href="/live" class="link-muted is-active">Live Events</a>
+        <a href="/insights" class="link-muted">Insights</a>
+      </nav>
       <label class="refresh-toggle">
         <input type="checkbox" id="auto-refresh" checked>
         自动刷新 (3s)

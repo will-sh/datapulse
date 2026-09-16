@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataPulse Insights</title>
+  <link rel="stylesheet" href="/live/static/live.css">
+  <link rel="stylesheet" href="/live/static/insights.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">DataPulse · Internal Analytics</p>
+      <h1>Insights</h1>
+      <p class="subtitle">Kafka 消费缓冲窗口内的转化、漏斗与留存代理指标 · Topic <strong>{{ topic }}</strong></p>
+    </div>
+    <div class="topbar-actions">
+      <nav class="consumer-nav">
+        <a href="/live" class="link-muted">Live Events</a>
+        <a href="/insights" class="link-muted is-active">Insights</a>
+      </nav>
+      <label class="refresh-toggle">
+        <input type="checkbox" id="auto-refresh" checked>
+        自动刷新 (5s)
+      </label>
+    </div>
+  </header>
+
+  <section id="status-bar" class="status-bar">加载中…</section>
+
+  <main class="insights-shell">
+    <section class="kpi-grid" id="kpi-grid"></section>
+
+    <div class="insights-grid">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Lead form conversion funnel</h2>
+          <p class="hint">Session-level progression within the buffer window</p>
+        </div>
+        <div id="funnel-panel" class="funnel-panel"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Engagement & retention proxies</h2>
+          <p class="hint">Short-window signals before warehouse analytics</p>
+        </div>
+        <div id="retention-panel" class="retention-panel"></div>
+      </section>
+
+      <section class="panel panel-wide">
+        <div class="panel-head">
+          <h2>Recent form submissions</h2>
+          <p class="hint">Sessions that reached <code>awc_lead_form_submitted</code> or <code>demo_form_submitted</code></p>
+        </div>
+        <div id="converters-panel" class="converters-panel"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Top pages</h2>
+        </div>
+        <div id="pages-panel" class="stats-panel"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Top events</h2>
+        </div>
+        <div id="events-panel" class="stats-panel"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    window.DATAPULSE_INSIGHTS = { topic: {{ topic | tojson }} };
+  </script>
+  <script src="/live/static/insights.js"></script>
+</body>
+</html>

@@ -267,5 +267,12 @@ class EventStore:
             "events": events,
         }
 
+    def events_in_window(self, window_seconds: int | None = None) -> list[StreamEvent]:
+        window = window_seconds if window_seconds is not None else LIVE_STATS_WINDOW
+        window = max(1, window)
+        cutoff = time.time() - window
+        with self._lock:
+            return [event for event in self._events if event.received_at >= cutoff]
+
 
 STORE = EventStore()
