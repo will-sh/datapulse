@@ -27,7 +27,7 @@ DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 SPARK_ADDONS = ["sparkconnect354-731-26", "hadoop-cli-7.3.1.709-1"]
 SPARK_MODES = {"bootstrap", "batch", "stream", "verify"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
-JOB_SCRIPT = "scripts/cai_lakehouse_ingest_job.py"
+JOB_SCRIPT = "scripts/cai_lakehouse_discover_only.py"
 
 DEFAULT_ENV = {
     "KAFKA_CONFIG_DIR": ".",
@@ -148,8 +148,8 @@ def build_job_payload(mode: str, extra_env: dict[str, str] | None = None) -> dic
         "name": JOB_NAME,
         "script": JOB_SCRIPT,
         "arguments": mode,
-        "cpu": 2,
-        "memory": 4,
+        "cpu": 1,
+        "memory": 2,
         "type": "manual",
         "timeout": str(WAIT_TIMEOUT),
         "runtime_identifier": DEFAULT_RUNTIME,

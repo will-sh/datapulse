@@ -252,18 +252,20 @@ python3 scripts/cai_upload_files.py
 # 1) discover — 打印 HMS / warehouse / Kafka 配置
 python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode discover
 
-# 2) bootstrap — 创建 Iceberg 表
+# 2) bootstrap — 创建 Iceberg 表（需要 sparkconnect addon）
 python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode bootstrap
 
-# 3) batch — 跑一轮 micro-batch 写入（测通写入路径）
+# 3) batch — 跑一轮 micro-batch 写入
 python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode batch
 
 # 4) verify — 查表行数与样例
 python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode verify
 ```
 
-Job 脚本：`scripts/cai_lakehouse_ingest_job.py` → `jobs/kafka_to_iceberg.py`  
-Runtime Addon：`sparkconnect354-731-26` + `hadoop-cli-7.3.1.709-1`
+Job 入口：`scripts/cai_lakehouse_discover_only.py` → `jobs/kafka_to_iceberg.py`  
+注意：CAI PBJ runtime 的 Job 脚本不要使用 `raise SystemExit()`，否则 UI 会显示 `ENGINE_FAILED`。
+
+Runtime Addon：`discover` 仅 `hadoop-cli-7.3.1.709-1`；`bootstrap/batch/stream/verify` 额外加 `sparkconnect354-731-26`
 
 常用 Lakehouse 环境变量（可在 `--env KEY=VALUE` 覆盖）：
 
