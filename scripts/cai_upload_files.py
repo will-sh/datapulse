@@ -39,6 +39,7 @@ FILES = [
     "templates/features.html",
     "templates/pricing.html",
     "templates/playground.html",
+    "templates/experience_doc.html",
     "monitoring/DataPulseExporter.py",
     "monitoring/relay/placeholder.txt",
     "datapulse.env",

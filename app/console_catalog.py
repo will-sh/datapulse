@@ -96,28 +96,61 @@ def catalog_meta() -> dict[str, Any]:
     }
 
 
+def _blueprint_index() -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for blueprint in load_catalog().get("blueprints") or []:
+        if isinstance(blueprint, dict) and blueprint.get("name"):
+            index[str(blueprint["name"])] = blueprint
+    return index
+
+
+def _blueprint_key_for_experience(name: str) -> str | None:
+    if name.startswith("lakehouse-bp"):
+        return "cloudera-lakehouse-engine"
+    if name.startswith("csm-bp"):
+        return "csm"
+    if name.startswith("cai-bp") or name == "cai-bp":
+        return "cai"
+    return None
+
+
+def _experience_record(raw: dict[str, Any]) -> dict[str, Any]:
+    name = str(raw.get("name") or "")
+    experience_id = str(raw.get("id") or name)
+    blueprint_key = _blueprint_key_for_experience(name)
+    blueprint = _blueprint_index().get(blueprint_key or "", {})
+    return {
+        "id": experience_id,
+        "name": name,
+        "title": str(raw.get("appName") or name),
+        "description": str(blueprint.get("description") or ""),
+        "blueprint_name": str(blueprint.get("displayName") or raw.get("appName") or ""),
+        "blueprint_id": str(blueprint.get("name") or blueprint_key or ""),
+        "status": str(raw.get("status") or "unknown"),
+        "cluster": str(raw.get("clusterName") or ""),
+        "cluster_id": str(raw.get("clusterId") or ""),
+        "version": str(raw.get("version") or ""),
+        "provider": str(raw.get("cloudCredentialProvider") or ""),
+        "credential": str(raw.get("cloudCredentialName") or ""),
+        "created_on": str(raw.get("createdOn") or ""),
+        "doc_path": f"/experiences/{experience_id}",
+    }
+
+
 def marketplace_experiences() -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     for exp in load_catalog().get("experiences") or []:
-        if not isinstance(exp, dict):
-            continue
-        landing = exp.get("landingPageUrl") or ""
-        if isinstance(landing, str) and "," in landing:
-            landing = landing.split(",", 1)[0].strip()
-        items.append(
-            {
-                "id": str(exp.get("id") or exp.get("name") or ""),
-                "name": str(exp.get("name") or ""),
-                "title": str(exp.get("appName") or exp.get("name") or ""),
-                "status": str(exp.get("status") or "unknown"),
-                "cluster": str(exp.get("clusterName") or ""),
-                "version": str(exp.get("version") or ""),
-                "provider": str(exp.get("cloudCredentialProvider") or ""),
-                "landing_url": landing,
-                "created_on": str(exp.get("createdOn") or ""),
-            }
-        )
+        if isinstance(exp, dict):
+            items.append(_experience_record(exp))
     return sorted(items, key=lambda item: item["created_on"], reverse=True)
+
+
+def get_experience(experience_key: str) -> dict[str, Any] | None:
+    key = experience_key.strip()
+    for exp in marketplace_experiences():
+        if exp["id"] == key or exp["name"] == key:
+            return exp
+    return None
 
 
 def marketplace_engines() -> list[dict[str, Any]]:
@@ -185,17 +218,20 @@ def playground_blueprints(limit: int = 3) -> list[dict[str, Any]]:
 
 
 def playground_deploy_targets(limit: int = 3) -> list[dict[str, Any]]:
-    engines = marketplace_engines()
-    preferred_names = ("kafka-plugin", "trino-engine", "cai-plugin")
-    selected: list[dict[str, Any]] = []
-    by_name = {engine["id"]: engine for engine in engines}
-    for name in preferred_names:
-        if name in by_name:
-            selected.append(by_name[name])
-    for engine in engines:
-        if engine["id"] in {item["id"] for item in selected}:
+    seen_titles: set[str] = set()
+    items: list[dict[str, Any]] = []
+    for exp in marketplace_experiences():
+        if exp["title"] in seen_titles:
             continue
-        selected.append(engine)
-        if len(selected) >= limit:
+        seen_titles.add(exp["title"])
+        items.append(
+            {
+                "id": exp["name"],
+                "title": exp["title"],
+                "description": exp["description"],
+                "version": exp["version"],
+            }
+        )
+        if len(items) >= limit:
             break
-    return selected[:limit]
+    return items

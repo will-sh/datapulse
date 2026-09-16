@@ -645,6 +645,75 @@ code {
   gap: 0.65rem;
 }
 
+.experience-card-link {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.experience-card-link:hover {
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.experience-desc {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+.experience-doc-cta {
+  margin-top: auto;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.doc-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.doc-summary p,
+.doc-placeholder p,
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.doc-details {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.doc-details div {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.doc-details dt {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.doc-details dd {
+  margin: 0;
+}
+
 .experience-card.experience-active {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}{{ experience.title }} — Marketplace — {{ settings.app_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a href="/features" class="back-link" data-track="experience_doc_back" data-track-props='{{ {"experience_id": experience.id} | tojson }}'>← Back to Marketplace</a>
+  <span class="badge badge-primary">Experience Documentation</span>
+  <h1>{{ experience.title }}</h1>
+  <p class="page-desc">
+    <code>{{ experience.name }}</code>
+    {% if experience.version %} · v{{ experience.version }}{% endif %}
+    {% if experience.status %} · {{ experience.status }}{% endif %}
+  </p>
+</div>
+
+<div class="doc-layout">
+  <section class="card doc-summary">
+    <h2>Overview</h2>
+    {% if experience.description %}
+    <p>{{ experience.description }}</p>
+    {% else %}
+    <p class="text-muted">No description available for this experience.</p>
+    {% endif %}
+  </section>
+
+  <section class="card doc-meta">
+    <h2>Deployment details</h2>
+    <dl class="doc-details">
+      <div><dt>Experience ID</dt><dd><code>{{ experience.id }}</code></dd></div>
+      <div><dt>Instance name</dt><dd><code>{{ experience.name }}</code></dd></div>
+      <div><dt>Blueprint</dt><dd>{{ experience.blueprint_name }}{% if experience.blueprint_id %} (<code>{{ experience.blueprint_id }}</code>){% endif %}</dd></div>
+      <div><dt>Status</dt><dd>{{ experience.status }}</dd></div>
+      <div><dt>Version</dt><dd>{{ experience.version or "—" }}</dd></div>
+      <div><dt>Cluster</dt><dd>{{ experience.cluster or "—" }}</dd></div>
+      <div><dt>Cloud</dt><dd>{{ experience.provider or "—" }}{% if experience.credential %} · {{ experience.credential }}{% endif %}</dd></div>
+      <div><dt>Created</dt><dd>{{ experience.created_on or "—" }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="card doc-placeholder">
+    <h2>Documentation</h2>
+    <p class="text-muted">
+      Product documentation for this experience will be expanded here — architecture notes,
+      getting started, and operational guidance aligned with AWC Console.
+    </p>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    DataPulse.capture("experience_doc_viewed", {
+      experience_id: {{ experience.id | tojson }},
+      experience_name: {{ experience.name | tojson }},
+      blueprint_id: {{ experience.blueprint_id | tojson }},
+    });
+  });
+</script>
+{% endblock %}

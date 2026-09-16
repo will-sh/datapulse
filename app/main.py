@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -9,8 +9,8 @@ from app.api.events import capture_router, router as events_router
 from app.console_catalog import (
     blueprint_plans,
     catalog_meta,
-    marketplace_engines,
     marketplace_experiences,
+    get_experience,
     playground_blueprints,
     playground_deploy_targets,
 )
@@ -78,7 +78,22 @@ async def features(request: Request) -> HTMLResponse:
             request,
             catalog=catalog_meta(),
             experiences=marketplace_experiences(),
-            engines=marketplace_engines(),
+        ),
+    )
+
+
+@app.get("/experiences/{experience_key}", response_class=HTMLResponse)
+async def experience_doc(request: Request, experience_key: str) -> HTMLResponse:
+    experience = get_experience(experience_key)
+    if experience is None:
+        raise HTTPException(status_code=404, detail="Experience not found")
+    return templates.TemplateResponse(
+        request,
+        "experience_doc.html",
+        template_context(
+            request,
+            catalog=catalog_meta(),
+            experience=experience,
         ),
     )
 

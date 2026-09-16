@@ -5,136 +5,39 @@
 {% block content %}
 <div class="page-header">
   <span class="badge badge-primary">Anywhere Cloud Marketplace</span>
-  <h1>Console 真实目录与已部署 Experiences</h1>
+  <h1>Deployed Experiences</h1>
   <p class="page-desc">
-    数据来自 AWC Console API（
+    与 AWC Console Marketplace 一致，展示当前环境中已部署的 Experiences。
     {% if catalog.synced_at %}
-    同步于 {{ catalog.synced_at }} · {{ catalog.experience_count }} experiences · {{ catalog.engine_count }} engines
-    {% else %}
-    尚未同步 — 请运行 <code>scripts/sync_console_catalog.py</code>
+    同步于 {{ catalog.synced_at }} · {{ catalog.experience_count }} 项
     {% endif %}
-    ）。浏览引擎或查看已部署 Experience 会触发 DataPulse 事件。
   </p>
 </div>
 
-<section class="catalog-section">
-  <div class="section-heading">
-    <h2>Deployed Experiences</h2>
-    <p class="section-lead">来自 <code>/api/v0/console/experiences</code> — 当前环境中已部署的服务实例。</p>
-  </div>
-  <div class="experience-grid">
-    {% for exp in experiences %}
-    <div class="card experience-card" data-experience-id="{{ exp.id }}">
-      <div class="experience-header">
-        <span class="status-badge status-{{ exp.status }}">{{ exp.status }}</span>
-        {% if exp.version %}
-        <span class="version-tag">v{{ exp.version }}</span>
-        {% endif %}
-      </div>
-      <h3 class="experience-title">{{ exp.title }}</h3>
-      <p class="experience-name"><code>{{ exp.name }}</code></p>
-      <ul class="experience-meta">
-        {% if exp.cluster %}<li>Cluster: {{ exp.cluster }}</li>{% endif %}
-        {% if exp.provider %}<li>Cloud: {{ exp.provider }}</li>{% endif %}
-      </ul>
-      <div class="experience-actions">
-        {% if exp.landing_url %}
-        <a href="{{ exp.landing_url }}" target="_blank" rel="noopener" class="btn btn-outline btn-sm"
-           data-track="experience_opened"
-           data-track-props='{"experience_id":"{{ exp.id }}","experience_name":"{{ exp.name }}","app":"{{ exp.title | e }}"}'>
-          Open Experience
-        </a>
-        {% endif %}
-        <button type="button" class="btn btn-primary btn-sm experience-toggle"
-                data-experience-id="{{ exp.id }}"
-                data-experience-name="{{ exp.name }}"
-                data-track="experience_selected"
-                data-track-props='{"experience_id":"{{ exp.id }}","experience_name":"{{ exp.name }}"}'>
-          标记关注
-        </button>
-      </div>
+<div class="experience-grid">
+  {% for exp in experiences %}
+  <a href="{{ exp.doc_path }}" class="card experience-card experience-card-link"
+     data-track="experience_doc_opened"
+     data-track-props='{{ {"experience_id": exp.id, "experience_name": exp.name, "app": exp.title} | tojson }}'>
+    <div class="experience-header">
+      <span class="status-badge status-{{ exp.status }}">{{ exp.status }}</span>
+      {% if exp.version %}
+      <span class="version-tag">v{{ exp.version }}</span>
+      {% endif %}
     </div>
-    {% else %}
-    <p class="event-empty">暂无 Experience 数据。</p>
-    {% endfor %}
-  </div>
-</section>
-
-<section class="catalog-section">
-  <div class="section-heading">
-    <h2>Available Engines</h2>
-    <p class="section-lead">来自 <code>/api/v0/console/engines</code> — Marketplace 可部署引擎目录。</p>
-  </div>
-  <div class="feature-grid">
-    {% for engine in engines %}
-    <div class="card feature-card marketplace-card" data-engine-id="{{ engine.id }}">
-      <p class="service-category">{{ engine.category }}{% if engine.version %} · v{{ engine.version }}{% endif %}</p>
-      <div class="feature-icon">{{ engine.icon }}</div>
-      <h2 class="feature-title">{{ engine.title }}</h2>
-      <p class="feature-desc">{{ engine.description }}</p>
-      <p class="engine-id-line"><code>{{ engine.id }}</code></p>
-      <button
-        type="button"
-        class="btn btn-outline feature-toggle"
-        data-feature-id="{{ engine.id }}"
-        data-feature-title="{{ engine.title }}"
-        data-track="marketplace_engine_viewed"
-        data-track-props='{"engine":"{{ engine.id }}","action":"toggle_interest"}'
-      >
-        标记感兴趣
-      </button>
-    </div>
-    {% endfor %}
-  </div>
-</section>
-{% endblock %}
-
-{% block scripts %}
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const interested = new Set();
-
-    document.querySelectorAll(".feature-toggle").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.featureId;
-        const title = btn.dataset.featureTitle;
-        const card = btn.closest(".feature-card");
-        const wasInterested = interested.has(id);
-
-        if (wasInterested) {
-          interested.delete(id);
-          btn.textContent = "标记感兴趣";
-          btn.classList.remove("btn-primary");
-          btn.classList.add("btn-outline");
-          card.classList.remove("feature-active");
-        } else {
-          interested.add(id);
-          btn.textContent = "已加入关注";
-          btn.classList.remove("btn-outline");
-          btn.classList.add("btn-primary");
-          card.classList.add("feature-active");
-        }
-
-        DataPulse.trackEvent("marketplace_engine_interest", {
-          engine_id: id,
-          engine_title: title,
-          interested: !wasInterested,
-        });
-      });
-    });
-
-    document.querySelectorAll(".experience-toggle").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const card = btn.closest(".experience-card");
-        const active = card.classList.toggle("experience-active");
-        btn.textContent = active ? "已关注" : "标记关注";
-        DataPulse.trackEvent("experience_interest_toggled", {
-          experience_id: btn.dataset.experienceId,
-          experience_name: btn.dataset.experienceName,
-          interested: active,
-        });
-      });
-    });
-  });
-</script>
+    <h3 class="experience-title">{{ exp.title }}</h3>
+    <p class="experience-name"><code>{{ exp.name }}</code></p>
+    {% if exp.description %}
+    <p class="experience-desc">{{ exp.description }}</p>
+    {% endif %}
+    <ul class="experience-meta">
+      {% if exp.cluster %}<li>Cluster: {{ exp.cluster }}</li>{% endif %}
+      {% if exp.provider %}<li>Cloud: {{ exp.provider }}</li>{% endif %}
+    </ul>
+    <span class="experience-doc-cta">View documentation →</span>
+  </a>
+  {% else %}
+  <p class="event-empty">暂无 Experience 数据。请运行 <code>scripts/sync_console_catalog.py</code> 同步 Console 目录。</p>
+  {% endfor %}
+</div>
 {% endblock %}
