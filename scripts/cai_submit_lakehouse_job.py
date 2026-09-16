@@ -26,8 +26,9 @@ DEFAULT_RUNTIME = (
 DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 # sparkconnect354 alone works; combining it with hadoop-cli breaks CAI Job engine startup.
 SPARK_ADDONS = ["sparkconnect354-731-26"]
-SPARK_MODES = {"bootstrap", "batch", "stream", "verify"}
+SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
+JOB_ID = os.getenv("CAI_LAKEHOUSE_JOB_ID", "4i8v-y6x8-2nsp-8ctv")
 JOB_SCRIPT = "scripts/cai_lakehouse_discover_only.py"
 
 DEFAULT_ENV = {
@@ -97,10 +98,17 @@ def list_jobs() -> list[dict[str, Any]]:
 
 
 def find_job(name: str) -> dict[str, Any] | None:
+    preferred_id = os.getenv("CAI_LAKEHOUSE_JOB_ID", JOB_ID)
+    preferred: dict[str, Any] | None = None
+    fallback: dict[str, Any] | None = None
     for job in list_jobs():
-        if job.get("name") == name:
-            return job
-    return None
+        if job.get("name") != name:
+            continue
+        if str(job.get("id")) == preferred_id:
+            preferred = job
+        elif fallback is None:
+            fallback = job
+    return preferred or fallback
 
 
 def parse_environment(raw: Any) -> dict[str, str]:
@@ -248,7 +256,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mode",
         default="discover",
-        choices=("discover", "bootstrap", "batch", "stream", "verify"),
+        choices=("discover", "bootstrap", "batch", "stream", "verify", "spark-probe"),
         help="passed to jobs/kafka_to_iceberg.py via LAKEHOUSE_JOB_MODE",
     )
     parser.add_argument(

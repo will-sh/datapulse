@@ -190,6 +190,7 @@ def _write_batch_to_iceberg(batch_df, batch_id: int, settings) -> None:
 
 def bootstrap_table() -> int:
     spark, settings = _create_lakehouse_spark_session()
+    print(f"Spark session ready: version={spark.version} url={_env('SPARK_CONNECT_URL')}")
     _ensure_table(spark, settings)
     _print_json(
         "bootstrap",
@@ -294,8 +295,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Kafka -> Iceberg lakehouse ingest job")
     parser.add_argument(
         "mode",
-        choices=("discover", "bootstrap", "batch", "stream", "verify"),
-        help="discover env, create table, one-shot batch ingest, continuous stream, or verify table",
+        choices=("discover", "bootstrap", "batch", "stream", "verify", "spark-probe"),
+        help="discover env, create table, one-shot batch ingest, continuous stream, verify table, or spark connect probe",
     )
     parser.add_argument("--max-batches", type=int, default=1)
     parser.add_argument("--timeout-sec", type=int, default=600)
@@ -303,10 +304,26 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def spark_probe() -> int:
+    spark, settings = _create_lakehouse_spark_session()
+    _print_json(
+        "spark-probe",
+        {
+            "spark_version": spark.version,
+            "spark_connect_url": _env("SPARK_CONNECT_URL"),
+            "qualified_table": settings.qualified_table,
+        },
+    )
+    spark.stop()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.mode == "discover":
         return discover_environment()
+    if args.mode == "spark-probe":
+        return spark_probe()
     if args.mode == "bootstrap":
         return bootstrap_table()
     if args.mode == "batch":

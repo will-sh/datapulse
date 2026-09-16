@@ -68,7 +68,7 @@ def configure_spark_connect_python() -> None:
 
 
 def _spark_connect_host() -> str:
-    return os.getenv("SPARK_CONNECT_HOST") or os.getenv("CDSW_IP_ADDRESS") or "127.0.0.1"
+    return os.getenv("SPARK_CONNECT_HOST") or "127.0.0.1"
 
 
 def _resolve_spark_connect_port() -> tuple[str, str]:
