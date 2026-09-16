@@ -3,12 +3,16 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
+import traceback
 import zipfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(os.getcwd())
+LOG_PATH = ROOT / "config" / "lakehouse" / "last-job-run.json"
 SPARK_CONNECT_ZIP = Path("/opt/spark-connect/spark_connect.zip")
 SPARK_CONNECT_NATIVE = Path("/opt/spark-connect/native")
 SPARK_CONNECT_DIR = Path("/tmp/spark-connect-unpack")
@@ -73,14 +77,20 @@ def ensure_kafka_config_dir() -> None:
             print(f"copied {src} -> {dst}")
 
 
-def main() -> int:
+def write_run_log(payload: dict[str, object]) -> None:
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload.setdefault("timestamp", datetime.now(UTC).isoformat())
+    LOG_PATH.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+
+
+def run_job() -> int:
     _prepend_sys_path()
     configure_spark_connect_python()
     detect_spark_connect_url()
     ensure_kafka_config_dir()
 
     mode = os.getenv("LAKEHOUSE_JOB_MODE") or (sys.argv[1] if len(sys.argv) > 1 else "discover")
-    extra_args = []
+    extra_args: list[str] = []
     raw_args = os.getenv("LAKEHOUSE_JOB_EXTRA_ARGS", "").strip()
     if raw_args:
         extra_args.extend(raw_args.split())
@@ -96,5 +106,19 @@ def main() -> int:
     return job_main([mode, *extra_args])
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+try:
+    exit_code = run_job()
+    write_run_log({"status": "ok" if exit_code == 0 else "failed", "exit_code": exit_code})
+    if exit_code != 0:
+        raise RuntimeError(f"lakehouse job failed with exit code {exit_code}")
+except Exception as exc:  # noqa: BLE001
+    write_run_log(
+        {
+            "status": "error",
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+            "argv": sys.argv,
+            "mode": os.getenv("LAKEHOUSE_JOB_MODE", ""),
+        }
+    )
+    raise

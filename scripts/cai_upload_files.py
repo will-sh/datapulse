@@ -61,6 +61,7 @@ FILES = [
     "jobs/kafka_to_iceberg.py",
     "scripts/cai_lakehouse_ingest_job.py",
     "scripts/cai_submit_lakehouse_job.py",
+    "scripts/cai_lakehouse_job_probe.py",
     "config/lakehouse/.gitkeep",
 ]
 

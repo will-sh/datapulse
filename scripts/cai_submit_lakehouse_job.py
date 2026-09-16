@@ -23,7 +23,9 @@ CAI_KEY = os.getenv("CAI_KEY", os.getenv("CDSW_APIV2_KEY", ""))
 DEFAULT_RUNTIME = (
     "container.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-workbench-python3.11-hardened:2026.04.2-b16"
 )
-DEFAULT_ADDONS = ["sparkconnect354-731-26", "hadoop-cli-7.3.1.709-1"]
+DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
+SPARK_ADDONS = ["sparkconnect354-731-26", "hadoop-cli-7.3.1.709-1"]
+SPARK_MODES = {"bootstrap", "batch", "stream", "verify"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
 JOB_SCRIPT = "scripts/cai_lakehouse_ingest_job.py"
 
@@ -129,6 +131,10 @@ def fetch_kafka_env_from_consumer() -> dict[str, str]:
     return {}
 
 
+def addons_for_mode(mode: str) -> list[str]:
+    return SPARK_ADDONS if mode in SPARK_MODES else DEFAULT_ADDONS
+
+
 def build_job_payload(mode: str, extra_env: dict[str, str] | None = None) -> dict[str, Any]:
     environment = dict(DEFAULT_ENV)
     environment.update(fetch_kafka_env_from_consumer())
@@ -136,6 +142,7 @@ def build_job_payload(mode: str, extra_env: dict[str, str] | None = None) -> dic
         environment.update(extra_env)
     environment["LAKEHOUSE_JOB_MODE"] = mode
     environment["LAKEHOUSE_JOB_ARGS"] = mode
+    addons = addons_for_mode(mode)
 
     return {
         "name": JOB_NAME,
@@ -146,7 +153,7 @@ def build_job_payload(mode: str, extra_env: dict[str, str] | None = None) -> dic
         "type": "manual",
         "timeout": str(WAIT_TIMEOUT),
         "runtime_identifier": DEFAULT_RUNTIME,
-        "runtime_addon_identifiers": DEFAULT_ADDONS,
+        "runtime_addon_identifiers": addons,
         "environment": environment,
     }
 
@@ -162,7 +169,7 @@ def create_job(mode: str, extra_env: dict[str, str] | None = None) -> dict[str, 
 def update_job(job_id: str, mode: str, extra_env: dict[str, str] | None = None) -> dict[str, Any]:
     payload = build_job_payload(mode, extra_env)
     status, response = api_request(
-        "PUT",
+        "PATCH",
         f"/api/v2/projects/{CAI_PID}/jobs/{job_id}",
         payload,
         timeout=120,
