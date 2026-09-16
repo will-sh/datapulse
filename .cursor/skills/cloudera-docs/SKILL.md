@@ -25,8 +25,9 @@ Public Runtime / Iceberg (applies to catalog config):
 
 1. Read [doc-catalog.md](references/doc-catalog.md) for curated links by topic.
 2. For **Iceberg + HMS from CAI**, read [lakehouse-hms-from-cai.md](references/lakehouse-hms-from-cai.md) first — it maps official guidance to DataPulse job code.
-3. Public pages: fetch with WebFetch/curl (no auth).
-4. Beta pages: **HTTP Basic Auth does not work** (returns Sign-in HTML). Open in browser after SSO login, or copy relevant sections into repo notes.
+3. For **Ranger Trino impersonation denials** (`SetUser` / `impersonate` in audit), read [ranger-trino-impersonation.md](references/ranger-trino-impersonation.md).
+4. Public pages: fetch with WebFetch/curl (no auth).
+5. Beta pages: **HTTP Basic Auth does not work** (returns Sign-in HTML). Open in browser after SSO login, or copy relevant sections into repo notes.
 
 ## Beta doc access (required for test docs)
 

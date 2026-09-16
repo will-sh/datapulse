@@ -26,6 +26,15 @@
 | Using Iceberg with Spark (PDF) | https://docs.cloudera.com/runtime/7.3.1/spark-iceberg/spark-iceberg.pdf |
 | Open Data Lakehouse overview (PDF) | https://docs.cloudera.com/cdp-private-cloud-base/7.1.9/lakehouse-overview/private-cloud-open-data-lakehouse.pdf |
 
+## Ranger + Trino (authorization)
+
+| Topic | URL |
+|-------|-----|
+| cm_trino user impersonation (Cloudera) | https://docs.cloudera.com/data-warehouse/cloud/managing-warehouses/topics/dw-trino-ranger-user-impersonation.html |
+| Trino Ranger required policies | https://trino.io/docs/current/security/ranger-access-control.html |
+| DWX-22659 known issue (impersonation defaults) | https://docs.cloudera.com/data-warehouse/cloud/release-notes/topics/dw-trino-public-cloud-known-issues-r44.html |
+| DataPulse gap analysis | [ranger-trino-impersonation.md](ranger-trino-impersonation.md) |
+
 ## Cloudera Data Engineering (reference — Iceberg jobs on VC)
 
 | Topic | URL |
