@@ -5,10 +5,13 @@
 {% block content %}
 <div class="page-header page-header-center">
   <span class="badge badge-primary">AWC Blueprints</span>
-  <h1>治理批准的架构模板</h1>
+  <h1>Console 真实 Blueprint 目录</h1>
   <p class="page-desc">
-    选择 Blueprint 模拟企业客户从评估到启动的路径。每次选择触发
-    <code>plan_selected</code> 转化事件（properties 含 blueprint 信息）。
+    数据来自 <code>/api/v0/console/blueprints</code>
+    {% if catalog.synced_at %}
+    （{{ catalog.blueprint_count }} 个模板 · 同步于 {{ catalog.synced_at }}）
+    {% endif %}
+    。选择 Blueprint 触发 <code>plan_selected</code> 转化事件。
   </p>
 </div>
 
@@ -16,11 +19,11 @@
   {% for plan in plans %}
   <div class="card pricing-card blueprint-card{% if plan.popular %} pricing-popular{% endif %}" data-plan-id="{{ plan.id }}">
     {% if plan.popular %}
-    <span class="badge badge-primary">推荐</span>
+    <span class="badge badge-primary">常用</span>
     {% endif %}
+    <p class="blueprint-id-line"><code>{{ plan.id }}</code></p>
     <h2>{{ plan.name }}</h2>
     <p class="plan-desc">{{ plan.description }}</p>
-    <p class="blueprint-outcome">{{ plan.outcome }}</p>
     <ul class="plan-features">
       {% for feature in plan.features %}
       <li>✓ {{ feature }}</li>
@@ -37,6 +40,8 @@
       选择 Blueprint
     </button>
   </div>
+  {% else %}
+  <p class="event-empty">暂无 Blueprint 数据。</p>
   {% endfor %}
 </div>
 {% endblock %}

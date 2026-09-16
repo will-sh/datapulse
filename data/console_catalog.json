@@ -1,0 +1,820 @@
+{
+  "synced_at": "2026-09-16T03:13:07Z",
+  "console_url": "https://console.readygo.a70735.test.cldr.work",
+  "experiences": [
+    {
+      "id": "deploy-016",
+      "name": "lakehouse-bp-trino",
+      "appName": "Cloudera Lakehouse Engine - Integrated",
+      "clusterId": "cluster-005",
+      "clusterName": "cldr-csk-lakehouse",
+      "status": "deployed",
+      "version": "1.6.0",
+      "statusReason": "",
+      "landingPageUrl": "https://lakehouse-bp-556b64-admin.cldr-csk-lakehouse.a70735.test.cldr.work",
+      "cloudCredentialName": "AWS : readygo-aws",
+      "cloudCredentialProvider": "AWS",
+      "createdOn": "2026-09-15T06:58:46Z"
+    },
+    {
+      "id": "deploy-015",
+      "name": "lakehouse-bp-hms",
+      "appName": "Cloudera Lakehouse Engine - Integrated",
+      "clusterId": "cluster-005",
+      "clusterName": "cldr-csk-lakehouse",
+      "status": "deployed",
+      "version": "1.6.0",
+      "statusReason": "",
+      "cloudCredentialName": "AWS : readygo-aws",
+      "cloudCredentialProvider": "AWS",
+      "createdOn": "2026-09-15T07:01:16Z"
+    },
+    {
+      "id": "deploy-014",
+      "name": "lakehouse-bp-udf",
+      "appName": "Cloudera Lakehouse Engine - Integrated",
+      "clusterId": "cluster-005",
+      "clusterName": "cldr-csk-lakehouse",
+      "status": "deployed",
+      "version": "1.6.0",
+      "statusReason": "",
+      "landingPageUrl": "https://ranger.lakehouse-bp-6b4b81.cldr-csk-lakehouse.a70735.test.cldr.work/,https://atlas.lakehouse-bp-6b4b81.cldr-csk-lakehouse.a70735.test.cldr.work",
+      "cloudCredentialName": "AWS : readygo-aws",
+      "cloudCredentialProvider": "AWS",
+      "createdOn": "2026-09-15T07:05:16Z"
+    },
+    {
+      "id": "deploy-013",
+      "name": "lakehouse-bp-ozone",
+      "appName": "Cloudera Lakehouse Engine - Integrated",
+      "clusterId": "cluster-005",
+      "clusterName": "cldr-csk-lakehouse",
+      "status": "deployed",
+      "version": "1.6.0",
+      "statusReason": "",
+      "landingPageUrl": "http://lakehouse-bp-ozone-s3gateway.lakehouse-bp-b05257.svc.cluster.local:9878,https://lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work",
+      "cloudCredentialName": "AWS : readygo-aws",
+      "cloudCredentialProvider": "AWS",
+      "createdOn": "2026-09-15T06:57:16Z"
+    },
+    {
+      "id": "deploy-004",
+      "name": "csm-bp-udf",
+      "appName": "Cloudera Streams Messaging",
+      "clusterId": "cluster-002",
+      "clusterName": "cldr-csk-csm-1",
+      "status": "deployed",
+      "version": "1.6.0",
+      "statusReason": "",
+      "landingPageUrl": "https://ranger.csm-bp-udf-0ff5c4.cldr-csk-csm-1.a70735.test.cldr.work/,https://atlas.csm-bp-udf-0ff5c4.cldr-csk-csm-1.a70735.test.cldr.work",
+      "cloudCredentialName": "AWS : readygo-aws",
+      "cloudCredentialProvider": "AWS",
+      "createdOn": "2026-09-12T01:52:19Z"
+    },
+    {
+      "id": "deploy-003",
+      "name": "csm-bp-surveyor",
+      "appName": "Cloudera Streams Messaging",
+      "clusterId": "cluster-002",
+      "clusterName": "cldr-csk-csm-1",
+      "status": "deployed",
+      "version": "1.6.0",
+      "statusReason": "",
+      "landingPageUrl": "https://csm-bp-surveyor.csm-bp-surve-2b8b31.cldr-csk-csm-1.a70735.test.cldr.work",
+      "cloudCredentialName": "AWS : readygo-aws",
+      "cloudCredentialProvider": "AWS",
+      "createdOn": "2026-09-12T01:35:19Z"
+    },
+    {
+      "id": "deploy-002",
+      "name": "csm-bp-kafka",
+      "appName": "Cloudera Streams Messaging",
+      "clusterId": "cluster-002",
+      "clusterName": "cldr-csk-csm-1",
+      "status": "deployed",
+      "version": "1.6.0",
+      "statusReason": "",
+      "landingPageUrl": "https://csm-bp-kafka.cldr-csk-csm-1.a70735.test.cldr.work:8443",
+      "cloudCredentialName": "AWS : readygo-aws",
+      "cloudCredentialProvider": "AWS",
+      "createdOn": "2026-09-12T01:39:49Z"
+    },
+    {
+      "id": "deploy-001",
+      "name": "cai-bp",
+      "appName": "Cloudera AI",
+      "clusterId": "cluster-001",
+      "clusterName": "cldr-csk-cai-readygo",
+      "status": "deployed",
+      "version": "1.6.0",
+      "statusReason": "",
+      "landingPageUrl": "https://cai-bp-cai-fe595b.cldr-csk-cai-readygo.a70735.test.cldr.work",
+      "cloudCredentialName": "AWS : readygo-aws",
+      "cloudCredentialProvider": "AWS",
+      "createdOn": "2026-09-11T03:46:06Z"
+    }
+  ],
+  "engines": [
+    {
+      "engineId": 1,
+      "name": "cadence-engine",
+      "displayName": "Cadence Workflow Engine",
+      "description": "Cadence workflow orchestration engine for data services",
+      "latestVersion": "1.3.6",
+      "versions": [
+        {
+          "versionId": 2,
+          "version": "1.3.6",
+          "displayName": "Cadence Workflow Engine",
+          "description": "Cadence workflow orchestration engine for data services",
+          "requiresEmbeddedRegistry": false
+        },
+        {
+          "versionId": 29,
+          "version": "1.3.4",
+          "displayName": "Cadence Workflow Engine",
+          "description": "Cadence workflow orchestration engine for data services",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 2,
+      "name": "cai-base-connected-plugin",
+      "displayName": "Cloudera AI with Base Connector",
+      "description": "Cloudera AI Control Plane engine with Cloudera Base.",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 1,
+          "version": "1.6.0",
+          "displayName": "Cloudera AI with Base Connector",
+          "description": "Cloudera AI Control Plane engine with Cloudera Base.",
+          "requiresEmbeddedRegistry": true
+        }
+      ]
+    },
+    {
+      "engineId": 3,
+      "name": "cai-plugin",
+      "displayName": "Cloudera AI Control Plane",
+      "description": "Cloudera AI Control Plane engine.",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 3,
+          "version": "1.6.0",
+          "displayName": "Cloudera AI Control Plane",
+          "description": "Cloudera AI Control Plane engine.",
+          "requiresEmbeddedRegistry": true
+        }
+      ]
+    },
+    {
+      "engineId": 4,
+      "name": "cde-cdp-base-connected-engine",
+      "displayName": "Cloudera Data Engineering with Cloudera Base Connector",
+      "description": "Self-service data engineering service for creating, managing, and scheduling Apache Spark jobs at scale",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 8,
+          "version": "1.6.0",
+          "displayName": "Cloudera Data Engineering with Cloudera Base Connector",
+          "description": "Self-service data engineering service for creating, managing, and scheduling Apache Spark jobs at scale",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 5,
+      "name": "cde-udf-engine",
+      "displayName": "Cloudera Data Engineering",
+      "description": "Self-service data engineering service for creating, managing, and scheduling Apache Spark jobs at scale.",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 4,
+          "version": "1.6.0",
+          "displayName": "Cloudera Data Engineering",
+          "description": "Self-service data engineering service for creating, managing, and scheduling Apache Spark jobs at scale.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 6,
+      "name": "cdf",
+      "displayName": "Cloudera Data Flow",
+      "description": "Visually design and monitor enterprise-grade data pipelines with a fully managed, auto-scaling service built on Apache NiFi.\n",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 5,
+          "version": "1.6.0",
+          "displayName": "Cloudera Data Flow",
+          "description": "Visually design and monitor enterprise-grade data pipelines with a fully managed, auto-scaling service built on Apache NiFi.\n",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 7,
+      "name": "cdp-base-connector-plugin",
+      "displayName": "Cloudera Base Connector",
+      "description": "The Cloudera Base Connector installs Cloudera Manager credential Secrets and a CdpBaseConnector Custom Resource  (CR) in the EngineInstance namespace. Simultaneously, in a separate namespace, the  cdp-base-connector-operator deploys the Custom Resource Definition (CRD) through Helm.  This operator polls Cloudera Manager to publish the necessary Configuration Maps (ConfigMaps) and the  kerberos-hive-conf keytab, which are required for secure cluster authentication. Sensitive config (cmPassword, cmCaBundleBase64) is supplied via the ACE-managed {EngineInstance}-config-secrets Secret and merged at render time; cmUsername remains inline in spec.config.",
+      "operator": "cdp-base-connector-operator",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 7,
+          "version": "1.6.0",
+          "displayName": "Cloudera Base Connector",
+          "description": "The Cloudera Base Connector installs Cloudera Manager credential Secrets and a CdpBaseConnector Custom Resource  (CR) in the EngineInstance namespace. Simultaneously, in a separate namespace, the  cdp-base-connector-operator deploys the Custom Resource Definition (CRD) through Helm.  This operator polls Cloudera Manager to publish the necessary Configuration Maps (ConfigMaps) and the  kerberos-hive-conf keytab, which are required for secure cluster authentication. Sensitive config (cmPassword, cmCaBundleBase64) is supplied via the ACE-managed {EngineInstance}-config-secrets Secret and merged at render time; cmUsername remains inline in spec.config.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 8,
+      "name": "cdx-engine",
+      "displayName": "Cloudera Data Explorer",
+      "description": "Cloudera Data Explorer is an interactive data exploration service that enables you to browse, query, and analyze data from multiple sources in a unified interface.",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 6,
+          "version": "1.6.0",
+          "displayName": "Cloudera Data Explorer",
+          "description": "Cloudera Data Explorer is an interactive data exploration service that enables you to browse, query, and analyze data from multiple sources in a unified interface.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 9,
+      "name": "cloudera-streaming-analytics",
+      "displayName": "cloudera-streaming-analytics",
+      "description": "Cloudera Streaming Analytics",
+      "operator": "flink-kubernetes-operator",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 9,
+          "version": "1.6.0",
+          "displayName": "cloudera-streaming-analytics",
+          "description": "Cloudera Streaming Analytics",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 10,
+      "name": "cma-engine",
+      "displayName": "CMA",
+      "description": "Cloudera Migration Assistant",
+      "latestVersion": "1.6.1",
+      "versions": [
+        {
+          "versionId": 13,
+          "version": "1.6.1",
+          "displayName": "CMA",
+          "description": "Cloudera Migration Assistant",
+          "requiresEmbeddedRegistry": false
+        },
+        {
+          "versionId": 27,
+          "version": "1.6.0",
+          "displayName": "CMA",
+          "description": "Cloudera Migration Assistant",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 11,
+      "name": "cwo-engine",
+      "displayName": "Cloudera Workflow Orchestrator",
+      "description": "Managed orchestration service for programmatically authoring, scheduling, and monitoring complex data pipelines across hybrid and multi-cloud, powered by Apache Airflow.",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 10,
+          "version": "1.6.0",
+          "displayName": "Cloudera Workflow Orchestrator",
+          "description": "Managed orchestration service for programmatically authoring, scheduling, and monitoring complex data pipelines across hybrid and multi-cloud, powered by Apache Airflow.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 12,
+      "name": "dataviz-plugin",
+      "displayName": "Cloudera Data Visualization",
+      "description": "Cloudera Data Visualization is a dashboarding and application-building service that enables you to explore data through visuals.",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 11,
+          "version": "1.6.0",
+          "displayName": "Cloudera Data Visualization",
+          "description": "Cloudera Data Visualization is a dashboarding and application-building service that enables you to explore data through visuals.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 13,
+      "name": "hive-metastore-plugin",
+      "displayName": "Hive Metastore",
+      "description": "Hive Metastore service for managing table metadata with PostgreSQL backend.",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 12,
+          "version": "1.6.0",
+          "displayName": "Hive Metastore",
+          "description": "Hive Metastore service for managing table metadata with PostgreSQL backend.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 14,
+      "name": "kafka-plugin",
+      "displayName": "Kafka",
+      "description": "Kafka cluster with KRaft",
+      "operator": "strimzi-kafka-operator",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 14,
+          "version": "1.6.0",
+          "displayName": "Kafka",
+          "description": "Kafka cluster with KRaft",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 15,
+      "name": "ozone-engine",
+      "displayName": "Apache Ozone",
+      "description": "Scalable distributed object storage with S3 compatibility for big data workloads.",
+      "operator": "ozone-operator",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 16,
+          "version": "1.6.0",
+          "displayName": "Apache Ozone",
+          "description": "Scalable distributed object storage with S3 compatibility for big data workloads.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 16,
+      "name": "postgres-plugin",
+      "displayName": "PostgreSQL (CloudNativePG)",
+      "description": "CloudNativePG-based PostgreSQL database cluster with automated user and database provisioning",
+      "operator": "cloudnative-pg",
+      "latestVersion": "18.0.0",
+      "versions": [
+        {
+          "versionId": 15,
+          "version": "18.0.0",
+          "displayName": "PostgreSQL (CloudNativePG)",
+          "description": "CloudNativePG-based PostgreSQL database cluster with automated user and database provisioning",
+          "requiresEmbeddedRegistry": false
+        },
+        {
+          "versionId": 26,
+          "version": "16.0.0",
+          "displayName": "PostgreSQL (CloudNativePG)",
+          "description": "CloudNativePG-based PostgreSQL database cluster with automated user and database provisioning",
+          "requiresEmbeddedRegistry": false
+        },
+        {
+          "versionId": 28,
+          "version": "17.0.0",
+          "displayName": "PostgreSQL (CloudNativePG)",
+          "description": "CloudNativePG-based PostgreSQL database cluster with automated user and database provisioning",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 17,
+      "name": "prometheus-engine",
+      "displayName": "Prometheus",
+      "description": "Standalone Prometheus server for short-term, operational metric storage and querying",
+      "latestVersion": "29.6.0",
+      "versions": [
+        {
+          "versionId": 17,
+          "version": "29.6.0",
+          "displayName": "Prometheus",
+          "description": "Standalone Prometheus server for short-term, operational metric storage and querying",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 18,
+      "name": "secret-management-plugin",
+      "displayName": "Secret Management",
+      "description": "Secret Management Service",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 18,
+          "version": "1.6.0",
+          "displayName": "Secret Management",
+          "description": "Secret Management Service",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 19,
+      "name": "surveyor-plugin",
+      "displayName": "Surveyor",
+      "description": "Cloudera Surveyor is a standalone application that allows you to efficiently monitor and manage your Kafka clusters through a graphical user interface.",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 20,
+          "version": "1.6.0",
+          "displayName": "Surveyor",
+          "description": "Cloudera Surveyor is a standalone application that allows you to efficiently monitor and manage your Kafka clusters through a graphical user interface.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 20,
+      "name": "trino-engine",
+      "displayName": "Trino",
+      "description": "Trino Federation Engine with Hive Metastore and Iceberg catalogs",
+      "operator": "trino",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 21,
+          "version": "1.6.0",
+          "displayName": "Trino",
+          "description": "Trino Federation Engine with Hive Metastore and Iceberg catalogs",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 21,
+      "name": "trino-engine-basic",
+      "displayName": "Trino",
+      "description": "Trino is a high-performance, distributed SQL query engine that enables fast, interactive analytics and seamless data federation across diverse, large-scale data sources.",
+      "operator": "trino",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 19,
+          "version": "1.6.0",
+          "displayName": "Trino",
+          "description": "Trino is a high-performance, distributed SQL query engine that enables fast, interactive analytics and seamless data federation across diverse, large-scale data sources.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 22,
+      "name": "trino-engine-governed",
+      "displayName": "Trino",
+      "description": "Trino is a high-performance, distributed SQL query engine that enables fast, interactive analytics and seamless data federation across diverse, large-scale data sources.",
+      "operator": "trino",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 22,
+          "version": "1.6.0",
+          "displayName": "Trino",
+          "description": "Trino is a high-performance, distributed SQL query engine that enables fast, interactive analytics and seamless data federation across diverse, large-scale data sources.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 23,
+      "name": "udf-plugin",
+      "displayName": "Cloudera Unified Data Fabric",
+      "description": "Cloudera Unified Data Fabric is a metadata management, semantic intelligence, and data governance platform that enables trusted, discoverable, governable, and AI-ready data across distributed environments.",
+      "operator": "udf-crds",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "versionId": 23,
+          "version": "1.6.0",
+          "displayName": "Cloudera Unified Data Fabric",
+          "description": "Cloudera Unified Data Fabric is a metadata management, semantic intelligence, and data governance platform that enables trusted, discoverable, governable, and AI-ready data across distributed environments.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 24,
+      "name": "valkey-engine",
+      "displayName": "Valkey",
+      "description": "Valkey is an open source (BSD) high-performance key/value datastore that supports a variety workloads such as caching, message queues, and can act as a primary database.",
+      "latestVersion": "5.4.9",
+      "versions": [
+        {
+          "versionId": 24,
+          "version": "5.4.9",
+          "displayName": "Valkey",
+          "description": "Valkey is an open source (BSD) high-performance key/value datastore that supports a variety workloads such as caching, message queues, and can act as a primary database.",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    },
+    {
+      "engineId": 25,
+      "name": "yunikorn-engine",
+      "displayName": "YuniKorn",
+      "description": "YuniKorn scheduler",
+      "latestVersion": "1.9.0",
+      "versions": [
+        {
+          "versionId": 25,
+          "version": "1.9.0",
+          "displayName": "YuniKorn",
+          "description": "YuniKorn scheduler",
+          "requiresEmbeddedRegistry": false
+        }
+      ]
+    }
+  ],
+  "blueprints": [
+    {
+      "blueprintId": 1,
+      "name": "cai",
+      "displayName": "Cloudera AI",
+      "description": "Enterprise AI platform to build, deploy, and manage AI models at scale with integrated MLOps capabilities.",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 7,
+          "version": "1.6.0",
+          "displayName": "Cloudera AI",
+          "description": "Enterprise AI platform to build, deploy, and manage AI models at scale with integrated MLOps capabilities."
+        }
+      ]
+    },
+    {
+      "blueprintId": 2,
+      "name": "cai-base-connected",
+      "displayName": "Cloudera AI with Base Connector",
+      "description": "Enterprise AI platform to build, deploy, and manage AI models at scale with integrated MLOps capabilities with Cloudera base connectivity.",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 8,
+          "version": "1.6.0",
+          "displayName": "Cloudera AI with Base Connector",
+          "description": "Enterprise AI platform to build, deploy, and manage AI models at scale with integrated MLOps capabilities with Cloudera base connectivity."
+        }
+      ]
+    },
+    {
+      "blueprintId": 3,
+      "name": "cde-cdp-base-connected",
+      "displayName": "Cloudera Data Engineering with Cloudera Base Connector",
+      "description": "Cloudera Data Engineering integrated with Cloudera Base through Cloudera Manager for Kerberos identity, client configurations, and Data Lake connectivity, with Apache Ozone as S3-compatible object storage for internal logging.",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 2,
+          "version": "1.6.0",
+          "displayName": "Cloudera Data Engineering with Cloudera Base Connector",
+          "description": "Cloudera Data Engineering integrated with Cloudera Base through Cloudera Manager for Kerberos identity, client configurations, and Data Lake connectivity, with Apache Ozone as S3-compatible object storage for internal logging."
+        }
+      ]
+    },
+    {
+      "blueprintId": 4,
+      "name": "cde-udf",
+      "displayName": "Cloudera Data Engineering with Unified Data Fabric",
+      "description": "Cloudera Data Engineering integrates Apache Spark with Unified Data Fabric (Ranger), Hive Metastore, and Apache Ozone for secure, scalable, and policy-enforced job execution.",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 6,
+          "version": "1.6.0",
+          "displayName": "Cloudera Data Engineering with Unified Data Fabric",
+          "description": "Cloudera Data Engineering integrates Apache Spark with Unified Data Fabric (Ranger), Hive Metastore, and Apache Ozone for secure, scalable, and policy-enforced job execution."
+        }
+      ]
+    },
+    {
+      "blueprintId": 5,
+      "name": "cdf",
+      "displayName": "Cloudera Data Flow",
+      "description": "Visually design and monitor enterprise-grade data pipelines with a fully managed, auto-scaling service built on Apache NiFi.\n",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 3,
+          "version": "1.6.0",
+          "displayName": "Cloudera Data Flow",
+          "description": "Visually design and monitor enterprise-grade data pipelines with a fully managed, auto-scaling service built on Apache NiFi.\n"
+        }
+      ]
+    },
+    {
+      "blueprintId": 6,
+      "name": "cdx",
+      "displayName": "Cloudera Data Explorer",
+      "description": "Cloudera Data Explorer is an interactive data exploration service that enables you to browse, query, and analyze data from multiple sources in a unified interface.",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 1,
+          "version": "1.6.0",
+          "displayName": "Cloudera Data Explorer",
+          "description": "Cloudera Data Explorer is an interactive data exploration service that enables you to browse, query, and analyze data from multiple sources in a unified interface."
+        }
+      ]
+    },
+    {
+      "blueprintId": 7,
+      "name": "cloudera-lakehouse-engine",
+      "displayName": "Cloudera Lakehouse Engine - Integrated",
+      "description": "Fully integrated Trino engine with native storage, HMS, and UDF. Features pre-built Hive and Iceberg connectors for unified, governed analytics.",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 5,
+          "version": "1.6.0",
+          "displayName": "Cloudera Lakehouse Engine - Integrated",
+          "description": "Fully integrated Trino engine with native storage, HMS, and UDF. Features pre-built Hive and Iceberg connectors for unified, governed analytics."
+        }
+      ]
+    },
+    {
+      "blueprintId": 8,
+      "name": "cloudera-lakehouse-engine-basic",
+      "displayName": "Cloudera Lakehouse Engine - Basic",
+      "description": "Decoupled Trino engine for fast query federation across external sources. Includes enterprise enhancements with governance managed at the data source.",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 4,
+          "version": "1.6.0",
+          "displayName": "Cloudera Lakehouse Engine - Basic",
+          "description": "Decoupled Trino engine for fast query federation across external sources. Includes enterprise enhancements with governance managed at the data source."
+        }
+      ]
+    },
+    {
+      "blueprintId": 9,
+      "name": "cloudera-lakehouse-engine-governed",
+      "displayName": "Cloudera Lakehouse Engine - Governed",
+      "description": "A federated Trino engine integrated with Unified Data Fabric (UDF). Securely query external data sources with centralized Ranger access controls.",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 9,
+          "version": "1.6.0",
+          "displayName": "Cloudera Lakehouse Engine - Governed",
+          "description": "A federated Trino engine integrated with Unified Data Fabric (UDF). Securely query external data sources with centralized Ranger access controls."
+        }
+      ]
+    },
+    {
+      "blueprintId": 10,
+      "name": "cloudera-migration-assistant",
+      "displayName": "Cloudera Migration Assistant",
+      "description": "Cloudera Migration Assistant automates the assessment, planning, and execution of workload migrations to Cloudera on-premises and cloud platforms. Includes the master server, authorization server, and gateway.\n",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.1",
+      "versions": [
+        {
+          "appId": 10,
+          "version": "1.6.1",
+          "displayName": "Cloudera Migration Assistant",
+          "description": "Cloudera Migration Assistant automates the assessment, planning, and execution of workload migrations to Cloudera on-premises and cloud platforms. Includes the master server, authorization server, and gateway.\n"
+        },
+        {
+          "appId": 17,
+          "version": "1.6.0",
+          "displayName": "Cloudera Migration Assistant",
+          "description": "Cloudera Migration Assistant automates the assessment, planning, and execution of workload migrations to Cloudera on-premises and cloud platforms. Includes the master server, authorization server, and gateway.\n"
+        }
+      ]
+    },
+    {
+      "blueprintId": 11,
+      "name": "cloudera-object-store",
+      "displayName": "Cloudera Object Store",
+      "description": "Cloudera Object Store is a managed, S3-compatible distributed storage service for scalable and reliable big data workloads, powered by Apache Ozone.\n",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 13,
+          "version": "1.6.0",
+          "displayName": "Cloudera Object Store",
+          "description": "Cloudera Object Store is a managed, S3-compatible distributed storage service for scalable and reliable big data workloads, powered by Apache Ozone.\n"
+        }
+      ]
+    },
+    {
+      "blueprintId": 12,
+      "name": "csa",
+      "displayName": "Cloudera Streaming Analytics",
+      "description": "Real-time stream processing built on Apache Flink to build and manage continuous data pipelines using standard SQL and interactive job management.",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 12,
+          "version": "1.6.0",
+          "displayName": "Cloudera Streaming Analytics",
+          "description": "Real-time stream processing built on Apache Flink to build and manage continuous data pipelines using standard SQL and interactive job management."
+        }
+      ]
+    },
+    {
+      "blueprintId": 13,
+      "name": "csm",
+      "displayName": "Cloudera Streams Messaging",
+      "description": "Real-time data streaming and event management built on Apache Kafka with integrated monitoring and operations tools.",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 15,
+          "version": "1.6.0",
+          "displayName": "Cloudera Streams Messaging",
+          "description": "Real-time data streaming and event management built on Apache Kafka with integrated monitoring and operations tools."
+        }
+      ]
+    },
+    {
+      "blueprintId": 14,
+      "name": "cwo-with-coupled-postgresql",
+      "displayName": "Cloudera Workflow Orchestrator",
+      "description": "Managed orchestration service for programmatically authoring, scheduling, and monitoring complex data pipelines across hybrid and multi-cloud, powered by Apache Airflow.\n",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 11,
+          "version": "1.6.0",
+          "displayName": "Cloudera Workflow Orchestrator",
+          "description": "Managed orchestration service for programmatically authoring, scheduling, and monitoring complex data pipelines across hybrid and multi-cloud, powered by Apache Airflow.\n"
+        }
+      ]
+    },
+    {
+      "blueprintId": 15,
+      "name": "cwo-with-coupled-postgresql-node-isolation",
+      "displayName": "Cloudera Workflow Orchestrator - Custom Image with Node Isolation",
+      "description": "Managed orchestration service with custom Airflow image and node isolation across core services, DAG processing, and KubernetesExecutor worker pools.\n",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 16,
+          "version": "1.6.0",
+          "displayName": "Cloudera Workflow Orchestrator - Custom Image with Node Isolation",
+          "description": "Managed orchestration service with custom Airflow image and node isolation across core services, DAG processing, and KubernetesExecutor worker pools.\n"
+        }
+      ]
+    },
+    {
+      "blueprintId": 16,
+      "name": "dataviz",
+      "displayName": "Cloudera Data Visualization",
+      "description": "A dashboarding and application-building service that enables you to explore data through visuals.",
+      "owner": "Cloudera",
+      "latestVersion": "1.6.0",
+      "versions": [
+        {
+          "appId": 14,
+          "version": "1.6.0",
+          "displayName": "Cloudera Data Visualization",
+          "description": "A dashboarding and application-building service that enables you to explore data through visuals."
+        }
+      ]
+    }
+  ]
+}

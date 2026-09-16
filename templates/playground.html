@@ -23,12 +23,17 @@
   <div class="tab-content active" data-tab-content="deploy">
     <div class="card">
       <h2>Marketplace 一键部署</h2>
-      <p class="card-subtitle">模拟从 Marketplace 启动 Cloudera 数据服务（Push-button simplicity）</p>
+      <p class="card-subtitle">使用 Console 真实 Engine 名称模拟 Marketplace 部署意图</p>
       <div class="button-row">
-        <button type="button" class="btn btn-primary" data-track="feature_used" data-track-props='{"feature":"deploy","service":"streams_messaging","label":"CSM Kafka"}'>Deploy Streams Messaging</button>
-        <button type="button" class="btn btn-outline" data-track="feature_used" data-track-props='{"feature":"deploy","service":"lakehouse_engine","label":"Iceberg + Trino"}'>Deploy Lakehouse Engine</button>
-        <button type="button" class="btn btn-secondary" data-track="feature_used" data-track-props='{"feature":"deploy","service":"cloudera_ai","label":"Cloudera AI"}'>Deploy Cloudera AI</button>
-        <button type="button" class="btn btn-outline" data-track="button_clicked" data-track-props='{"button":"view_docs","target":"awc_marketplace"}'>View Marketplace Docs</button>
+        {% for target in deploy_targets %}
+        <button type="button"
+                class="btn {% if loop.first %}btn-primary{% elif loop.index == 2 %}btn-outline{% else %}btn-secondary{% endif %}"
+                data-track="engine_deploy_clicked"
+                data-track-props='{{ {"engine": target.id, "engine_title": target.title, "version": target.version} | tojson }}'>
+          Deploy {{ target.title }}
+        </button>
+        {% endfor %}
+        <a href="/features" class="btn btn-outline" data-track="button_clicked" data-track-props='{"button":"view_marketplace"}'>View Marketplace</a>
       </div>
     </div>
   </div>
@@ -36,11 +41,17 @@
   <div class="tab-content" data-tab-content="blueprint">
     <div class="card">
       <h2>Blueprint 快速启动</h2>
-      <p class="card-subtitle">模拟选择治理批准的架构模板并启动环境</p>
+      <p class="card-subtitle">使用 Console 真实 Blueprint 模板名称</p>
       <div class="button-row">
-        <button type="button" class="btn btn-primary" data-track="button_clicked" data-track-props='{"button":"launch_blueprint","blueprint":"connected_enterprise_intelligence"}'>Connected Enterprise Intelligence</button>
-        <button type="button" class="btn btn-outline" data-track="button_clicked" data-track-props='{"button":"launch_blueprint","blueprint":"sovereign_ai"}'>Sovereign AI</button>
-        <button type="button" class="btn btn-secondary" data-track="button_clicked" data-track-props='{"button":"launch_blueprint","blueprint":"multi_cloud_lakehouse"}'>Multi-cloud Lakehouse</button>
+        {% for bp in blueprint_options %}
+        <button type="button"
+                class="btn {% if loop.first %}btn-primary{% elif loop.index == 2 %}btn-outline{% else %}btn-secondary{% endif %}"
+                data-track="button_clicked"
+                data-track-props='{{ {"button":"launch_blueprint","blueprint": bp.id, "blueprint_name": bp.name} | tojson }}'>
+          {{ bp.name }}
+        </button>
+        {% endfor %}
+        <a href="/pricing" class="btn btn-outline" data-track="button_clicked" data-track-props='{"button":"view_blueprints"}'>All Blueprints</a>
       </div>
     </div>
   </div>

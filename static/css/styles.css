@@ -620,6 +620,90 @@ code {
   color: var(--accent);
 }
 
+.catalog-section {
+  margin-bottom: 2.5rem;
+}
+
+.section-heading {
+  margin-bottom: 1.25rem;
+}
+
+.section-heading h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+.experience-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.experience-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.experience-card.experience-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.experience-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.status-deployed {
+  background: color-mix(in srgb, #16a34a 18%, transparent);
+  color: #166534;
+}
+
+.version-tag,
+.engine-id-line,
+.blueprint-id-line {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.experience-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.experience-name {
+  margin: 0;
+}
+
+.experience-meta {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.experience-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
 .blueprint-card .blueprint-outcome {
   margin: 0 0 1rem;
   min-height: 3rem;
