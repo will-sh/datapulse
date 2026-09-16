@@ -24,7 +24,9 @@ DEFAULT_RUNTIME = (
     "container.repository.cloudera.com/cloudera/cdsw/ml-runtime-pbj-workbench-python3.11-hardened:2026.04.2-b16"
 )
 DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
-SPARK_ADDONS = ["sparkconnect354-731-26", "hadoop-cli-7.3.1.709-1"]
+# sparkconnect354 as a runtime addon breaks CAI Job engine startup (~2s ENGINE_FAILED).
+# Spark Connect is exposed on DS_RUNTIME_*_SERVICE_PORT_SPARK with hadoop-cli only; install
+# PySpark client via pip in scripts/cai_lakehouse_discover_only.py instead.
 SPARK_MODES = {"bootstrap", "batch", "stream", "verify"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
 JOB_SCRIPT = "scripts/cai_lakehouse_discover_only.py"
@@ -132,7 +134,7 @@ def fetch_kafka_env_from_consumer() -> dict[str, str]:
 
 
 def addons_for_mode(mode: str) -> list[str]:
-    return SPARK_ADDONS if mode in SPARK_MODES else DEFAULT_ADDONS
+    return DEFAULT_ADDONS
 
 
 def build_job_payload(mode: str, extra_env: dict[str, str] | None = None, *, stringify_env: bool = False) -> dict[str, Any]:

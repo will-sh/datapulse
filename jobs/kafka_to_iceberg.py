@@ -71,7 +71,7 @@ def _create_lakehouse_spark_session():
 
         connect_url = _spark_connect_url()
     if not connect_url:
-        raise RuntimeError("Spark Connect URL not found (install sparkconnect runtime addon)")
+        raise RuntimeError("Spark Connect URL not found (missing CDSW_ENGINE_ID or DS_RUNTIME port)")
 
     from pyspark.sql import SparkSession
 
