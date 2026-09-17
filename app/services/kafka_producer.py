@@ -5,39 +5,21 @@ import subprocess
 import time
 from typing import Any
 
+from app.kafka_client_properties import write_external_properties as write_kafka_external_properties
 from app.kafka_settings import KafkaSettings, get_kafka_settings
 from app.metrics import KAFKA_PUBLISH_DURATION
 
 logger = logging.getLogger(__name__)
 
-PROPERTIES_TEMPLATE = """bootstrap.servers={bootstrap_servers}
-security.protocol=SASL_SSL
-sasl.mechanism=OAUTHBEARER
-sasl.login.callback.handler.class=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler
-sasl.oauthbearer.token.endpoint.url={token_url}
-sasl.oauthbearer.client.id={client_id}
-sasl.oauthbearer.client.secret={client_secret}
-sasl.oauthbearer.client.credentials.client.id={client_id}
-sasl.oauthbearer.client.credentials.client.secret={client_secret}
-sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="{client_id}" clientSecret="{client_secret}" ssl.truststore.location={oauth_ca} ssl.truststore.type=PEM;
-ssl.truststore.location={kafka_ca}
-ssl.truststore.type=PEM
-"""
-
 
 def write_client_properties(settings: KafkaSettings) -> None:
-    settings.config_dir.mkdir(parents=True, exist_ok=True)
-    kafka_ca = settings.kafka_ca_path.resolve()
-    oauth_ca = settings.oauth_ca_path.resolve()
-    content = PROPERTIES_TEMPLATE.format(
+    write_kafka_external_properties(
+        settings.config_dir,
         bootstrap_servers=settings.bootstrap_servers,
         token_url=settings.token_url,
         client_id=settings.client_id,
         client_secret=settings.client_secret,
-        kafka_ca=kafka_ca,
-        oauth_ca=oauth_ca,
     )
-    settings.properties_path.write_text(content, encoding="utf-8")
 
 
 def publish_event(event: dict[str, Any], settings: KafkaSettings | None = None) -> None:
