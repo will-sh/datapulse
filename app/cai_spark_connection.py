@@ -70,14 +70,59 @@ def _fetch_project_data_connection(connection_name: str) -> dict[str, Any]:
     )
 
 
+def _normalize_connection_details(connection: dict[str, Any]) -> dict[str, Any]:
+    """Return a detail payload compatible with cml.data_v1 lookup helpers."""
+    details = dict(connection)
+    workspace_id = details.get("workspaceConnectionId")
+    if details.get("id") is None and workspace_id is not None:
+        details["id"] = int(workspace_id)
+    return details
+
+
+def _patch_requests_ssl() -> None:
+    """spark_connect.zip bundles requests without CAI pod trust roots."""
+    try:
+        import requests
+    except ImportError:
+        return
+
+    if getattr(requests.Session.request, "_datapulse_no_verify", False):
+        return
+
+    original = requests.Session.request
+
+    def request(self, method, url, **kwargs):  # type: ignore[no-untyped-def]
+        kwargs.setdefault("verify", False)
+        return original(self, method, url, **kwargs)
+
+    request._datapulse_no_verify = True  # type: ignore[attr-defined]
+    requests.Session.request = request  # type: ignore[method-assign]
+
+
 def _patch_cml_connection_lookup(connection: dict[str, Any]) -> None:
     """Avoid Knox WebSSO inside cml.data_v1 by serving cached project metadata."""
     import cml.data_v1.data as cml_data
 
+    details = _normalize_connection_details(connection)
+    connection_id = details.get("id") or details.get("workspaceConnectionId")
+    connection_name = details.get("name")
+
     def get_project_dataconnections() -> list[dict[str, Any]]:
-        return [connection]
+        return [details]
+
+    def _get_project_dataconnection_by_id(dataconnection_id, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if str(dataconnection_id) == str(connection_id):
+            return details
+        raise RuntimeError(f"unknown project data connection id {dataconnection_id!r}")
+
+    def _get_project_dataconnection(dataconnection_name, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if dataconnection_name == connection_name:
+            return details
+        raise RuntimeError(f"unknown project data connection {dataconnection_name!r}")
 
     cml_data.get_project_dataconnections = get_project_dataconnections
+    cml_data._get_project_dataconnection_by_id = _get_project_dataconnection_by_id
+    cml_data._get_project_dataconnection = _get_project_dataconnection
 
 
 def _hive_site_status() -> dict[str, object]:
@@ -113,6 +158,7 @@ def create_spark_session_from_data_connection(
     """Build a Spark session using a synced CAI Spark Data Lake connection."""
     os.environ.setdefault("PYTHONHTTPSVERIFY", "0")
     ssl._create_default_https_context = ssl._create_unverified_context
+    _patch_requests_ssl()
 
     try:
         import cml.data_v1 as cmldata
