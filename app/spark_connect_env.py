@@ -171,6 +171,16 @@ def try_start_spark_connect_server() -> bool:
     return False
 
 
+def probe_spark_connect_port(host: str, port: str) -> dict[str, object]:
+    result: dict[str, object] = {"host": host, "port": port, "open": False}
+    try:
+        with socket.create_connection((host, int(port)), timeout=3):
+            result["open"] = True
+    except OSError as exc:
+        result["error"] = str(exc)
+    return result
+
+
 def log_runtime_addon_state() -> None:
     runtime_keys = sorted(
         key

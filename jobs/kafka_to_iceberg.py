@@ -435,7 +435,14 @@ def trino_verify() -> int:
 
 
 def spark_layout_probe() -> int:
-    from app.spark_connect_env import log_runtime_addon_state, prepare_spark_connect, resolve_spark_connect_paths
+    import socket
+
+    from app.spark_connect_env import (
+        log_runtime_addon_state,
+        prepare_spark_connect,
+        probe_spark_connect_port,
+        resolve_spark_connect_paths,
+    )
 
     log_runtime_addon_state()
     zip_path, native_dir, root = resolve_spark_connect_paths()
@@ -443,6 +450,7 @@ def spark_layout_probe() -> int:
         "zip_path": str(zip_path) if zip_path else None,
         "native_dir": str(native_dir) if native_dir else None,
         "root": str(root) if root else None,
+        "root_listing": sorted(p.name for p in root.iterdir()) if root and root.is_dir() else [],
         "spark_home": os.getenv("SPARK_HOME"),
         "spark_connect_url": os.getenv("SPARK_CONNECT_URL"),
         "runtime_spark_ports": {
@@ -452,9 +460,27 @@ def spark_layout_probe() -> int:
         },
     }
     prepare_spark_connect()
+    prepare_spark_connect()
     payload["spark_connect_url_after_prepare"] = os.getenv("SPARK_CONNECT_URL")
     payload["spark_home_after_prepare"] = os.getenv("SPARK_HOME")
+    payload["spark_connect_port_probe"] = probe_spark_connect_port("127.0.0.1", "20049")
+    host = socket.gethostname().upper().replace("-", "")
+    port = payload["runtime_spark_ports"].get(f"DS_RUNTIME_{host}_SERVICE_PORT_SPARK")
+    if port:
+        payload["spark_connect_port_probe_hostname"] = probe_spark_connect_port("127.0.0.1", str(port))
     _print_json("spark-layout", payload)
+    try:
+        from scripts.cai_report_last_job_run import _report_via_trino
+
+        _report_via_trino(
+            {
+                "phase": "spark-layout-probe",
+                "hostname": os.getenv("HOSTNAME", ""),
+                "payload": payload,
+            }
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"trino layout report skipped: {exc}")
     return 0
 
 
