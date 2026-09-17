@@ -1,10 +1,10 @@
 # DataPulse
 
-基于 PostHog 的用户行为分析 Demo 应用。在网站上进行点击、浏览、表单提交等操作，事件会实时显示在右下角的事件采集面板中，并可同步到 PostHog 云端；在 Cloudera AI 上还可将事件写入 Kafka，并由 Spark Consumer Application 实时展示。
+A PostHog-based user behavior analytics demo. Clicks, page views, and form submissions on the site appear in the event panel (bottom-right) in real time and can sync to PostHog Cloud. On Cloudera AI, events can also be written to Kafka and displayed live by the Spark Consumer Application.
 
-## 最终架构
+## Target architecture
 
-DataPulse 在 Cloudera 平台上的目标形态：**实时事件链路**（已落地）+ **湖仓沉淀与分析**（规划扩展）。Kafka 作为统一事件总线；流式入湖可在 **CDE(Spark)** 与 **CSA(Flink)** 两条路线中择一。
+DataPulse on Cloudera: **real-time event pipeline** (implemented) + **lakehouse persistence and analytics** (planned). Kafka is the unified event bus; stream-to-lake can follow either **CDE (Spark)** or **CSA (Flink)**.
 
 ```mermaid
 flowchart LR
@@ -70,75 +70,75 @@ flowchart LR
     CSA -.->|"Job Monitoring"| Datadog
 ```
 
-### 平台组件
+### Platform components
 
-| 层级 | 组件 | Blueprint / 服务 | 状态 |
+| Layer | Component | Blueprint / service | Status |
 |------|------|------------------|------|
-| 应用托管 | CAI Workbench | `cai` | ✅ 已部署 |
-| 事件生产 | datapulse-app (CAI Application) | CAI Application | ✅ 已验证 |
-| 消息总线 | CSM(Kafka) | `csm` | ✅ 已验证 |
-| 实时消费 | datapulse-spark-consumer (CAI Application) | CAI Application | ✅ 已验证 |
-| 流式入湖 A | CDE(Spark) | `cde-udf` | 📋 规划 |
-| 流式入湖 B | CSA(Flink) | `csa` | 📋 规划（与 CDE 二选一） |
-| 湖仓存储 | Iceberg 表 | `cloudera-lakehouse-engine-governed` | 📋 规划 |
-| SQL 分析 | Trino | Lakehouse Engine | 📋 规划 |
-| 可视化 | CDV(Viz) | `cdv` | 📋 规划（可选） |
-| 可观测性 | Observability | Prometheus + Grafana / Datadog 等 | 📋 规划（可选） |
+| App hosting | CAI Workbench | `cai` | ✅ Deployed |
+| Event production | datapulse-app (CAI Application) | CAI Application | ✅ Verified |
+| Message bus | CSM(Kafka) | `csm` | ✅ Verified |
+| Real-time consumption | datapulse-spark-consumer (CAI Application) | CAI Application | ✅ Verified |
+| Stream ingest A | CDE(Spark) | `cde-udf` | 📋 Planned |
+| Stream ingest B | CSA(Flink) | `csa` | 📋 Planned (choose one with CDE) |
+| Lakehouse storage | Iceberg table | `cloudera-lakehouse-engine-governed` | 📋 Planned |
+| SQL analytics | Trino | Lakehouse Engine | 📋 Planned |
+| Visualization | CDV(Viz) | `cdv` | 📋 Planned (optional) |
+| Observability | Observability | Prometheus + Grafana / Datadog, etc. | 📋 Planned (optional) |
 
 ### CAI Applications
 
-| Application | 启动脚本 | 说明 |
+| Application | Start script | Description |
 |-------------|----------|------|
-| **datapulse-app** | `scripts/cai_start_application.py` | 演示站点 + 事件生产 |
-| **datapulse-spark-consumer** | `scripts/cai_spark_kafka_stream.py` | Kafka 消费 + 实时看板 |
+| **datapulse-app** | `scripts/cai_start_application.py` | Demo site + event production |
+| **datapulse-spark-consumer** | `scripts/cai_spark_kafka_stream.py` | Kafka consumption + live dashboard |
 
-Producer / Consumer 通过 Console Access Key 访问 CSM(Kafka)（OAuth）。**无需** `cai-base-connected` Blueprint，除非需对接 on-prem CDP Base 数据湖。
+Producer / Consumer access CSM(Kafka) via Console Access Key (OAuth). **`cai-base-connected` Blueprint is not required** unless connecting to an on-prem CDP Base data lake.
 
-### 四条数据路径
+### Four data paths
 
-| 路径 | 链路 | 用途 |
+| Path | Flow | Purpose |
 |------|------|------|
-| **实时路径** | 用户 → datapulse-app → CSM(Kafka) → spark-consumer → 用户 | Demo 演示、秒级反馈 |
-| **分析路径** | CSM(Kafka) → CDE(Spark) **或** CSA(Flink) → Lakehouse → Trino / CDV(Viz) | 历史查询、漏斗、留存、报表 |
-| **产品分析路径** | 用户 / datapulse-app → PostHog 等 | 行为埋点、转化分析，与 CSM **并行** |
-| **可观测性路径** | 各层组件 → **Observability** | 平台与应用健康监控，见下表 |
+| **Real-time** | User → datapulse-app → CSM(Kafka) → spark-consumer → User | Demo, sub-second feedback |
+| **Analytics** | CSM(Kafka) → CDE(Spark) **or** CSA(Flink) → Lakehouse → Trino / CDV(Viz) | Historical queries, funnels, retention, reports |
+| **Product analytics** | User / datapulse-app → PostHog, etc. | Behavioral tracking, conversion analysis; **parallel** to CSM |
+| **Observability** | All layers → **Observability** | Platform and app health monitoring; see table below |
 
-### Observability（可观测性）
+### Observability
 
-**Observability** 模块与 Cloudera 业务主链路**并行**，汇聚多种观测手段，关注 **SLI / SLO**（延迟、错误率、吞吐、资源），**不承载业务事件分析**，数据**不进入** Lakehouse 业务表。
+The **Observability** module runs **in parallel** with the Cloudera business pipeline. It aggregates monitoring signals focused on **SLI / SLO** (latency, error rate, throughput, resources). It does **not** carry business event analytics, and data does **not** land in Lakehouse business tables.
 
-| 手段 | 代表 | 接入点 | 观测内容 |
+| Signal | Examples | Integration points | What to observe |
 |------|------|--------|----------|
-| **Metrics（指标）** | Prometheus + Grafana | datapulse-app、spark-consumer、CDE Job、CSA Job、CSM(Kafka) Broker | QPS、P99 延迟、Consumer Lag、Job 背压、CPU / 内存 |
-| **APM / Logs / Traces** | Datadog、Dynatrace、New Relic | 同上各 Application 与 Job 层 | 分布式 Trace、日志检索、告警、SLO 面板 |
-| **Errors（错误追踪）** | Sentry | datapulse-app、spark-consumer | 前后端异常堆栈 |
-| **Alerting（告警）** | PagerDuty、Slack | Grafana Alerting / Datadog 规则 | 运维通知，Observability 下游 |
+| **Metrics** | Prometheus + Grafana | datapulse-app, spark-consumer, CDE Job, CSA Job, CSM(Kafka) Broker | QPS, P99 latency, consumer lag, job backpressure, CPU / memory |
+| **APM / Logs / Traces** | Datadog, Dynatrace, New Relic | Same applications and job layers | Distributed traces, log search, alerts, SLO dashboards |
+| **Errors** | Sentry | datapulse-app, spark-consumer | Frontend and backend exception stacks |
+| **Alerting** | PagerDuty, Slack | Grafana Alerting / Datadog rules | Ops notifications downstream of Observability |
 
-**Prometheus + Grafana** 与 **Datadog** 在 Observability 内**并列**：前者适合平台内自建 Metrics 看板（如 Locust / Kafka Lag 大盘）；后者适合一体化 SaaS APM。可按环境二选一或组合使用（Metrics 走 Prometheus，Trace / Log 走 Datadog）。
+**Prometheus + Grafana** and **Datadog** are **peers** within Observability: the former suits self-hosted metrics dashboards (e.g. Locust / Kafka lag); the latter suits unified SaaS APM. Use one or both per environment (metrics via Prometheus, traces/logs via Datadog).
 
-### Product Analytics（产品分析 · 可选）
+### Product Analytics (optional)
 
-与 Observability 职责分离：关注**用户行为与业务 KPI**，而非服务健康。
+Separate from Observability: focuses on **user behavior and business KPIs**, not service health.
 
-| 类型 | 代表产品 | 接入点 | 数据内容 | 与主链路关系 |
+| Type | Products | Integration | Data | Relationship to main pipeline |
 |------|----------|--------|----------|--------------|
-| **产品分析** | PostHog、Mixpanel、Amplitude | ① 用户浏览器（`analytics.js` SDK）<br/>② datapulse-app 服务端 | 点击、浏览、转化等行为事件 | 与 CSM(Kafka) **并行**；可只开 SaaS、只开 Kafka、或双写 |
+| **Product analytics** | PostHog, Mixpanel, Amplitude | ① User browser (`analytics.js` SDK)<br/>② datapulse-app server | Clicks, views, conversions | **Parallel** to CSM(Kafka); SaaS only, Kafka only, or dual-write |
 
-**设计原则：**
+**Design principles:**
 
-- **Product Analytics（PostHog 等）** → 挂在 **用户 / Application 层**，管业务 KPI，可与 Kafka 双写。
-- **Observability（Prometheus / Grafana / Datadog 等）** → 挂在 **Application、Job、CSM 各层**，管平台与应用健康。
-- **Cloudera 主链路**（CSM → Lakehouse → Trino / CDV）→ 管 **平台内业务数据资产**；三者职责分离。
+- **Product Analytics (PostHog, etc.)** → **User / Application layer**; business KPIs; can dual-write with Kafka.
+- **Observability (Prometheus / Grafana / Datadog, etc.)** → **Application, Job, CSM layers**; platform and app health.
+- **Cloudera main pipeline** (CSM → Lakehouse → Trino / CDV) → **In-platform data assets**; three concerns stay separate.
 
-## 功能
+## Features
 
-- **页面浏览追踪** — 自动采集路由切换
-- **自定义事件** — 按钮点击、功能使用、方案选择等
-- **表单提交** — 模拟订阅表单转化事件
-- **用户识别** — PostHog `identify` 演示
-- **本地事件面板** — 未配置 PostHog 时也可完整演示
+- **Page view tracking** — automatic route change capture
+- **Custom events** — button clicks, feature usage, plan selection, etc.
+- **Form submission** — simulated subscription conversion events
+- **User identification** — PostHog `identify` demo
+- **Local event panel** — full demo without PostHog configured
 
-## 快速开始（FastAPI）
+## Quick start (FastAPI)
 
 ```bash
 python -m venv .venv
@@ -147,62 +147,62 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8080
 ```
 
-访问 [http://127.0.0.1:8080](http://127.0.0.1:8080)
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080)
 
-## CAI Application 部署
+## CAI Application deployment
 
-在 Cloudera AI Workbench 中创建 Application 时，使用启动脚本：
+When creating an Application in Cloudera AI Workbench, use the start script:
 
 ```bash
 scripts/cai-start-application.sh
 ```
 
-脚本会读取 `CDSW_READONLY_PORT` 环境变量，并在 `127.0.0.1` 上启动 uvicorn。推荐使用 PBJ Workbench Python 3.11 runtime。
+The script reads `CDSW_READONLY_PORT` and starts uvicorn on `127.0.0.1`. Recommended: PBJ Workbench Python 3.11 runtime.
 
-Application 的 `script` 字段应设为 `scripts/cai_start_application.py` 或 `scripts/start_datapulse.py`（PBJ Python runtime 会将脚本作为 Python 代码执行，不能使用 bash 脚本路径；脚本内请使用 `os.getcwd()` 而非 `__file__`，且不要用 `raise SystemExit` 包裹 uvicorn）。
+Set the Application `script` field to `scripts/cai_start_application.py` or `scripts/start_datapulse.py` (PBJ Python runtime executes scripts as Python code, not bash; use `os.getcwd()` instead of `__file__`, and do not wrap uvicorn in `raise SystemExit`).
 
-## CAI 日常部署
+## Day-to-day CAI deployment
 
-代码变更后，**upload → delete + recreate**，不要使用 `:restart`（容易在 `APPLICATION_STARTING` 卡住并留下 orphan engine session）。
+After code changes: **upload → delete + recreate**. Do not use `:restart` (can hang in `APPLICATION_STARTING` and leave orphan engine sessions).
 
 ```bash
 export CAI_BASE=https://<your-cai-domain>
 export CAI_PID=<project-id>
 export CAI_KEY=$CDSW_APIV2_KEY
 
-# 一键：上传文件 + 重建全部 Application
+# One-shot: upload files + recreate all Applications
 python3 scripts/cai_deploy.py
 
-# 或分步执行
+# Or step by step
 python3 scripts/cai_upload_files.py
 python3 scripts/cai_recreate_applications.py
 
-# 只重建单个 app（例如 producer）
+# Recreate a single app (e.g. producer)
 python3 scripts/cai_recreate_applications.py --apps datapulse-app
 ```
 
-`cai_recreate_applications.py` 会按名称查找现有 Application，快照其 runtime / env / subdomain 配置，删除旧实例后重新 create（`environment` 以 object 提交）。若 monitoring 的 subdomain 发生变化，请同步更新 `datapulse.env` 中的 `GRAFANA_ROOT_URL` / `GRAFANA_DOMAIN`。
+`cai_recreate_applications.py` finds Applications by name, snapshots runtime / env / subdomain, deletes the old instance, and creates a new one (`environment` submitted as an object). If the monitoring subdomain changes, update `GRAFANA_ROOT_URL` / `GRAFANA_DOMAIN` in `datapulse.env`.
 
-## 配置 PostHog（可选）
+## Configure PostHog (optional)
 
-1. 在 [PostHog](https://posthog.com) 注册并创建项目
-2. 复制 Project API Key
-3. 设置环境变量：
+1. Sign up at [PostHog](https://posthog.com) and create a project
+2. Copy the Project API Key
+3. Set environment variables:
 
 ```env
 POSTHOG_KEY=phc_your_project_api_key_here
 POSTHOG_HOST=https://us.i.posthog.com
 ```
 
-4. 执行 `python3 scripts/cai_recreate_applications.py --apps datapulse-app` 使配置生效
+4. Run `python3 scripts/cai_recreate_applications.py --apps datapulse-app` to apply
 
-配置后，事件面板会显示「PostHog 已连接」，数据同步到 PostHog 后台的 Live Events。
+When configured, the event panel shows “PostHog connected” and events sync to PostHog Live Events.
 
-## 配置 Kafka OAuth（可选）
+## Configure Kafka OAuth (optional)
 
-1. 在 Surveyor 打开 Kafka **CLIENT_CONFIGS**，下载 `kafka-ca.crt` 与 `oauth-ca.crt` 到 `config/kafka/`
-2. 在 Console API Explorer 创建 Access Key（`POST /api/v0/auth/access-keys/credentials`）
-3. 设置环境变量：
+1. In Surveyor, open Kafka **CLIENT_CONFIGS** and download `kafka-ca.crt` and `oauth-ca.crt` to `config/kafka/`
+2. In Console API Explorer, create an Access Key (`POST /api/v0/auth/access-keys/credentials`)
+3. Set environment variables:
 
 ```env
 KAFKA_ENABLED=true
@@ -214,60 +214,60 @@ KAFKA_TOKEN_URL=https://console.readygo.a70735.test.cldr.work/api/v0/auth/access
 KAFKA_CONFIG_DIR=config/kafka
 ```
 
-4. 执行 `python3 scripts/cai_recreate_applications.py --apps datapulse-app` 使配置生效。浏览器事件会通过 `POST /api/events` 或 `POST /v1/capture` 写入 Kafka topic。
+4. Run `python3 scripts/cai_recreate_applications.py --apps datapulse-app`. Browser events are written to Kafka via `POST /api/events` or `POST /v1/capture`.
 
-CAI Application 启动脚本会在 `KAFKA_ENABLED=true` 时自动下载 Kafka CLI（`KAFKA_HOME`）。
+The CAI Application start script auto-downloads the Kafka CLI when `KAFKA_ENABLED=true` (`KAFKA_HOME`).
 
 ### Spark Consumer Application
 
-在 CAI 中创建第二个 Application，启动脚本设为 `scripts/cai_spark_kafka_stream.py`，并配置与 Producer 相同的 Kafka OAuth 环境变量。推荐 Runtime Addon：`sparkconnect354-731-26`（Spark Connect 不可用时自动 fallback 到 Kafka CLI）。
+Create a second CAI Application with start script `scripts/cai_spark_kafka_stream.py` and the same Kafka OAuth env vars as the Producer. Recommended runtime addon: `sparkconnect354-731-26` (falls back to Kafka CLI when Spark Connect is unavailable).
 
-### Lakehouse：Kafka → Iceberg（独立 CAI Job）
+### Lakehouse: Kafka → Iceberg (standalone CAI Job)
 
-**不要**把入湖逻辑放进 `datapulse-spark-consumer` Application。Consumer 只负责内存实时看板；历史分析走 Lakehouse。
+**Do not** put lake ingest logic in the `datapulse-spark-consumer` Application. The Consumer only powers the in-memory live dashboard; historical analytics go through Lakehouse.
 
-| 组件 | 作用 |
+| Component | Role |
 |------|------|
-| CSM(Kafka) `datapulse-events` | 事件总线（Producer 已写入） |
-| CAI Job `datapulse-lakehouse-kafka-ingest` | Spark Structured Streaming + `foreachBatch` 写入 Iceberg |
-| Lakehouse HMS + Ozone | `iceberg_catalog.datapulse.events` 表元数据与存储 |
-| Trino (`lakehouse-bp-trino`) | SQL 验证与后续漏斗/留存分析 |
+| CSM(Kafka) `datapulse-events` | Event bus (Producer already writes here) |
+| CAI Job `datapulse-lakehouse-kafka-ingest` | Spark Structured Streaming + `foreachBatch` → Iceberg |
+| Lakehouse HMS + Ozone | `iceberg_catalog.datapulse.events` metadata and storage |
+| Trino (`lakehouse-bp-trino`) | SQL validation and funnel/retention analysis |
 
-推荐路径（与 README 架构图一致）：
+Recommended path (matches architecture diagram above):
 
 ```
 Kafka(datapulse-events) → Spark Job(foreachBatch) → Iceberg(datapulse.events) → Trino SQL
 ```
 
-**隔离测试**（不影响现有 Application）：
+**Isolated testing** (does not affect existing Applications):
 
 ```bash
 export CAI_BASE=https://ray-ml.cldr-csk-cai-readygo.a70735.test.cldr.work
 export CAI_PID=k87h-zej9-dugs-473y
 export CAI_KEY=$CDSW_APIV2_KEY
 
-# 上传新脚本
+# Upload new scripts
 python3 scripts/cai_upload_files.py
 
-# 1) discover — 打印 HMS / warehouse / Kafka 配置
+# 1) discover — print HMS / warehouse / Kafka config
 python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode discover
 
-# 2) bootstrap — 创建 Iceberg 表（需要 sparkconnect addon）
+# 2) bootstrap — create Iceberg table (requires sparkconnect addon)
 python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode bootstrap
 
-# 3) batch — 跑一轮 micro-batch 写入
+# 3) batch — run one micro-batch write
 python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode batch
 
-# 4) verify — 查表行数与样例
+# 4) verify — row count and sample rows
 python3 scripts/cai_submit_lakehouse_job.py ensure-and-run --mode verify
 ```
 
-Job 入口：`scripts/cai_lakehouse_discover_only.py` → `jobs/kafka_to_iceberg.py`  
-注意：CAI PBJ runtime 的 Job 脚本不要使用 `raise SystemExit()`，否则 UI 会显示 `ENGINE_FAILED`。
+Job entry: `scripts/cai_lakehouse_discover_only.py` → `jobs/kafka_to_iceberg.py`  
+Note: CAI PBJ runtime job scripts must not use `raise SystemExit()` or the UI shows `ENGINE_FAILED`.
 
-Runtime Addon：`discover` 仅 `hadoop-cli-7.3.1.709-1`；`bootstrap/batch/stream/verify` 额外加 `sparkconnect354-731-26`
+Runtime addons: `discover` only needs `hadoop-cli-7.3.1.709-1`; `bootstrap/batch/stream/verify` also need `sparkconnect354-731-26`
 
-常用 Lakehouse 环境变量（可在 `--env KEY=VALUE` 覆盖）：
+Common Lakehouse environment variables (override with `--env KEY=VALUE`):
 
 ```env
 HIVE_METASTORE_URI=thrift://hivemetastore.cldr-csk-lakehouse.a70735.test.cldr.work:9083
@@ -277,7 +277,7 @@ ICEBERG_DATABASE=datapulse
 ICEBERG_TABLE=events
 ```
 
-写入成功后，可在 Trino Admin UI 查询：
+After a successful write, query in Trino Admin UI:
 
 ```sql
 SELECT event_name, user_id, anonymous_id, event_timestamp
@@ -286,21 +286,21 @@ ORDER BY ingested_at DESC
 LIMIT 20;
 ```
 
-> 说明：Iceberg **Structured Streaming sink** 在部分 CDE 版本仍为 Technical Preview；本 Job 使用 **`foreachBatch` + `writeTo(...).append()`**，与现有 Consumer 的 Spark 路径一致，更便于在 CAI 中逐步测通。
+> Iceberg **Structured Streaming sink** is still Technical Preview on some CDE versions. This job uses **`foreachBatch` + `writeTo(...).append()`**, matching the Consumer Spark path for easier incremental validation on CAI.
 
-### Monitoring Application（Prometheus + Grafana）
+### Monitoring Application (Prometheus + Grafana)
 
-第三个 CAI Application 用于 Observability，启动脚本：`scripts/cai_start_monitoring.py`。
+Third CAI Application for Observability; start script: `scripts/cai_start_monitoring.py`.
 
-**CAI Project 与 `main` 同步**：见 [docs/cai-main-sync.md](docs/cai-main-sync.md)。在 `main` 分支执行 `python3 scripts/cai_project_sync.py upload`（不要用 feature 分支直接 upload）。
+**Sync CAI Project with `main`**: see [docs/cai-main-sync.md](docs/cai-main-sync.md). On `main`, run `python3 scripts/cai_project_sync.py upload` (do not upload directly from feature branches).
 
-| 项 | 值 |
+| Item | Value |
 |----|-----|
-| Application 名 | `datapulse-monitoring` |
+| Application name | `datapulse-monitoring` |
 | Script | `scripts/cai_start_monitoring.py` |
-| 对外 UI | Grafana（subdomain 由 CAI 分配，类似 `datapulse-mon-xxxxxx.<domain>`） |
+| Public UI | Grafana (CAI-assigned subdomain, e.g. `datapulse-mon-xxxxxx.<domain>`) |
 
-环境变量（推荐在 **Project → Settings → Engine** 配置，所有 Application 启动时自动加载；也可在项目根目录放置 `datapulse.env` 作为 fallback）：
+Environment variables (recommended in **Project → Settings → Engine**, loaded by all Applications at start; or place `datapulse.env` at project root as fallback):
 
 ```env
 CDSW_APP_POLLING_ENDPOINT=/
@@ -312,70 +312,70 @@ MONITORING_VERIFY_SSL=false
 WAIT_TIMEOUT=300
 ```
 
-`CDSW_APP_POLLING_ENDPOINT=/` 是 CAI 判定 Application 为 RUNNING 的关键配置（参考 WebSessions 项目的 Locust Dashboard）。Grafana 直接绑定 `CDSW_READONLY_PORT`，无需额外 HTTP 代理。
+`CDSW_APP_POLLING_ENDPOINT=/` is required for CAI to mark the Application RUNNING (see WebSessions Locust Dashboard). Grafana binds directly to `CDSW_READONLY_PORT`; no extra HTTP proxy.
 
-Monitoring Application 自身只需保留 `MONITORING_VERIFY_SSL=false`（其余变量从 Project 继承）。Exporter 通过 pod 内 `DS_RUNTIME_*_PORT_8100_TCP_ADDR` 内网地址抓取 Producer / Consumer（需 Application 绑定 `0.0.0.0:CDSW_READONLY_PORT`）。
+The Monitoring Application itself only needs `MONITORING_VERIFY_SSL=false` (other vars inherit from the Project). The Exporter scrapes Producer / Consumer via in-pod `DS_RUNTIME_*_PORT_8100_TCP_ADDR` (Applications must bind `0.0.0.0:CDSW_READONLY_PORT`).
 
-**访问 URL：** 在 Workbench **Applications** 页点击 `datapulse-monitoring` 的 **Open** 链接（subdomain 类似 Locust Dashboard 的 `datapulse-mon-xxxxxx.<domain>`，创建时由平台分配）。若 `nslookup` 报 NXDOMAIN，说明内网 DNS 尚未同步——删除并重建 Application 可触发注册；也可先确认 `datapulse-app.<domain>` 是否能解析以排除网络问题。
+**Access URL:** In Workbench **Applications**, click **Open** on `datapulse-monitoring` (subdomain like `datapulse-mon-xxxxxx.<domain>`, assigned at create time). If `nslookup` returns NXDOMAIN, internal DNS may not be synced yet—delete and recreate the Application to trigger registration; confirm `datapulse-app.<domain>` resolves to rule out network issues.
 
-Pod 内组件：
+In-pod components:
 
-- `DataPulseExporter.py` — 聚合 Producer / Consumer `/health` 与 `/metrics`（relay 到 Prometheus）
-- Prometheus — scrape `localhost:9191`
-- Grafana — 预置 **DataPulse Overview** dashboard
+- `DataPulseExporter.py` — aggregates Producer / Consumer `/health` and `/metrics` (relay to Prometheus)
+- Prometheus — scrapes `localhost:9191`
+- Grafana — prebuilt **DataPulse Overview** dashboard
 
-Producer / Consumer 现已暴露 `GET /metrics`（Prometheus 格式）。本地调试：
+Producer / Consumer expose `GET /metrics` (Prometheus format). Local debugging:
 
 ```bash
 bash monitoring/download.sh
 PRODUCER_URL=http://127.0.0.1:8080 CONSUMER_URL=http://127.0.0.1:8081 bash monitoring/start.sh
 ```
 
-## 项目结构
+## Project structure
 
 ```
 app/
-  main.py                  # Producer FastAPI 路由
-  config.py                # 环境变量配置
-  kafka_settings.py        # Kafka OAuth 配置
+  main.py                  # Producer FastAPI routes
+  config.py                # Environment configuration
+  kafka_settings.py        # Kafka OAuth settings
   api/events.py            # POST /api/events
   services/kafka_producer.py
   spark_stream/            # Consumer Application
-    kafka_stream.py        # Spark Connect 探针 + Kafka CLI 消费
+    kafka_stream.py        # Spark Connect probe + Kafka CLI consumer
     web.py                 # Consumer Web UI
-    store.py               # 内存事件存储
-config/kafka/              # Surveyor 证书与 client properties
-templates/                 # Producer Jinja2 页面模板
+    store.py               # In-memory event store
+config/kafka/              # Surveyor certs and client properties
+templates/                 # Producer Jinja2 page templates
 static/
   css/styles.css
-  js/analytics.js          # 事件采集与 PostHog 集成
+  js/analytics.js          # Event capture and PostHog integration
 scripts/
-  cai_deploy.py                 # upload + recreate 一键部署
-  cai_upload_files.py             # 上传项目文件到 Workbench
-  cai_recreate_applications.py    # delete + create 重建 Application
-  cai_stop_applications.py        # 仅 stop（排查用；日常部署请用 recreate）
-  cai_start_application.py        # Producer CAI 启动脚本
-  cai_spark_kafka_stream.py       # Consumer CAI 启动脚本
-  cai_lakehouse_ingest_job.py     # Lakehouse 入湖 CAI Job 入口（独立）
-  cai_submit_lakehouse_job.py     # 创建/运行 Lakehouse Job（不动 Application）
-  cai_start_monitoring.py         # Monitoring CAI 启动脚本
+  cai_deploy.py                 # upload + recreate one-shot deploy
+  cai_upload_files.py             # Upload project files to Workbench
+  cai_recreate_applications.py    # delete + create Application rebuild
+  cai_stop_applications.py        # stop only (debug; use recreate for daily deploy)
+  cai_start_application.py        # Producer CAI start script
+  cai_spark_kafka_stream.py       # Consumer CAI start script
+  cai_lakehouse_ingest_job.py     # Lakehouse ingest CAI Job entry (standalone)
+  cai_submit_lakehouse_job.py     # Create/run Lakehouse Job (no Application changes)
+  cai_start_monitoring.py         # Monitoring CAI start script
 jobs/
-  kafka_to_iceberg.py            # Spark Kafka -> Iceberg 逻辑
-requirements-spark.txt     # Consumer 依赖
+  kafka_to_iceberg.py            # Spark Kafka -> Iceberg logic
+requirements-spark.txt     # Consumer dependencies
 monitoring/                # Prometheus + Grafana + DataPulse exporter
   DataPulseExporter.py
   prometheus.yml
   start.sh
   download.sh
-src/                       # 原 Next.js 实现（保留参考）
+src/                       # Original Next.js implementation (reference)
 ```
 
-## 技术栈
+## Tech stack
 
-- FastAPI + Jinja2（Producer 站点 + Consumer 看板）
-- Kafka OAuth（CSM / Strimzi）
-- Spark Connect + Kafka CLI fallback（Consumer）
-- Cloudera Lakehouse + Iceberg + Trino + CDV(Viz)（目标分析路径，规划）
-- Observability：Prometheus + Grafana / Datadog（可选，与主链路并行）
-- PostHog (`posthog-js` CDN，可选，Product Analytics)
-- 原 Next.js 16 实现保留在 `src/` 目录供参考
+- FastAPI + Jinja2 (Producer site + Consumer dashboards)
+- Kafka OAuth (CSM / Strimzi)
+- Spark Connect + Kafka CLI fallback (Consumer)
+- Cloudera Lakehouse + Iceberg + Trino + CDV(Viz) (target analytics path, planned)
+- Observability: Prometheus + Grafana / Datadog (optional, parallel to main pipeline)
+- PostHog (`posthog-js` CDN, optional, Product Analytics)
+- Original Next.js 16 implementation retained in `src/` for reference

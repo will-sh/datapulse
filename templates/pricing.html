@@ -5,13 +5,13 @@
 {% block content %}
 <div class="page-header page-header-center">
   <span class="badge badge-primary">AWC Blueprints</span>
-  <h1>Console 真实 Blueprint 目录</h1>
+  <h1>Live Blueprint catalog from Console</h1>
   <p class="page-desc">
-    数据来自 <code>/api/v0/console/blueprints</code>
+    Data from <code>/api/v0/console/blueprints</code>
     {% if catalog.synced_at %}
-    （{{ catalog.blueprint_count }} 个模板 · 同步于 {{ catalog.synced_at }}）
+    ({{ catalog.blueprint_count }} templates · synced {{ catalog.synced_at }})
     {% endif %}
-    。选择 Blueprint 触发 <code>plan_selected</code> 转化事件。
+    . Selecting a Blueprint fires a <code>plan_selected</code> conversion event.
   </p>
 </div>
 
@@ -19,7 +19,7 @@
   {% for plan in plans %}
   <div class="card pricing-card blueprint-card{% if plan.popular %} pricing-popular{% endif %}" data-plan-id="{{ plan.id }}">
     {% if plan.popular %}
-    <span class="badge badge-primary">常用</span>
+    <span class="badge badge-primary">Popular</span>
     {% endif %}
     <p class="blueprint-id-line"><code>{{ plan.id }}</code></p>
     <h2>{{ plan.name }}</h2>
@@ -37,11 +37,11 @@
       data-track="blueprint_evaluated"
       data-track-props='{"blueprint":"{{ plan.id }}"}'
     >
-      选择 Blueprint
+      Select Blueprint
     </button>
   </div>
   {% else %}
-  <p class="event-empty">暂无 Blueprint 数据。</p>
+  <p class="event-empty">No Blueprint data available.</p>
   {% endfor %}
 </div>
 {% endblock %}
@@ -58,11 +58,11 @@
           card.classList.remove("plan-selected");
         });
         document.querySelectorAll(".plan-select").forEach((b) => {
-          b.textContent = "选择 Blueprint";
+          b.textContent = "Select Blueprint";
         });
 
         btn.closest(".pricing-card").classList.add("plan-selected");
-        btn.textContent = "已选择";
+        btn.textContent = "Selected";
 
         DataPulse.trackEvent("plan_selected", {
           plan_id: planId,

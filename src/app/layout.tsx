@@ -17,9 +17,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DataPulse — 用户行为分析 Demo",
+  title: "DataPulse — User behavior analytics demo",
   description:
-    "基于 PostHog 的 DataPulse 演示应用，实时采集并展示用户行为事件。",
+    "DataPulse demo app built on PostHog — capture and display user behavior events in real time.",
 };
 
 export default function RootLayout({
@@ -29,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="zh-CN"
+      lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
