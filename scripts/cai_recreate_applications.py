@@ -42,7 +42,7 @@ DEFAULT_SPECS: dict[str, dict[str, Any]] = {
         "environment": {
             "CDSW_APP_POLLING_ENDPOINT": "/",
             "KAFKA_ENABLED": "true",
-            "KAFKA_CONFIG_DIR": ".",
+            "KAFKA_CONFIG_DIR": "config/kafka",
             "METRICS_RELAY_DIR": "monitoring/relay",
         },
     },
@@ -55,7 +55,7 @@ DEFAULT_SPECS: dict[str, dict[str, Any]] = {
         "environment": {
             "CDSW_APP_POLLING_ENDPOINT": "/",
             "KAFKA_ENABLED": "true",
-            "KAFKA_CONFIG_DIR": ".",
+            "KAFKA_CONFIG_DIR": "config/kafka",
             "KAFKA_CONSUMER_MODE": "cli",
             "KAFKA_CLI_FROM_BEGINNING": "true",
             "KAFKA_STARTING_OFFSETS": "earliest",
@@ -160,7 +160,7 @@ def snapshot_spec(app: dict[str, Any]) -> dict[str, Any]:
     environment = parse_environment(app.get("environment"))
     default_env = defaults.get("environment", {})
     if isinstance(default_env, dict):
-        merged_env = {**default_env, **environment}
+        merged_env = {**environment, **default_env}
     else:
         merged_env = environment
 

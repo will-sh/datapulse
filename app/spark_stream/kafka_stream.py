@@ -16,8 +16,11 @@ def _env(name: str, default: str = "") -> str:
     return os.getenv(name, default).strip()
 
 
+DEFAULT_CONFIG_DIR = Path("config/kafka")
+
+
 def _config_dir() -> Path:
-    return Path(_env("KAFKA_CONFIG_DIR", ".")).expanduser()
+    return Path(_env("KAFKA_CONFIG_DIR", str(DEFAULT_CONFIG_DIR))).expanduser()
 
 
 def _spark_connect_host() -> str:
@@ -100,6 +103,16 @@ def _write_external_properties(config_dir: Path) -> Path:
     client_id = _env("KAFKA_CLIENT_ID")
     client_secret = _env("KAFKA_CLIENT_SECRET")
     offset_reset = _env("KAFKA_AUTO_OFFSET_RESET", "earliest")
+    kafka_ca = (config_dir / "kafka-ca.crt").resolve()
+    oauth_ca = (config_dir / "oauth-ca.crt").resolve()
+    missing = [path for path in (kafka_ca, oauth_ca) if not path.is_file()]
+    if missing:
+        raise RuntimeError(
+            "Kafka TLS certs missing: "
+            + ", ".join(str(path) for path in missing)
+            + f" (KAFKA_CONFIG_DIR={config_dir})"
+        )
+
     content = f"""bootstrap.servers={_env("KAFKA_BOOTSTRAP_SERVERS")}
 security.protocol=SASL_SSL
 sasl.mechanism=OAUTHBEARER
@@ -109,13 +122,14 @@ sasl.oauthbearer.client.id={client_id}
 sasl.oauthbearer.client.secret={client_secret}
 sasl.oauthbearer.client.credentials.client.id={client_id}
 sasl.oauthbearer.client.credentials.client.secret={client_secret}
-sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="{client_id}" clientSecret="{client_secret}" ssl.truststore.location=oauth-ca.crt ssl.truststore.type=PEM;
-ssl.truststore.location=kafka-ca.crt
+sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="{client_id}" clientSecret="{client_secret}" ssl.truststore.location={oauth_ca} ssl.truststore.type=PEM;
+ssl.truststore.location={kafka_ca}
 ssl.truststore.type=PEM
 auto.offset.reset={offset_reset}
 enable.auto.commit=true
 """
     path = config_dir / "external.properties"
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     return path
 
