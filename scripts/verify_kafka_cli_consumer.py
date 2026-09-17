@@ -48,9 +48,20 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     settings = get_kafka_settings()
-    issues = settings.readiness_issues()
-    if issues:
-        print("Kafka not ready:", "; ".join(issues), file=sys.stderr)
+    kafka_home = settings.kafka_home or Path.home() / ".cache" / "kafka" / "kafka_2.13-3.9.0"
+    consumer = ensure_kafka_cli(kafka_home)
+
+    missing = []
+    if not settings.client_id:
+        missing.append("KAFKA_CLIENT_ID is missing")
+    if not settings.client_secret:
+        missing.append("KAFKA_CLIENT_SECRET is missing")
+    if not settings.kafka_ca_path.is_file():
+        missing.append(f"missing {settings.kafka_ca_path}")
+    if not settings.oauth_ca_path.is_file():
+        missing.append(f"missing {settings.oauth_ca_path}")
+    if missing:
+        print("Kafka not ready:", "; ".join(missing), file=sys.stderr)
         return 1
 
     write_external_properties(
@@ -60,9 +71,6 @@ def main() -> int:
         client_id=settings.client_id,
         client_secret=settings.client_secret,
     )
-
-    kafka_home = settings.kafka_home or Path.home() / ".cache" / "kafka" / "kafka_2.13-3.9.0"
-    consumer = ensure_kafka_cli(kafka_home)
     env = os.environ.copy()
     env["KAFKA_OPTS"] = f"-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls={settings.token_url}"
 
