@@ -47,6 +47,10 @@ python3 scripts/cai_project_sync.py deploy
 | `git ls-files` | All tracked files except `.cursor/`, `agent-tools/`, `.venv/`, `.cache/` |
 | `CAI_SYNC_EXTRA` | `config/kafka/kafka-ca.crt`, `config/kafka/oauth-ca.crt` (gitignored, must exist locally) |
 
+Zero-byte files are uploaded with a trailing newline because CAI rejects empty uploads.
+
+`upload --prune` removes stale remote files **before** upload (including old flat files like `app` that block `app/...` paths), then uploads the manifest, then prunes again.
+
 ### Branch guard
 
 By default sync **refuses** unless `HEAD` is `main`. Override for experiments:

@@ -22,6 +22,7 @@ import os
 import ssl
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -155,23 +156,33 @@ def api_request(method: str, path: str, payload: dict | None = None, *, timeout:
 
 
 def list_remote_files() -> list[str]:
-    status, payload = api_request("GET", f"/api/v2/projects/{CAI_PID}/files?page_size=500")
-    if status != 200:
-        raise RuntimeError(f"list files failed: status={status} payload={payload}")
-    if isinstance(payload, dict):
-        entries = payload.get("files") or payload.get("project_files") or []
-    elif isinstance(payload, list):
-        entries = payload
-    else:
-        entries = []
     paths: list[str] = []
-    for entry in entries:
-        if isinstance(entry, dict):
-            path = entry.get("path") or entry.get("name") or ""
+    page_token = ""
+    while True:
+        query = f"/api/v2/projects/{CAI_PID}/files?page_size=500"
+        if page_token:
+            query += f"&page_token={page_token}"
+        status, payload = api_request("GET", query)
+        if status != 200:
+            raise RuntimeError(f"list files failed: status={status} payload={payload}")
+        if isinstance(payload, dict):
+            entries = payload.get("files") or payload.get("project_files") or []
+            page_token = payload.get("next_page_token") or payload.get("nextPageToken") or ""
+        elif isinstance(payload, list):
+            entries = payload
+            page_token = ""
         else:
-            path = str(entry)
-        if path:
-            paths.append(path)
+            entries = []
+            page_token = ""
+        for entry in entries:
+            if isinstance(entry, dict):
+                path = entry.get("path") or entry.get("name") or ""
+            else:
+                path = str(entry)
+            if path:
+                paths.append(path)
+        if not page_token:
+            break
     return sorted(set(paths))
 
 
@@ -190,7 +201,51 @@ def delete_remote_file(rel_path: str) -> None:
             raise
 
 
-def upload_file(rel_path: str) -> None:
+def read_upload_bytes(local_path: Path) -> bytes:
+    content = local_path.read_bytes()
+    # CAI rejects zero-byte uploads with EOF; keep git content otherwise unchanged.
+    if not content:
+        content = b"\n"
+    return content
+
+
+def is_prefix_conflict(remote_path: str, manifest: set[str]) -> bool:
+    if remote_path.endswith("/"):
+        return False
+    prefix = remote_path + "/"
+    return any(path.startswith(prefix) for path in manifest)
+
+
+def should_prune_remote(rel_path: str, manifest: set[str]) -> bool:
+    if rel_path in manifest:
+        return False
+    if any(rel_path.startswith(prefix) for prefix in PRUNE_PROTECT_PREFIXES):
+        return False
+    if rel_path.endswith("/"):
+        return False
+    return True
+
+
+def cleanup_remote(*, manifest: list[str], prune: bool) -> int:
+    manifest_set = set(manifest)
+    remote = list_remote_files()
+    deleted = 0
+    for rel_path in remote:
+        if rel_path in manifest_set:
+            continue
+        if not prune and not is_prefix_conflict(rel_path, manifest_set):
+            continue
+        if not should_prune_remote(rel_path, manifest_set) and not is_prefix_conflict(
+            rel_path, manifest_set
+        ):
+            continue
+        delete_remote_file(rel_path)
+        print(f"removed stale {rel_path}")
+        deleted += 1
+    return deleted
+
+
+def upload_file(rel_path: str, *, attempts: int = 5) -> None:
     local_path = ROOT / rel_path
     if not local_path.is_file():
         raise FileNotFoundError(local_path)
@@ -198,7 +253,7 @@ def upload_file(rel_path: str) -> None:
     delete_remote_file(rel_path)
 
     boundary = "----datapulse-upload"
-    content = local_path.read_bytes()
+    content = read_upload_bytes(local_path)
     content_type = mimetypes.guess_type(local_path.name)[0] or "application/octet-stream"
     body_parts = [
         f"--{boundary}\r\n".encode(),
@@ -211,18 +266,36 @@ def upload_file(rel_path: str) -> None:
     payload = b"".join(body_parts)
 
     url = f"{CAI_BASE}/api/v2/projects/{CAI_PID}/files/{rel_path}"
-    request = urllib.request.Request(
-        url,
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {CAI_KEY}",
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-        },
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=120, context=ssl_context()) as response:
-        result = response.read().decode("utf-8", errors="replace")
-        print(f"uploaded {rel_path}: {response.status} {result[:80]}")
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        request = urllib.request.Request(
+            url,
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {CAI_KEY}",
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=120, context=ssl_context()) as response:
+                result = response.read().decode("utf-8", errors="replace")
+                print(f"uploaded {rel_path}: {response.status} {result[:80]}")
+                return
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            last_error = RuntimeError(f"HTTP {exc.code} for {rel_path}: {body[:500]}")
+            retryable = exc.code in {408, 429, 500, 502, 503, 504} or "EOF" in body
+        except (TimeoutError, urllib.error.URLError) as exc:
+            last_error = exc
+            retryable = True
+        if attempt < attempts and retryable:
+            delay = min(2**attempt, 16)
+            print(f"retry {rel_path} attempt={attempt}/{attempts} sleep={delay}s", file=sys.stderr)
+            time.sleep(delay)
+            continue
+        break
+    raise RuntimeError(f"upload failed for {rel_path}") from last_error
 
 
 def cmd_upload(*, prune: bool) -> int:
@@ -233,24 +306,19 @@ def cmd_upload(*, prune: bool) -> int:
 
     manifest = build_manifest()
     print(f"branch={current_branch()} manifest_files={len(manifest)} project={CAI_PID}")
-    for rel_path in manifest:
+
+    removed = cleanup_remote(manifest=manifest, prune=prune)
+    if removed:
+        print(f"pre-upload cleanup removed {removed} remote file(s)")
+
+    for index, rel_path in enumerate(manifest, start=1):
         upload_file(rel_path)
+        if index % 20 == 0:
+            time.sleep(0.5)
 
     if prune:
-        remote = list_remote_files()
-        manifest_set = set(manifest)
-        deleted = 0
-        for rel_path in remote:
-            if rel_path in manifest_set:
-                continue
-            if any(rel_path.startswith(prefix) for prefix in PRUNE_PROTECT_PREFIXES):
-                continue
-            if rel_path.endswith("/"):
-                continue
-            delete_remote_file(rel_path)
-            print(f"pruned {rel_path}")
-            deleted += 1
-        print(f"pruned {deleted} remote-only files")
+        removed_after = cleanup_remote(manifest=manifest, prune=True)
+        print(f"post-upload prune removed {removed_after} remote-only file(s)")
     return 0
 
 
