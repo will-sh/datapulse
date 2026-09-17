@@ -25,38 +25,44 @@ const features = [
   {
     id: "realtime",
     icon: LineChart,
-    title: "实时事件流",
-    description: "毫秒级采集用户点击、浏览与转化行为，右侧面板即时展示。",
+    title: "Real-time event stream",
+    description:
+      "Capture clicks, page views, and conversions in milliseconds; the side panel updates instantly.",
   },
   {
     id: "funnels",
     icon: Filter,
-    title: "漏斗分析",
-    description: "追踪用户从访问到转化的完整路径，发现流失节点。",
+    title: "Funnel analysis",
+    description:
+      "Track the full path from visit to conversion and find drop-off points.",
   },
   {
     id: "cohorts",
     icon: Users,
-    title: "用户分群",
-    description: "按行为特征划分用户群体，精准定位高价值用户。",
+    title: "User cohorts",
+    description:
+      "Segment users by behavior and pinpoint high-value audiences.",
   },
   {
     id: "alerts",
     icon: Bell,
-    title: "异常告警",
-    description: "关键指标波动时自动通知，快速响应业务变化。",
+    title: "Anomaly alerts",
+    description:
+      "Get notified when key metrics shift so you can respond quickly.",
   },
   {
     id: "privacy",
     icon: Shield,
-    title: "隐私合规",
-    description: "支持数据脱敏与 GDPR 合规配置，保护用户隐私。",
+    title: "Privacy compliance",
+    description:
+      "Support data masking and GDPR-ready configuration to protect user privacy.",
   },
   {
     id: "export",
     icon: Share2,
-    title: "数据导出",
-    description: "一键导出事件数据，对接 BI 工具与数据仓库。",
+    title: "Data export",
+    description:
+      "Export event data in one click and connect BI tools and data warehouses.",
   },
 ];
 
@@ -81,11 +87,11 @@ export default function FeaturesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <Badge className="mb-3 bg-indigo-600">功能展示</Badge>
-        <h1 className="text-3xl font-bold tracking-tight">DataPulse 核心能力</h1>
+        <Badge className="mb-3 bg-indigo-600">Feature showcase</Badge>
+        <h1 className="text-3xl font-bold tracking-tight">DataPulse core capabilities</h1>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          点击功能卡片标记感兴趣项，每次操作都会触发{" "}
-          <code className="text-sm">feature_interest_toggled</code> 事件。
+          Click a feature card to mark interest; each action fires a{" "}
+          <code className="text-sm">feature_interest_toggled</code> event.
         </p>
       </div>
 
@@ -114,7 +120,7 @@ export default function FeaturesPage() {
                   className={active ? "bg-indigo-600 hover:bg-indigo-700" : ""}
                   onClick={() => toggleInterest(feature.id, feature.title)}
                 >
-                  {active ? "已标记感兴趣" : "标记感兴趣"}
+                  {active ? "Marked interested" : "Mark interested"}
                 </Button>
               </CardContent>
             </Card>

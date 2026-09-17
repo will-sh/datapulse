@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,8 +11,8 @@
   <header class="topbar">
     <div>
       <p class="eyebrow">DataPulse · Live Events</p>
-      <h1>实时事件流</h1>
-      <p class="subtitle">Topic: <strong id="topic-label">{{ topic }}</strong> · 仅显示内存窗口内最近事件</p>
+      <h1>Live event stream</h1>
+      <p class="subtitle">Topic: <strong id="topic-label">{{ topic }}</strong> · shows only recent events in the in-memory window</p>
     </div>
     <div class="topbar-actions">
       <nav class="consumer-nav">
@@ -21,37 +21,37 @@
       </nav>
       <label class="refresh-toggle">
         <input type="checkbox" id="auto-refresh" checked>
-        自动刷新 (3s)
+        Auto-refresh (3s)
       </label>
-      <a class="link-muted" href="/live/legacy">旧版视图</a>
+      <a class="link-muted" href="/live/legacy">Legacy view</a>
     </div>
   </header>
 
-  <section id="status-bar" class="status-bar">加载中…</section>
+  <section id="status-bar" class="status-bar">Loading…</section>
 
   <div class="layout">
     <aside class="sidebar">
-      <h2>过滤器</h2>
+      <h2>Filters</h2>
       <label class="field">
         <span>Event name</span>
         <select id="filter-name">
-          <option value="">全部</option>
+          <option value="">All</option>
         </select>
       </label>
       <label class="field">
         <span>User ID</span>
-        <input id="filter-user" type="text" placeholder="可选">
+        <input id="filter-user" type="text" placeholder="Optional">
       </label>
-      <button type="button" id="clear-filters" class="btn-secondary">清除过滤</button>
+      <button type="button" id="clear-filters" class="btn-secondary">Clear filters</button>
 
-      <h2>窗口统计</h2>
-      <p class="hint">基于内存 buffer，非历史分析</p>
+      <h2>Window stats</h2>
+      <p class="hint">Based on in-memory buffer, not historical analytics</p>
       <div id="stats-panel" class="stats-panel"></div>
     </aside>
 
     <main class="main">
       <div id="events-list" class="events-list">
-        <p class="empty">加载中…</p>
+        <p class="empty">Loading…</p>
       </div>
     </main>
   </div>

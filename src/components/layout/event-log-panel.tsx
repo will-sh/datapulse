@@ -10,7 +10,7 @@ import { useEventLog } from "@/context/event-log-context";
 import { cn } from "@/lib/utils";
 
 function formatTime(timestamp: number) {
-  return new Date(timestamp).toLocaleTimeString("zh-CN", {
+  return new Date(timestamp).toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -31,9 +31,9 @@ export function EventLogPanel() {
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <Radio className="size-4 text-indigo-500" />
-          <span className="text-sm font-semibold">事件采集面板</span>
+          <span className="text-sm font-semibold">Event capture panel</span>
           <Badge variant={posthogEnabled ? "default" : "secondary"}>
-            {posthogEnabled ? "PostHog 已连接" : "本地模式"}
+            {posthogEnabled ? "PostHog connected" : "Local mode"}
           </Badge>
         </div>
         <div className="flex items-center gap-1">
@@ -41,7 +41,7 @@ export function EventLogPanel() {
             variant="ghost"
             size="icon-sm"
             onClick={clearEvents}
-            aria-label="清空事件"
+            aria-label="Clear events"
           >
             <Trash2 className="size-4" />
           </Button>
@@ -49,7 +49,7 @@ export function EventLogPanel() {
             variant="ghost"
             size="icon-sm"
             onClick={() => setExpanded((v) => !v)}
-            aria-label={expanded ? "收起面板" : "展开面板"}
+            aria-label={expanded ? "Collapse panel" : "Expand panel"}
           >
             {expanded ? (
               <ChevronDown className="size-4" />
@@ -63,13 +63,13 @@ export function EventLogPanel() {
       {expanded && (
         <>
           <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
-            已采集 {events.length} 条事件
-            {!posthogEnabled && " · 配置 PostHog Key 后可同步到云端"}
+            Captured {events.length} events
+            {!posthogEnabled && " · configure a PostHog key to sync to the cloud"}
           </div>
           <ScrollArea className="flex-1 p-3">
             {events.length === 0 ? (
               <p className="px-2 py-8 text-center text-sm text-muted-foreground">
-                在页面上操作，事件会实时出现在这里
+                Interact with the page and events will appear here in real time
               </p>
             ) : (
               <ul className="space-y-2">

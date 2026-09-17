@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}交互演示 — {{ settings.app_title }}{% endblock %}
+{% block title %}Interactive demo — {{ settings.app_title }}{% endblock %}
 
 {% block content %}
 <div class="page-header">
   <span class="badge badge-primary">AWC Interactive Demo</span>
-  <h1>模拟 AWC 控制台关键用户路径</h1>
+  <h1>Simulate key AWC console user journeys</h1>
   <p class="page-desc">
-    以下操作对应真实 AWC 产品页/自助 provisioning 场景。每次互动写入 Kafka，
-    可在 Consumer <code>/live</code> 与 Grafana User Behavior 面板查看。
+    The actions below mirror real AWC product page and self-service provisioning scenarios. Each interaction is written to Kafka
+    and visible on the Consumer <code>/live</code> dashboard and Grafana User Behavior panel.
   </p>
 </div>
 
@@ -22,8 +22,8 @@
 
   <div class="tab-content active" data-tab-content="deploy">
     <div class="card">
-      <h2>Marketplace 一键部署</h2>
-      <p class="card-subtitle">使用 Console 已部署 Experience 名称模拟部署意图</p>
+      <h2>Marketplace one-click deploy</h2>
+      <p class="card-subtitle">Simulate deploy intent using deployed Console Experience names</p>
       <div class="button-row">
         {% for target in deploy_targets %}
         <button type="button"
@@ -40,8 +40,8 @@
 
   <div class="tab-content" data-tab-content="blueprint">
     <div class="card">
-      <h2>Blueprint 快速启动</h2>
-      <p class="card-subtitle">使用 Console 真实 Blueprint 模板名称</p>
+      <h2>Blueprint quick start</h2>
+      <p class="card-subtitle">Uses real Blueprint template names from Console</p>
       <div class="button-row">
         {% for bp in blueprint_options %}
         <button type="button"
@@ -59,21 +59,21 @@
   <div class="tab-content" data-tab-content="form">
     <div class="card">
       <h2>Request AWC Demo</h2>
-      <p class="card-subtitle">提交后触发 <code>demo_form_submitted</code> 并通过 PostHog identify 绑定此前匿名浏览行为</p>
+      <p class="card-subtitle">Submitting triggers <code>demo_form_submitted</code> and binds prior anonymous browsing via PostHog identify</p>
       <form id="demo-form" class="form-row">
         <input type="email" id="demo-email" placeholder="work@enterprise.com" required class="input">
         <button type="submit" class="btn btn-primary">Request Demo</button>
       </form>
-      <p id="form-success" class="form-success hidden">Demo 申请已提交，事件已写入 Kafka。</p>
+      <p id="form-success" class="form-success hidden">Demo request submitted; event written to Kafka.</p>
     </div>
   </div>
 
   <div class="tab-content" data-tab-content="identity">
     <div class="card">
       <h2>Enterprise Sign-in</h2>
-      <p class="card-subtitle">关联企业用户身份，便于 cohort 与转化分析</p>
+      <p class="card-subtitle">Link enterprise user identity for cohort and conversion analysis</p>
       <div class="form-row">
-        <input type="text" id="user-id-input" placeholder="用户 ID（留空自动生成）" class="input">
+        <input type="text" id="user-id-input" placeholder="User ID (auto-generated if empty)" class="input">
         <button type="button" id="identify-btn" class="btn btn-primary">Sign in</button>
       </div>
       <p id="current-user" class="user-id-display hidden"></p>
@@ -134,7 +134,7 @@
       });
       input.value = id;
       const display = document.getElementById("current-user");
-      display.textContent = `当前企业用户：${id}`;
+      display.textContent = `Current enterprise user: ${id}`;
       display.classList.remove("hidden");
     });
   });
