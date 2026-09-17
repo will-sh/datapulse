@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from app.lakehouse_settings import LakehouseSettings, get_lakehouse_settings
+from app.spark_connect_env import prepare_spark_connect
 
 
 def _env(name: str, default: str = "") -> str:
@@ -150,6 +151,62 @@ def _configure_iceberg_catalog(spark, settings: LakehouseSettings) -> None:
         spark.conf.set(f"spark.sql.catalog.{catalog}.warehouse", settings.warehouse)
 
 
+def _platform_iceberg_jars() -> str:
+    jars: list[str] = []
+    for root in (Path("/opt/spark/optional-11b"), Path("/opt/spark/optional")):
+        if root.is_dir():
+            jars.extend(str(path) for path in sorted(root.glob("*.jar")))
+    return ",".join(jars)
+
+
+def _build_spark_connect_session(
+    settings: LakehouseSettings,
+    *,
+    external_dir: str,
+) -> object:
+    """Build a remote Spark session using CAI data-connection metadata."""
+    connect_url = prepare_spark_connect()
+    hadoop_conf_dir = _env("HADOOP_CONF_DIR") or "/home/cdsw/hadoop_config_dir"
+    warehouse = external_dir or settings.warehouse
+    catalog = settings.catalog
+
+    from pyspark.sql import SparkSession
+
+    builder = (
+        SparkSession.builder.appName("datapulse-kafka-to-iceberg")
+        .remote(connect_url)
+        .config("spark.sql.shuffle.partitions", "2")
+        .config(
+            "spark.sql.extensions",
+            "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+        )
+        .config(f"spark.sql.catalog.{catalog}", "org.apache.iceberg.spark.SparkCatalog")
+        .config(f"spark.sql.catalog.{catalog}.type", "hive")
+        .config(f"spark.sql.catalog.{catalog}.uri", settings.hive_metastore_uri)
+        .config(f"spark.sql.catalog.{catalog}.warehouse", warehouse)
+        .config("spark.executorEnv.HADOOP_CONF_DIR", hadoop_conf_dir)
+        .config("spark.hadoop.iceberg.engine.hive.enabled", "true")
+    )
+
+    platform_jars = _platform_iceberg_jars()
+    if platform_jars:
+        builder = builder.config("spark.jars", platform_jars)
+
+    ozone_host = _env("OZONE_HOST", "lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work")
+    if ozone_host and warehouse.startswith("s3a://"):
+        builder = (
+            builder.config("spark.hadoop.fs.s3a.endpoint", ozone_host)
+            .config("spark.hadoop.fs.s3a.path.style.access", "true")
+            .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "true")
+            .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+        )
+    if settings.ozone_filesystems:
+        builder = builder.config("spark.kerberos.access.hadoopFileSystems", settings.ozone_filesystems)
+
+    print(f"Opening Spark Connect session via data connection: {connect_url}")
+    return builder.getOrCreate()
+
+
 def create_spark_session_from_data_connection(
     connection_name: str,
     *,
@@ -159,14 +216,6 @@ def create_spark_session_from_data_connection(
     os.environ.setdefault("PYTHONHTTPSVERIFY", "0")
     ssl._create_default_https_context = ssl._create_unverified_context
     _patch_requests_ssl()
-
-    try:
-        import cml.data_v1 as cmldata
-    except ImportError as exc:
-        raise RuntimeError(
-            "cml.data_v1 is unavailable in this runtime. Attach the Spark Connect runtime "
-            "addon (sparkconnect354-731-26) and ensure the project data connection is synced."
-        ) from exc
 
     settings = settings or get_lakehouse_settings()
     connection = _fetch_project_data_connection(connection_name)
@@ -180,13 +229,11 @@ def create_spark_session_from_data_connection(
         f"dataLakeExternalDir={external_dir or '(missing)'}"
     )
 
-    _patch_cml_connection_lookup(connection)
     try:
-        conn = cmldata.get_connection(connection_name)
-        spark = conn.get_spark_session()
+        spark = _build_spark_connect_session(settings, external_dir=external_dir)
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(
-            f"Failed to open CAI data connection {connection_name!r}: {exc}"
+            f"Failed to open CAI data connection {connection_name!r} via Spark Connect: {exc}"
         ) from exc
 
     _configure_iceberg_catalog(spark, settings)

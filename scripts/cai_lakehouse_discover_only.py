@@ -226,7 +226,9 @@ payload: dict[str, object] = {
 try:
     if mode in SPARK_MODES:
         if os.getenv("CAI_SPARK_DATA_CONNECTION") or os.getenv("CDSW_DATA_CONNECTION"):
-            configure_spark_connect_python()
+            from app.spark_connect_env import prepare_spark_connect
+
+            prepare_spark_connect()
             payload["steps"].append("data_connection_spark_ready")
         elif not os.getenv("LAKEHOUSE_SPARK_MASTER") and not os.getenv("SPARK_MASTER"):
             prepare_spark_connect()
