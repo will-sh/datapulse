@@ -49,7 +49,7 @@ python3 scripts/cai_project_sync.py deploy
 
 Zero-byte files are uploaded with a trailing newline because CAI rejects empty uploads.
 
-`upload --prune` removes stale remote files **before** upload (including old flat files like `app` that block `app/...` paths), then uploads the manifest, then prunes again.
+`upload --prune` removes stale **top-level** remote files before upload (including old flat files like `app` that block `app/...` paths). CAI directories are never deleted via prune. Verification checks each manifest path individually because the list API only returns project-root entries.
 
 ### Branch guard
 

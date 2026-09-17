@@ -155,8 +155,8 @@ def api_request(method: str, path: str, payload: dict | None = None, *, timeout:
         return exc.code, parsed
 
 
-def list_remote_files() -> list[str]:
-    paths: list[str] = []
+def list_remote_entries() -> list[dict]:
+    entries: list[dict] = []
     page_token = ""
     while True:
         query = f"/api/v2/projects/{CAI_PID}/files?page_size=500"
@@ -166,24 +166,31 @@ def list_remote_files() -> list[str]:
         if status != 200:
             raise RuntimeError(f"list files failed: status={status} payload={payload}")
         if isinstance(payload, dict):
-            entries = payload.get("files") or payload.get("project_files") or []
+            batch = payload.get("files") or payload.get("project_files") or []
             page_token = payload.get("next_page_token") or payload.get("nextPageToken") or ""
         elif isinstance(payload, list):
-            entries = payload
+            batch = payload
             page_token = ""
         else:
-            entries = []
+            batch = []
             page_token = ""
-        for entry in entries:
+        for entry in batch:
             if isinstance(entry, dict):
-                path = entry.get("path") or entry.get("name") or ""
+                entries.append(entry)
             else:
-                path = str(entry)
-            if path:
-                paths.append(path)
+                entries.append({"path": str(entry), "is_dir": False})
         if not page_token:
             break
-    return sorted(set(paths))
+    return entries
+
+
+def list_remote_files() -> list[str]:
+    return sorted({entry.get("path") or entry.get("name") or "" for entry in list_remote_entries()} - {""})
+
+
+def remote_file_exists(rel_path: str) -> bool:
+    status, _ = api_request("GET", f"/api/v2/projects/{CAI_PID}/files/{rel_path}", timeout=30)
+    return status == 200
 
 
 def delete_remote_file(rel_path: str) -> None:
@@ -209,36 +216,34 @@ def read_upload_bytes(local_path: Path) -> bytes:
     return content
 
 
-def is_prefix_conflict(remote_path: str, manifest: set[str]) -> bool:
-    if remote_path.endswith("/"):
+def is_parent_of_manifest(remote_path: str, manifest: set[str]) -> bool:
+    base = remote_path.rstrip("/")
+    if not base:
         return False
-    prefix = remote_path + "/"
+    prefix = base + "/"
     return any(path.startswith(prefix) for path in manifest)
 
 
-def should_prune_remote(rel_path: str, manifest: set[str]) -> bool:
-    if rel_path in manifest:
+def should_delete_remote_entry(entry: dict, manifest_set: set[str], *, prune: bool) -> bool:
+    path = entry.get("path") or entry.get("name") or ""
+    if not path or path in manifest_set:
         return False
-    if any(rel_path.startswith(prefix) for prefix in PRUNE_PROTECT_PREFIXES):
+    if any(path.startswith(prefix) for prefix in PRUNE_PROTECT_PREFIXES):
         return False
-    if rel_path.endswith("/"):
+    if entry.get("is_dir"):
         return False
-    return True
+    if is_parent_of_manifest(path, manifest_set):
+        return True
+    return prune
 
 
 def cleanup_remote(*, manifest: list[str], prune: bool) -> int:
     manifest_set = set(manifest)
-    remote = list_remote_files()
     deleted = 0
-    for rel_path in remote:
-        if rel_path in manifest_set:
+    for entry in list_remote_entries():
+        if not should_delete_remote_entry(entry, manifest_set, prune=prune):
             continue
-        if not prune and not is_prefix_conflict(rel_path, manifest_set):
-            continue
-        if not should_prune_remote(rel_path, manifest_set) and not is_prefix_conflict(
-            rel_path, manifest_set
-        ):
-            continue
+        rel_path = entry.get("path") or entry.get("name") or ""
         delete_remote_file(rel_path)
         print(f"removed stale {rel_path}")
         deleted += 1
@@ -315,23 +320,32 @@ def cmd_upload(*, prune: bool) -> int:
         upload_file(rel_path)
         if index % 20 == 0:
             time.sleep(0.5)
-
-    if prune:
-        removed_after = cleanup_remote(manifest=manifest, prune=True)
-        print(f"post-upload prune removed {removed_after} remote-only file(s)")
     return 0
 
 
 def cmd_verify() -> int:
-    manifest = set(build_manifest())
-    remote = set(list_remote_files())
-    missing = sorted(manifest - remote)
+    manifest = sorted(build_manifest())
+    missing = [rel_path for rel_path in manifest if not remote_file_exists(rel_path)]
+    top_level = list_remote_files()
+    manifest_set = set(manifest)
     extra = sorted(
         path
-        for path in remote - manifest
-        if not any(path.startswith(prefix) for prefix in PRUNE_PROTECT_PREFIXES)
+        for path in top_level
+        if path not in manifest_set
+        and not any(path.startswith(prefix) for prefix in PRUNE_PROTECT_PREFIXES)
+        and not is_parent_of_manifest(path, manifest_set)
     )
-    print(json.dumps({"manifest": len(manifest), "remote": len(remote), "missing": missing[:30], "extra": extra[:30]}, indent=2))
+    print(
+        json.dumps(
+            {
+                "manifest": len(manifest),
+                "missing_count": len(missing),
+                "missing": missing[:30],
+                "extra_top_level": extra[:30],
+            },
+            indent=2,
+        )
+    )
     return 1 if missing else 0
 
 
