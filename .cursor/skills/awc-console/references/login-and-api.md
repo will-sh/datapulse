@@ -1,0 +1,91 @@
+# AWC Console — login and API
+
+## Credentials (readygo test environment)
+
+| Field | Value |
+|-------|--------|
+| Username | `admin` |
+| Password | `awc-admin-password` |
+| Console | https://console.readygo.a70735.test.cldr.work |
+| Knox | https://knox.readygo.a70735.test.cldr.work |
+
+User provided these credentials in a prior session; WebSSO login was verified (HTTP 303 + `hadoop-jwt` cookie, Console title **Anywhere Cloud Console UI**).
+
+## Knox WebSSO login (required pattern)
+
+The Knox **login HTML page is not a simple form POST**. Use the WebSSO endpoint with **HTTP Basic Auth**:
+
+```http
+POST https://knox.readygo.a70735.test.cldr.work/gateway/knox-cdpsso/api/v1/websso?originalUrl=https://console.readygo.a70735.test.cldr.work/
+Authorization: Basic <base64(admin:awc-admin-password)>
+```
+
+Success:
+
+- HTTP **303** (or 302)
+- `Set-Cookie: hadoop-jwt=...` (domain `.a70735.test.cldr.work`)
+- Follow redirect / reuse cookie for Console and experience URLs
+
+### curl example
+
+```bash
+CONSOLE_URL='https://console.readygo.a70735.test.cldr.work'
+KNOX='https://knox.readygo.a70735.test.cldr.work'
+AUTH=$(printf 'admin:awc-admin-password' | base64 -w0)
+COOKIEJAR=/tmp/console-cookies.txt
+
+curl -sk -c "$COOKIEJAR" -X POST \
+  -H "Authorization: Basic $AUTH" \
+  "${KNOX}/gateway/knox-cdpsso/api/v1/websso?originalUrl=${CONSOLE_URL}/"
+
+curl -sk -b "$COOKIEJAR" "${CONSOLE_URL}/" | grep -i '<title'
+```
+
+### Python (same as sync script)
+
+See `scripts/sync_console_catalog.py` → `login()`. It POSTs to WebSSO, stores cookies in `/tmp/console-catalog-cookies.txt`, then calls JSON APIs.
+
+## Sync marketplace catalog
+
+```bash
+export CONSOLE_USER=admin
+export CONSOLE_PASSWORD=awc-admin-password
+python3 scripts/sync_console_catalog.py
+```
+
+Writes `data/console_catalog.json` with:
+
+- `experiences` — deployed stacks (`landingPageUrl`, status, blueprint)
+- `engines` — engine definitions
+- `blueprints` — marketplace templates (CAI, CSM, CLE, etc.)
+
+## Useful Console API v0 paths
+
+All require authenticated session cookie from Knox WebSSO:
+
+| Path | Content |
+|------|---------|
+| `/api/v0/console/experiences` | Deployed experiences + landing URLs |
+| `/api/v0/console/blueprints` | Marketplace blueprints |
+| `/api/v0/console/engines` | Engine catalog |
+| `/api/v0/auth/access-keys/credentials` | Create Kafka/API access keys (POST) |
+| `/api/v0/auth/access-keys/token` | OAuth token for Kafka SASL |
+
+## Experience URLs (CLE / Lakehouse)
+
+Direct DNS names like `cle-bp-trino.cldr-csk-lakehouse.a70735.test.cldr.work` often **404** without the Console-issued `landingPageUrl` (hash-based Knox path). Always prefer `landingPageUrl` from synced experiences.
+
+Legacy Lakehouse experience ids used `lakehouse-bp-*`; newer CLE deployments use `cle-bp-*` on cluster `cldr-csk-lakehouse`.
+
+## Bastion access (optional)
+
+If running from outside the test VPC, prior agents used AWS EC2 Instance Connect + SSH port 2222 to a bastion, then curl from inside the network. Cloud Agent pods in this environment can usually reach Console/Knox directly.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `CONSOLE_PASSWORD is required` | Export password or read this file |
+| Knox login page loop | Use WebSSO POST + Basic Auth, not form fields |
+| Experience 404 | Fetch `landingPageUrl` from `/api/v0/console/experiences` |
+| Stale deployment list | Re-run `sync_console_catalog.py` |
