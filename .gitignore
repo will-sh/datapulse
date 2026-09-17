@@ -49,6 +49,7 @@ monitoring/grafana/bin/
 monitoring/grafana/public/
 monitoring/grafana/plugins/
 monitoring/run/
+monitoring/relay/
 monitoring/status.json
 monitoring-e2e-results.json
 
