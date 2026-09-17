@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 from datetime import UTC, datetime
 from pathlib import Path
 
+from app.cai_spark_connection import create_spark_session_from_data_connection, resolve_data_connection_name
 from app.lakehouse_settings import discover_hive_site, get_lakehouse_settings
 from app.spark_stream.kafka_stream import _kafka_options
 from app.trino_lakehouse import bootstrap_via_trino, probe_trino, verify_via_trino
@@ -46,6 +47,7 @@ def discover_environment() -> int:
         },
         "hive_site_source": hive_site.get("source"),
         "hive_site_keys": sorted(k for k in hive_site if k != "source"),
+        "cai_spark_data_connection": resolve_data_connection_name() or None,
     }
     _print_json("discover", summary)
     return 0
@@ -91,6 +93,15 @@ def _spark_packages(include_kafka: bool = True) -> str:
 
 
 def _build_lakehouse_spark_session(*, include_kafka: bool = True):
+    connection_name = resolve_data_connection_name()
+    if connection_name:
+        if include_kafka:
+            print(
+                "Warning: Kafka connector packages cannot be added to a CAI data-connection "
+                "Spark session after creation; batch/stream may require manual Spark config."
+            )
+        return create_spark_session_from_data_connection(connection_name)
+
     settings = get_lakehouse_settings()
     allowed_urls = ""
     dist_files = ""
@@ -423,15 +434,26 @@ def trino_verify() -> int:
 
 
 def spark_probe() -> int:
+    connection_name = resolve_data_connection_name()
     spark, settings = _create_lakehouse_spark_session(include_kafka=False)
-    _print_json(
-        "spark-probe",
-        {
-            "spark_version": spark.version,
-            "spark_connect_url": _env("SPARK_CONNECT_URL"),
-            "qualified_table": settings.qualified_table,
-        },
-    )
+    probe: dict[str, object] = {
+        "spark_version": spark.version,
+        "spark_connect_url": _env("SPARK_CONNECT_URL"),
+        "spark_master": _env("LAKEHOUSE_SPARK_MASTER") or _env("SPARK_MASTER"),
+        "qualified_table": settings.qualified_table,
+        "cai_spark_data_connection": connection_name or None,
+        "hadoop_conf_dir": _env("HADOOP_CONF_DIR"),
+    }
+    hive_site = Path(_env("HADOOP_CONF_DIR") or "/home/cdsw/hadoop_config_dir") / "hive-site.xml"
+    probe["hive_site_exists"] = hive_site.is_file()
+    if connection_name:
+        try:
+            probe["show_databases"] = [
+                row[0] for row in spark.sql("SHOW DATABASES").collect()
+            ]
+        except Exception as exc:  # noqa: BLE001
+            probe["show_databases_error"] = str(exc)
+    _print_json("spark-probe", probe)
     spark.stop()
     return 0
 

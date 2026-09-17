@@ -9,6 +9,7 @@ from pathlib import Path
 
 DEFAULT_HMS_HOST = "hivemetastore.cldr-csk-lakehouse.a70735.test.cldr.work"
 DEFAULT_HMS_PORT = "9083"
+DEFAULT_ICEBERG_WAREHOUSE = "s3a://hive-warehouse/external"
 DEFAULT_ICEBERG_CATALOG = "iceberg_catalog"
 DEFAULT_ICEBERG_DATABASE = "datapulse"
 DEFAULT_ICEBERG_TABLE = "events"
@@ -118,16 +119,25 @@ def resolve_warehouse(hive_site: dict[str, str]) -> str:
     if explicit:
         return explicit
 
-    for key in ("spark.sql.warehouse.dir", "hive.metastore.warehouse.dir"):
+    for key in (
+        "spark.sql.warehouse.dir",
+        "hive.metastore.warehouse.dir",
+        "hive.metastore.warehouse.external.dir",
+    ):
         value = hive_site.get(key, "")
         if value:
             return value
+
+    if _env("CAI_SPARK_DATA_CONNECTION") or _env("CDSW_DATA_CONNECTION"):
+        return DEFAULT_ICEBERG_WAREHOUSE
 
     ozone_host = _env("OZONE_HOST", "lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work")
     volume = _env("OZONE_VOLUME", "s3v")
     bucket = _env("OZONE_BUCKET", "warehouse")
     prefix = _env("OZONE_WAREHOUSE_PREFIX", "datapulse")
-    return f"s3a://{volume}/{bucket}/{prefix}" if ozone_host else ""
+    if ozone_host:
+        return f"s3a://{volume}/{bucket}/{prefix}"
+    return DEFAULT_ICEBERG_WAREHOUSE
 
 
 def resolve_ozone_filesystems(warehouse: str) -> str:
