@@ -274,6 +274,21 @@ except Exception as exc:  # noqa: BLE001
     payload["error"] = str(exc)
     payload["traceback"] = traceback.format_exc()
     write_run_log(payload)
+    try:
+        from scripts.cai_report_last_job_run import _report_via_trino
+
+        payload["trino_failure_report"] = _report_via_trino(
+            {
+                "phase": "lakehouse-job-failure",
+                "mode": mode,
+                "hostname": socket.gethostname(),
+                "reported_at": datetime.now(UTC).isoformat(),
+                "payload": payload,
+            }
+        )
+    except Exception as report_exc:  # noqa: BLE001
+        payload["trino_failure_report"] = {"ok": False, "error": str(report_exc)}
+        write_run_log(payload)
     print(json.dumps(payload, indent=2, default=str))
     raise RuntimeError(str(exc)) from exc
 

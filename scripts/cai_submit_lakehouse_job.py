@@ -51,6 +51,7 @@ DEFAULT_ENV = {
     "ICEBERG_WAREHOUSE": "s3a://hive-warehouse/external",
     "CAI_SPARK_DATA_CONNECTION": "lakehouse-integrated",
     "HADOOP_CONF_DIR": "/home/cdsw/hadoop_config_dir",
+    "PYTHONHTTPSVERIFY": "0",
     "LAKEHOUSE_CHECKPOINT_DIR": "config/lakehouse/.checkpoints/kafka-to-iceberg",
     "SPARK_SESSION_TIMEOUT_SEC": "300",
     "TRINO_HOST": "lakehouse-bp-556b64.cldr-csk-lakehouse.a70735.test.cldr.work",
@@ -161,6 +162,8 @@ def addons_for_mode(mode: str, environment: dict[str, str] | None = None) -> lis
 def build_job_payload(mode: str, extra_env: dict[str, str] | None = None, *, stringify_env: bool = False) -> dict[str, Any]:
     environment = dict(DEFAULT_ENV)
     environment.update(fetch_kafka_env_from_consumer())
+    if CAI_KEY:
+        environment.setdefault("CDSW_APIV2_KEY", CAI_KEY)
     if extra_env:
         environment.update(extra_env)
     environment["LAKEHOUSE_JOB_MODE"] = mode

@@ -46,6 +46,11 @@ def create_spark_session_from_data_connection(
     settings: LakehouseSettings | None = None,
 ) -> tuple[object, LakehouseSettings]:
     """Build a Spark session using a synced CAI Spark Data Lake connection."""
+    import ssl
+
+    os.environ.setdefault("PYTHONHTTPSVERIFY", "0")
+    ssl._create_default_https_context = ssl._create_unverified_context
+
     try:
         import cml.data_v1 as cmldata
     except ImportError as exc:
