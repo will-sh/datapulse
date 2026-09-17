@@ -39,6 +39,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local private notes (credentials, URLs, UI runbooks) — never commit
+PRIVATE.local.md
+
 # monitoring bundle artifacts
 .cache/monitoring/
 monitoring/prometheus/
