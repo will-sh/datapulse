@@ -1,23 +1,23 @@
 # CAI project ↔ `main` branch sync
 
-The CAI Workbench project file tree should match **`origin/main`**, not ad-hoc feature branch uploads.
+The CAI Workbench project file tree should match **GitHub `main`**, not ad-hoc feature branch uploads.
 
-## 1. Update `main` on Origin
+**Git remote:** `https://github.com/will-sh/datapulse.git` (sole source of truth). We no longer push to or pull from Origin (`origin.cursor.com`).
 
-All tested feature work is merged via fast-forward from `cursor/cdp-base-iceberg-smoke-8307` (tip of the stacked PR chain):
-
-- Monitoring, Live Events, AWC theme, SDK, Marketplace
-- Lakehouse jobs, Trino OAuth probe, CDP Base smoke scripts
+## 1. Update `main` on GitHub
 
 ```bash
 git checkout main
 git pull origin main
-git merge origin/cursor/cdp-base-iceberg-smoke-8307   # or already merged
+# ... edit, commit ...
 git push origin main
-git push github main   # optional personal mirror
 ```
 
-## 2. Sync CAI project from `main`
+CAI Git-connected projects (e.g. `datapulse-readygo`) do **not** auto-sync: after `git push`, run **git pull** in the CAI project Console session.
+
+## 2. Sync CAI project from `main` (API upload)
+
+For projects without Git, or to upload gitignored files (Kafka certs):
 
 ```bash
 export CAI_BASE=https://ray-ml.cldr-csk-cai-readygo.a70735.test.cldr.work
@@ -27,17 +27,9 @@ export CAI_KEY=$CDSW_APIV2_KEY
 git checkout main
 git pull origin main
 
-# Upload all git-tracked deploy files (+ local kafka certs)
-python3 scripts/cai_project_sync.py upload
-
-# Optional: remove stale files left from old experiments
 python3 scripts/cai_project_sync.py upload --prune
-
-# Verify remote matches manifest
 python3 scripts/cai_project_sync.py verify
-
-# Upload + recreate Applications
-python3 scripts/cai_project_sync.py deploy
+python3 scripts/cai_project_sync.py deploy     # optional: recreate Applications
 ```
 
 ### What gets uploaded
@@ -49,34 +41,31 @@ python3 scripts/cai_project_sync.py deploy
 
 Zero-byte files are uploaded with a trailing newline because CAI rejects empty uploads.
 
-`upload --prune` removes stale **top-level** remote files before upload (including old flat files like `app` that block `app/...` paths). CAI directories are never deleted via prune. Verification checks each manifest path individually because the list API only returns project-root entries.
+`upload --prune` removes stale **top-level** remote files before upload. Verification checks each manifest path via GET.
 
 ### Branch guard
 
-By default sync **refuses** unless `HEAD` is `main`. Override for experiments:
+By default sync **refuses** unless `HEAD` is `main`.
+
+## 3. Git-connected test project
+
+Create project from Git URL `https://github.com/will-sh/datapulse.git`, branch `main` (e.g. `datapulse-readygo`).
+
+After each `git push origin main`:
 
 ```bash
-CAI_REQUIRE_BRANCH=cursor/my-feature python3 scripts/cai_project_sync.py upload --allow-branch cursor/my-feature
+git pull origin main
+git log -1 --oneline   # should match GitHub main
 ```
 
-## 3. Test project (optional)
+Still run `cai_project_sync.py upload` once for Kafka TLS certs (gitignored).
 
-Create a new empty CAI project in the Console, then:
+## 4. Cloud Agent / local clone
 
 ```bash
-export CAI_PID=<new-project-id>
-export CAI_REQUIRE_BRANCH=main
-python3 scripts/cai_project_sync.py upload --prune
-python3 scripts/cai_deploy.py
+git clone https://github.com/will-sh/datapulse.git
+cd datapulse
+git checkout main
 ```
 
-Use this to validate GitHub/Origin `main` before touching the production project.
-
-## 4. GitHub mirror
-
-Origin (`cloudera/datapulse`) is source of truth for Cloud Agent. Mirror to GitHub after merging `main`:
-
-```bash
-git push github main
-git push github 'refs/heads/cursor/*:refs/heads/cursor/*'   # optional feature branches
-```
+For push from Cloud Agent, set `GITHUB_TOKEN` (see skill `github-datapulse-sync`).
