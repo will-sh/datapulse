@@ -225,13 +225,20 @@ payload: dict[str, object] = {
 
 try:
     if mode in SPARK_MODES:
-        if not os.getenv("LAKEHOUSE_SPARK_MASTER") and not os.getenv("SPARK_MASTER"):
+        if os.getenv("CAI_SPARK_DATA_CONNECTION") or os.getenv("CDSW_DATA_CONNECTION"):
+            configure_spark_connect_python()
+            payload["steps"].append("data_connection_spark_ready")
+        elif not os.getenv("LAKEHOUSE_SPARK_MASTER") and not os.getenv("SPARK_MASTER"):
             prepare_spark_connect()
+            payload["steps"].append("spark_connect_ready")
         else:
             configure_spark_connect_python()
-        payload["steps"].append("spark_connect_ready")
+            payload["steps"].append("local_spark_ready")
         payload["spark_connect_url"] = os.getenv("SPARK_CONNECT_URL", "")
         payload["spark_master"] = os.getenv("LAKEHOUSE_SPARK_MASTER") or os.getenv("SPARK_MASTER", "")
+        payload["cai_spark_data_connection"] = os.getenv("CAI_SPARK_DATA_CONNECTION") or os.getenv(
+            "CDSW_DATA_CONNECTION", ""
+        )
         write_run_log(payload)
     if mode in TRINO_MODES:
         payload["steps"].append("trino_mode")

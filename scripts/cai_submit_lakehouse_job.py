@@ -26,6 +26,7 @@ DEFAULT_RUNTIME = (
 DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 # sparkconnect354 combined with hadoop-cli breaks CAI Job engine startup; local Spark uses hadoop-cli only.
 SPARK_ADDONS = ["hadoop-cli-7.3.1.709-1"]
+SPARK_DATA_CONNECTION_ADDONS = ["sparkconnect354-731-26"]
 SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"}
 TRINO_MODES = {"trino-probe", "trino-bootstrap", "trino-verify"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
@@ -51,7 +52,6 @@ DEFAULT_ENV = {
     "CAI_SPARK_DATA_CONNECTION": "lakehouse-integrated",
     "HADOOP_CONF_DIR": "/home/cdsw/hadoop_config_dir",
     "LAKEHOUSE_CHECKPOINT_DIR": "config/lakehouse/.checkpoints/kafka-to-iceberg",
-    "LAKEHOUSE_SPARK_MASTER": "local[2]",
     "SPARK_SESSION_TIMEOUT_SEC": "300",
     "TRINO_HOST": "lakehouse-bp-556b64.cldr-csk-lakehouse.a70735.test.cldr.work",
     "TRINO_PORT": "443",
@@ -151,7 +151,10 @@ def fetch_kafka_env_from_consumer() -> dict[str, str]:
     return {}
 
 
-def addons_for_mode(mode: str) -> list[str]:
+def addons_for_mode(mode: str, environment: dict[str, str] | None = None) -> list[str]:
+    env = environment or DEFAULT_ENV
+    if env.get("CAI_SPARK_DATA_CONNECTION") or env.get("CDSW_DATA_CONNECTION"):
+        return SPARK_DATA_CONNECTION_ADDONS
     return SPARK_ADDONS if mode in SPARK_MODES else DEFAULT_ADDONS
 
 
@@ -162,7 +165,7 @@ def build_job_payload(mode: str, extra_env: dict[str, str] | None = None, *, str
         environment.update(extra_env)
     environment["LAKEHOUSE_JOB_MODE"] = mode
     environment["LAKEHOUSE_JOB_ARGS"] = mode
-    addons = addons_for_mode(mode)
+    addons = addons_for_mode(mode, environment)
 
     payload = {
         "name": JOB_NAME,

@@ -46,12 +46,23 @@ def create_spark_session_from_data_connection(
     settings: LakehouseSettings | None = None,
 ) -> tuple[object, LakehouseSettings]:
     """Build a Spark session using a synced CAI Spark Data Lake connection."""
-    import cml.data_v1 as cmldata
+    try:
+        import cml.data_v1 as cmldata
+    except ImportError as exc:
+        raise RuntimeError(
+            "cml.data_v1 is unavailable in this runtime. Attach the Spark Connect runtime "
+            "addon (sparkconnect354-731-26) and ensure the project data connection is synced."
+        ) from exc
 
     settings = settings or get_lakehouse_settings()
     print(f"Using CAI Spark data connection: {connection_name!r}")
-    conn = cmldata.get_connection(connection_name)
-    spark = conn.get_spark_session()
+    try:
+        conn = cmldata.get_connection(connection_name)
+        spark = conn.get_spark_session()
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(
+            f"Failed to open CAI data connection {connection_name!r}: {exc}"
+        ) from exc
     _configure_iceberg_catalog(spark, settings)
     status = _hive_site_status()
     print(
