@@ -91,6 +91,23 @@ If running from outside the test VPC, prior agents used AWS EC2 Instance Connect
 
 **NXDOMAIN / UI unreachable:** CSA cluster Istio ingress was **internal-only** and Route53 had no records. Fix pattern (2026-09-17): create **internet-facing** NLB alias records in Route53 for `cldr-csk-csa-1.a70735.test.cldr.work`, `*.cldr-csk-csa-1...`, and `csa-bp-csa-ssb-sse.cldr-csk-csa-1...` pointing at the cluster Istio targets. Long-term: patch `istio-ingress/default-awc-istio` Service on CSA cluster to `internet-facing` + public subnet so `external-dns` manages records.
 
+### CSA Flink job API (programmatic)
+
+Knox WebSSO cookie auth, then SSB API on the CSA host. If local DNS for the SSB hostname fails, use curl `--resolve csa-bp-csa-ssb-sse.cldr-csk-csa-1.a70735.test.cldr.work:443:<istio-ip>`.
+
+| Step | Method | Path | Body |
+|------|--------|------|------|
+| Create/update job | POST / PUT | `/api/v2/projects/{projectId}/jobs` | `SqlExecuteRequest`: `{ sql, job_config: { job_name, runtime_config, checkpoint_config, kubernetes_config, ... }, mv_endpoints }` |
+| Execute job | POST | `/internal/job/execute?jobId={id}` | same `SqlExecuteRequest` |
+| List jobs | GET | `/internal/job/projects/{projectId}` | — |
+| Create table DDL template | POST | `/internal/ddl/create-table` | `{ connector_type, format_type, sql: null }` |
+
+**Job config enums:** `runtime_config.execution_mode` ∈ `APPLICATION` \| `PER_JOB` \| `SESSION`; `runtime_config.runtime_mode` ∈ `STREAMING` \| `BATCH` \| `AUTOMATIC`. Job names must match `[A-Za-z_][A-Za-z0-9_]*` (no hyphens).
+
+**Kafka OAuth in Flink:** avoid `sasl.login.callback.handler.class=OAuthBearerLoginCallbackHandler` (class missing in CSA Flink image). Use `properties.sasl.jaas.config` + embedded `properties.ssl.truststore.certificates` (PEM). See `scripts/csa_flink_kafka_iceberg.py`.
+
+**Iceberg sink blockers (2026-09-17):** CSA Flink pods cannot reach Lakehouse HMS Thrift `:9083` (`Failed to list namespace datapulse`). Trino on `:443` works; Flink Iceberg connector needs Thrift HMS or a platform-provided catalog/data connection. Until network/catalog integration is fixed, use CAI/Trino ingest (`trino-ingest`) for Iceberg writes.
+
 ## Troubleshooting
 
 | Symptom | Fix |
