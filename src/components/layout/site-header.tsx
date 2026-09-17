@@ -8,10 +8,10 @@ import { useAnalytics } from "@/context/event-log-context";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/", label: "首页" },
-  { href: "/features", label: "功能" },
-  { href: "/playground", label: "行为实验室" },
-  { href: "/pricing", label: "定价" },
+  { href: "/", label: "Home" },
+  { href: "/features", label: "Features" },
+  { href: "/playground", label: "Behavior lab" },
+  { href: "/pricing", label: "Pricing" },
 ];
 
 export function SiteHeader() {
@@ -60,7 +60,7 @@ export function SiteHeader() {
           onClick={() => trackEvent("cta_header_clicked")}
           className="inline-flex h-7 items-center rounded-lg bg-indigo-600 px-3 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
         >
-          开始体验
+          Get started
         </Link>
       </div>
     </header>

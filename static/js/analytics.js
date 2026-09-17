@@ -7,7 +7,7 @@
   let events = [];
 
   function formatTime(timestamp) {
-    return new Date(timestamp).toLocaleTimeString("zh-CN", {
+    return new Date(timestamp).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
@@ -17,8 +17,8 @@
   function transportLabel() {
     if (config.kafkaEnabled && config.posthogEnabled) return "Kafka + PostHog";
     if (config.kafkaEnabled) return "Kafka · AWC Pipeline";
-    if (config.posthogEnabled) return "PostHog 已连接";
-    return "本地模式";
+    if (config.posthogEnabled) return "PostHog connected";
+    return "Local mode";
   }
 
   function updateBadge() {
@@ -37,15 +37,15 @@
     if (!list || !count) return;
 
     const suffix = config.kafkaEnabled
-      ? " · 同步到 Kafka"
+      ? " · synced to Kafka"
       : config.posthogEnabled
         ? ""
-        : " · 本地采集模式";
-    count.textContent = `已采集 ${events.length} 条 AWC 互动${suffix}`;
+        : " · local capture mode";
+    count.textContent = `Captured ${events.length} AWC interactions${suffix}`;
 
     if (events.length === 0) {
       list.innerHTML =
-        '<p class="event-empty">浏览 Marketplace、选择 Blueprint 或 Launch Demo，事件将实时出现在这里</p>';
+        '<p class="event-empty">Browse Marketplace, select a Blueprint, or Launch Demo — events will appear here in real time</p>';
       return;
     }
 
@@ -102,9 +102,9 @@
       if (config.kafkaEnabled) {
         status.textContent = "Kafka → Live Events";
       } else if (config.posthogEnabled) {
-        status.textContent = "PostHog 云端";
+        status.textContent = "PostHog cloud";
       } else {
-        status.textContent = "本地面板";
+        status.textContent = "Local panel";
       }
     }
 
@@ -113,7 +113,7 @@
         1,
         Math.floor((Date.now() - sessionStart) / 60000),
       );
-      session.textContent = `会话约 ${minutes} 分钟`;
+      session.textContent = `Session ~${minutes} min`;
     }
   }
 

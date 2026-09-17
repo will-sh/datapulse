@@ -18,7 +18,7 @@
 
   function fmtTime(seconds) {
     if (!seconds) return "-";
-    return new Date(seconds * 1000).toLocaleString("zh-CN");
+    return new Date(seconds * 1000).toLocaleString("en-US");
   }
 
   function eventKey(event) {
@@ -51,7 +51,7 @@
 
   function renderStats(stats) {
     if (!stats.by_name.length) {
-      els.statsPanel.innerHTML = '<p class="empty">暂无统计</p>';
+      els.statsPanel.innerHTML = '<p class="empty">No stats yet</p>';
       return;
     }
     els.statsPanel.innerHTML = stats.by_name
@@ -68,7 +68,7 @@
   function renderNames(names) {
     const current = els.filterName.value;
     els.filterName.innerHTML =
-      '<option value="">全部</option>' +
+      '<option value="">All</option>' +
       names.map((name) => `<option value="${name}">${name}</option>`).join("");
     els.filterName.value = current;
   }
@@ -76,7 +76,7 @@
   function renderEvents(events) {
     if (!events.length) {
       els.eventsList.innerHTML =
-        '<p class="empty">暂无事件。请在 datapulse-app 行为实验室触发操作。</p>';
+        '<p class="empty">No events yet. Trigger actions in the datapulse-app behavior lab.</p>';
       return;
     }
 
@@ -101,7 +101,7 @@
               <span>component: <strong>${event.component || "-"}</strong></span>
             </div>
             <button type="button" class="props-toggle" data-target="${propsId}">
-              查看 properties
+              View properties
             </button>
             <pre id="${propsId}" class="props-block hidden">${propsJson}</pre>
           </article>`;
@@ -134,7 +134,7 @@
       renderNames(namesPayload.names || []);
       renderEvents(snapshot.events || []);
     } catch (error) {
-      els.statusBar.innerHTML = `<div class="err">加载失败: ${error}</div>`;
+      els.statusBar.innerHTML = `<div class="err">Load failed: ${error}</div>`;
     }
   }
 

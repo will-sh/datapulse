@@ -21,7 +21,7 @@ export function MetricsSection() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            页面浏览
+            Page views
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -31,7 +31,7 @@ export function MetricsSection() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            自定义事件
+            Custom events
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -41,15 +41,15 @@ export function MetricsSection() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            采集状态
+            Capture status
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-lg font-semibold">
-            {posthogEnabled ? "PostHog 云端" : "本地面板"}
+            {posthogEnabled ? "PostHog cloud" : "Local panel"}
           </p>
           <p className="text-xs text-muted-foreground">
-            会话约 {sessionMinutes} 分钟
+            Session ~{sessionMinutes} min
           </p>
         </CardContent>
       </Card>

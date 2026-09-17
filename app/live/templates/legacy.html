@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,20 +20,20 @@
   </style>
 </head>
 <body>
-  <p><a href="/live">← 返回 Live Events</a></p>
+  <p><a href="/live">← Back to Live Events</a></p>
   <h1>Spark Structured Streaming → Kafka (Legacy)</h1>
-  <p class="meta">Topic: <strong>{{ topic }}</strong> · 每 3 秒自动刷新</p>
-  <div id="status" class="status">加载中…</div>
+  <p class="meta">Topic: <strong>{{ topic }}</strong> · auto-refreshes every 3 seconds</p>
+  <div id="status" class="status">Loading…</div>
   <table>
     <thead>
-      <tr><th>收到时间</th><th>Kafka 时间</th><th>内容</th></tr>
+      <tr><th>Received at</th><th>Kafka time</th><th>Content</th></tr>
     </thead>
     <tbody id="rows"></tbody>
   </table>
   <script>
     function fmt(ts) {
       if (!ts) return "-";
-      return new Date(ts * 1000).toLocaleString("zh-CN");
+      return new Date(ts * 1000).toLocaleString("en-US");
     }
     async function refresh() {
       const res = await fetch("/api/messages");
@@ -42,12 +42,12 @@
       const rows = document.getElementById("rows");
       const active = data.stream_active ? "ok" : "err";
       status.innerHTML = `
-        <div>Spark 状态: <span class="${active}">${data.spark_status}</span></div>
-        <div>已消费: <strong>${data.total_received}</strong> 条</div>
-        ${data.last_error ? `<div class="err">错误: ${data.last_error}</div>` : ""}
+        <div>Spark status: <span class="${active}">${data.spark_status}</span></div>
+        <div>Consumed: <strong>${data.total_received}</strong> messages</div>
+        ${data.last_error ? `<div class="err">Error: ${data.last_error}</div>` : ""}
       `;
       if (!data.events.length) {
-        rows.innerHTML = '<tr><td colspan="3" class="empty">暂无消息。请在 datapulse-app 行为实验室触发事件。</td></tr>';
+        rows.innerHTML = '<tr><td colspan="3" class="empty">No messages yet. Trigger events in the datapulse-app behavior lab.</td></tr>';
         return;
       }
       rows.innerHTML = data.events.map((event) => {
