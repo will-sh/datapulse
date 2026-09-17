@@ -18,6 +18,7 @@ from typing import Any
 
 CAI_BASE = os.getenv("CAI_BASE", "https://ray-ml.cldr-csk-cai-readygo.a70735.test.cldr.work").rstrip("/")
 CAI_PID = os.getenv("CAI_PID", "k87h-zej9-dugs-473y")
+CAI_PROJECT_NUMERIC_ID = os.getenv("CAI_PROJECT_NUMERIC_ID", "3")
 CAI_KEY = os.getenv("CAI_KEY", os.getenv("CDSW_APIV2_KEY", ""))
 
 DEFAULT_RUNTIME = (
@@ -50,6 +51,8 @@ DEFAULT_ENV = {
     "OZONE_WAREHOUSE_PREFIX": "datapulse",
     "ICEBERG_WAREHOUSE": "s3a://hive-warehouse/external",
     "CAI_SPARK_DATA_CONNECTION": "lakehouse-integrated",
+    "CAI_PROJECT_NUMERIC_ID": CAI_PROJECT_NUMERIC_ID,
+    "CAI_BASE": CAI_BASE,
     "HADOOP_CONF_DIR": "/home/cdsw/hadoop_config_dir",
     "PYTHONHTTPSVERIFY": "0",
     "LAKEHOUSE_CHECKPOINT_DIR": "config/lakehouse/.checkpoints/kafka-to-iceberg",
