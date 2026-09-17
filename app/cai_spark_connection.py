@@ -74,10 +74,8 @@ def _patch_cml_connection_lookup(connection: dict[str, Any]) -> None:
     """Avoid Knox WebSSO inside cml.data_v1 by serving cached project metadata."""
     import cml.data_v1.data as cml_data
 
-    cached = {"projectDataConnectionList": [connection]}
-
-    def get_project_dataconnections() -> dict[str, Any]:
-        return cached
+    def get_project_dataconnections() -> list[dict[str, Any]]:
+        return [connection]
 
     cml_data.get_project_dataconnections = get_project_dataconnections
 
