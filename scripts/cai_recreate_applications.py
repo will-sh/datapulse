@@ -58,6 +58,7 @@ DEFAULT_SPECS: dict[str, dict[str, Any]] = {
             "KAFKA_CONFIG_DIR": "config/kafka",
             "KAFKA_CONSUMER_MODE": "cli",
             "KAFKA_CLI_FROM_BEGINNING": "true",
+            "KAFKA_CONSUMER_GROUP": "datapulse-spark-consumer-ui",
             "KAFKA_STARTING_OFFSETS": "earliest",
             "KAFKA_POLL_INTERVAL": "5 seconds",
             "METRICS_RELAY_DIR": "monitoring/relay",
