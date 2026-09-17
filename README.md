@@ -292,6 +292,8 @@ LIMIT 20;
 
 第三个 CAI Application 用于 Observability，启动脚本：`scripts/cai_start_monitoring.py`。
 
+**CAI Project 与 `main` 同步**：见 [docs/cai-main-sync.md](docs/cai-main-sync.md)。在 `main` 分支执行 `python3 scripts/cai_project_sync.py upload`（不要用 feature 分支直接 upload）。
+
 | 项 | 值 |
 |----|-----|
 | Application 名 | `datapulse-monitoring` |
