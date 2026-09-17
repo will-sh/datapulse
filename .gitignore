@@ -39,6 +39,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# private local runbook (credentials, URLs, walkthroughs)
+PRIVATE.local.md
+
 # monitoring bundle artifacts
 .cache/monitoring/
 monitoring/prometheus/
