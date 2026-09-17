@@ -19,19 +19,23 @@ sasl.oauthbearer.client.id={client_id}
 sasl.oauthbearer.client.secret={client_secret}
 sasl.oauthbearer.client.credentials.client.id={client_id}
 sasl.oauthbearer.client.credentials.client.secret={client_secret}
-sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="{client_id}" clientSecret="{client_secret}" ssl.truststore.location=oauth-ca.crt ssl.truststore.type=PEM;
-ssl.truststore.location=kafka-ca.crt
+sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="{client_id}" clientSecret="{client_secret}" ssl.truststore.location={oauth_ca} ssl.truststore.type=PEM;
+ssl.truststore.location={kafka_ca}
 ssl.truststore.type=PEM
 """
 
 
 def write_client_properties(settings: KafkaSettings) -> None:
     settings.config_dir.mkdir(parents=True, exist_ok=True)
+    kafka_ca = settings.kafka_ca_path.resolve()
+    oauth_ca = settings.oauth_ca_path.resolve()
     content = PROPERTIES_TEMPLATE.format(
         bootstrap_servers=settings.bootstrap_servers,
         token_url=settings.token_url,
         client_id=settings.client_id,
         client_secret=settings.client_secret,
+        kafka_ca=kafka_ca,
+        oauth_ca=oauth_ca,
     )
     settings.properties_path.write_text(content, encoding="utf-8")
 
