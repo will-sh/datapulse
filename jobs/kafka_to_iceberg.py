@@ -12,6 +12,7 @@ from app.cai_spark_connection import create_spark_session_from_data_connection, 
 from app.lakehouse_settings import discover_hive_site, get_lakehouse_settings
 from app.spark_stream.kafka_stream import _kafka_options
 from app.trino_lakehouse import bootstrap_via_trino, probe_trino, verify_via_trino
+from app.trino_kafka_ingest import run_trino_ingest
 
 
 def _env(name: str, default: str = "") -> str:
@@ -374,6 +375,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "trino-probe",
             "trino-bootstrap",
             "trino-verify",
+            "trino-ingest",
         ),
         help="discover env, create table, batch/stream ingest, verify, spark/trino probes",
     )
@@ -431,6 +433,11 @@ def trino_bootstrap() -> int:
 
 def trino_verify() -> int:
     _print_json("trino-verify", verify_via_trino())
+    return 0
+
+
+def trino_ingest() -> int:
+    _print_json("trino-ingest", run_trino_ingest())
     return 0
 
 
@@ -525,6 +532,8 @@ def main(argv: list[str] | None = None) -> int:
         return trino_bootstrap()
     if args.mode == "trino-verify":
         return trino_verify()
+    if args.mode == "trino-ingest":
+        return trino_ingest()
     if args.mode == "bootstrap":
         return bootstrap_table()
     if args.mode == "batch":

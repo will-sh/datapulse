@@ -29,7 +29,7 @@ DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 SPARK_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 SPARK_DATA_CONNECTION_ADDONS = ["sparkconnect354-731-26"]
 SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-layout", "spark-pi"}
-TRINO_MODES = {"trino-probe", "trino-bootstrap", "trino-verify"}
+TRINO_MODES = {"trino-probe", "trino-bootstrap", "trino-verify", "trino-ingest"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
 JOB_ID = os.getenv("CAI_LAKEHOUSE_JOB_ID", "4h98-444z-iu1n-5x3m")
 JOB_SCRIPT = "scripts/cai_lakehouse_discover_only.py"
@@ -72,6 +72,14 @@ DEFAULT_ENV = {
     "TRINO_PORT": "443",
     "TRINO_CATALOG": "iceberg",
     "TRINO_VERIFY_SSL": "false",
+    "TRINO_INGEST_BATCH_SIZE": "50",
+    "TRINO_INGEST_MAX_BATCHES": "10",
+    "TRINO_INGEST_POLL_INTERVAL_SEC": "2",
+    "TRINO_INGEST_TIMEOUT_MS": "10000",
+    "TRINO_INGEST_CHECKPOINT": "config/lakehouse/.checkpoints/trino-ingest-offset.json",
+    "TRINO_INGEST_ENSURE_TABLE": "true",
+    "TRINO_INGEST_STOP_ON_EMPTY": "true",
+    "TRINO_INGEST_START_MODE": "latest",
 }
 
 POLL_INTERVAL = int(os.getenv("CAI_JOB_POLL_INTERVAL", "10"))
@@ -299,6 +307,7 @@ def parse_args() -> argparse.Namespace:
             "trino-probe",
             "trino-bootstrap",
             "trino-verify",
+            "trino-ingest",
         ),
         help="passed to jobs/kafka_to_iceberg.py via LAKEHOUSE_JOB_MODE",
     )
