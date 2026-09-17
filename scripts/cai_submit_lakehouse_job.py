@@ -51,6 +51,17 @@ DEFAULT_ENV = {
     "OZONE_WAREHOUSE_PREFIX": "datapulse",
     "ICEBERG_WAREHOUSE": "s3a://hive-warehouse/external",
     "CAI_SPARK_DATA_CONNECTION": "lakehouse-integrated",
+    "CAI_SPARK_DATA_CONNECTION_INFO": json.dumps(
+        {
+            "id": 1,
+            "workspaceConnectionId": "1",
+            "projectId": 3,
+            "name": "lakehouse-integrated",
+            "type": "SPARK",
+            "connectionInfo": {"dataLakeExternalDir": "s3a://hive-warehouse/external"},
+            "availability": True,
+        }
+    ),
     "CAI_PROJECT_NUMERIC_ID": CAI_PROJECT_NUMERIC_ID,
     "CAI_BASE": CAI_BASE,
     "HADOOP_CONF_DIR": "/home/cdsw/hadoop_config_dir",

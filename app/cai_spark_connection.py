@@ -28,7 +28,17 @@ def _ssl_context() -> ssl.SSLContext:
 
 
 def _fetch_project_data_connection(connection_name: str) -> dict[str, Any]:
-    """Load a synced project data connection using the job API key (no Knox WebSSO)."""
+    """Resolve project data-connection metadata without Knox WebSSO."""
+    inline = _env("CAI_SPARK_DATA_CONNECTION_INFO")
+    if inline:
+        connection = json.loads(inline)
+        if connection.get("name") == connection_name:
+            return connection
+        raise RuntimeError(
+            f"CAI_SPARK_DATA_CONNECTION_INFO name {connection.get('name')!r} "
+            f"does not match {connection_name!r}"
+        )
+
     api_key = _env("CDSW_APIV2_KEY") or _env("CAI_KEY")
     if not api_key:
         raise RuntimeError(
