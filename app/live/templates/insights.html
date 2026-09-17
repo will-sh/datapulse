@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +12,7 @@
     <div>
       <p class="eyebrow">DataPulse · Internal Analytics</p>
       <h1>Insights</h1>
-      <p class="subtitle">Kafka 消费缓冲窗口内的转化、漏斗与留存代理指标 · Topic <strong>{{ topic }}</strong></p>
+      <p class="subtitle">Conversion, funnel, and retention proxies within the Kafka consumer buffer · Topic <strong>{{ topic }}</strong></p>
     </div>
     <div class="topbar-actions">
       <nav class="consumer-nav">
@@ -21,12 +21,12 @@
       </nav>
       <label class="refresh-toggle">
         <input type="checkbox" id="auto-refresh" checked>
-        自动刷新 (5s)
+        Auto-refresh (5s)
       </label>
     </div>
   </header>
 
-  <section id="status-bar" class="status-bar">加载中…</section>
+  <section id="status-bar" class="status-bar">Loading…</section>
 
   <main class="insights-shell">
     <section class="kpi-grid" id="kpi-grid"></section>

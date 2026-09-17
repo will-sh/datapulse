@@ -18,25 +18,25 @@ import { useAnalytics } from "@/context/event-log-context";
 const plans = [
   {
     id: "starter",
-    name: "入门版",
-    price: "免费",
-    description: "适合个人项目与小型 Demo",
-    features: ["每月 1 万事件", "基础事件面板", "7 天数据保留"],
+    name: "Starter",
+    price: "Free",
+    description: "For personal projects and small demos",
+    features: ["10k events / month", "Basic event panel", "7-day retention"],
   },
   {
     id: "pro",
-    name: "专业版",
-    price: "¥299/月",
-    description: "适合成长型团队",
-    features: ["每月 100 万事件", "漏斗与留存分析", "90 天数据保留", "邮件告警"],
+    name: "Pro",
+    price: "$49/mo",
+    description: "For growing teams",
+    features: ["1M events / month", "Funnels and retention", "90-day retention", "Email alerts"],
     popular: true,
   },
   {
     id: "enterprise",
-    name: "企业版",
-    price: "联系销售",
-    description: "适合大规模生产环境",
-    features: ["无限事件", "专属技术支持", "SLA 保障", "私有化部署"],
+    name: "Enterprise",
+    price: "Contact sales",
+    description: "For large-scale production",
+    features: ["Unlimited events", "Dedicated support", "SLA", "Private deployment"],
   },
 ];
 
@@ -52,10 +52,10 @@ export default function PricingPage() {
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <Badge className="mb-3 bg-indigo-600">定价方案</Badge>
-        <h1 className="text-3xl font-bold tracking-tight">选择适合你的方案</h1>
+        <Badge className="mb-3 bg-indigo-600">Pricing</Badge>
+        <h1 className="text-3xl font-bold tracking-tight">Choose your plan</h1>
         <p className="mt-2 text-muted-foreground">
-          点击选择方案，触发 <code>plan_selected</code> 转化事件
+          Click to select a plan and fire a <code>plan_selected</code> conversion event
         </p>
       </div>
 
@@ -73,7 +73,7 @@ export default function PricingPage() {
           >
             <CardHeader>
               {plan.popular && (
-                <Badge className="mb-2 w-fit bg-indigo-600">最受欢迎</Badge>
+                <Badge className="mb-2 w-fit bg-indigo-600">Most popular</Badge>
               )}
               <CardTitle>{plan.name}</CardTitle>
               <CardDescription>{plan.description}</CardDescription>
@@ -95,7 +95,7 @@ export default function PricingPage() {
                 variant={selectedPlan === plan.id ? "secondary" : "default"}
                 onClick={() => selectPlan(plan.id, plan.name)}
               >
-                {selectedPlan === plan.id ? "已选择" : "选择方案"}
+                {selectedPlan === plan.id ? "Selected" : "Select plan"}
               </Button>
             </CardFooter>
           </Card>

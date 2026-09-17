@@ -26,7 +26,7 @@
 
   function fmtTime(seconds) {
     if (!seconds) return "-";
-    return new Date(seconds * 1000).toLocaleString("zh-CN");
+    return new Date(seconds * 1000).toLocaleString("en-US");
   }
 
   function renderStatus(pipeline, note) {
@@ -63,7 +63,7 @@
 
   function renderFunnel(funnel) {
     if (!funnel.length) {
-      els.funnelPanel.innerHTML = '<p class="empty">暂无漏斗数据</p>';
+      els.funnelPanel.innerHTML = '<p class="empty">No funnel data yet</p>';
       return;
     }
 
@@ -121,7 +121,7 @@
 
     if (!filtered.length) {
       els.sessionsPanel.innerHTML =
-        '<p class="empty">当前筛选下暂无 session。在 Producer 站点浏览或提交表单后刷新。</p>';
+        '<p class="empty">No sessions match this filter. Browse or submit a form on the Producer site, then refresh.</p>';
       return;
     }
 
@@ -166,7 +166,7 @@
   function renderConverters(rows) {
     if (!rows.length) {
       els.convertersPanel.innerHTML =
-        '<p class="empty">暂无表单提交。在 Producer 站点提交 Schedule a deep dive 或 Playground 表单后刷新。</p>';
+        '<p class="empty">No form submissions yet. Submit Schedule a deep dive or a Playground form on the Producer site, then refresh.</p>';
       return;
     }
 
@@ -228,10 +228,10 @@
       cachedSessionSummary = data.session_summary || {};
       renderSessions(cachedSessions, cachedSessionSummary);
       renderConverters(data.recent_converters);
-      renderSimpleStats(els.pagesPanel, data.top_pages, "path", "views", "暂无页面浏览");
-      renderSimpleStats(els.eventsPanel, data.top_events, "name", "count", "暂无事件");
+      renderSimpleStats(els.pagesPanel, data.top_pages, "path", "views", "No page views yet");
+      renderSimpleStats(els.eventsPanel, data.top_events, "name", "count", "No events yet");
     } catch (error) {
-      els.statusBar.innerHTML = `<span class="err">加载失败: ${error.message}</span>`;
+      els.statusBar.innerHTML = `<span class="err">Load failed: ${error.message}</span>`;
     }
   }
 

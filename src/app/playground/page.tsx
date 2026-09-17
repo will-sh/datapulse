@@ -38,10 +38,10 @@ export default function PlaygroundPage() {
   return (
     <div className="space-y-8">
       <div>
-        <Badge className="mb-3 bg-indigo-600">行为实验室</Badge>
-        <h1 className="text-3xl font-bold tracking-tight">交互式事件采集</h1>
+        <Badge className="mb-3 bg-indigo-600">Behavior lab</Badge>
+        <h1 className="text-3xl font-bold tracking-tight">Interactive event capture</h1>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          在下方尝试不同操作，观察右侧事件面板的实时反馈。
+          Try the actions below and watch the event panel update in real time.
         </p>
       </div>
 
@@ -52,17 +52,17 @@ export default function PlaygroundPage() {
         }
       >
         <TabsList>
-          <TabsTrigger value="events">自定义事件</TabsTrigger>
-          <TabsTrigger value="form">表单提交</TabsTrigger>
-          <TabsTrigger value="identity">用户识别</TabsTrigger>
+          <TabsTrigger value="events">Custom events</TabsTrigger>
+          <TabsTrigger value="form">Form submit</TabsTrigger>
+          <TabsTrigger value="identity">User identify</TabsTrigger>
         </TabsList>
 
         <TabsContent value="events" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>一键触发事件</CardTitle>
+              <CardTitle>Trigger events</CardTitle>
               <CardDescription>
-                模拟产品中的常见用户行为
+                Simulate common product user actions
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
@@ -71,7 +71,7 @@ export default function PlaygroundPage() {
                   trackEvent("button_clicked", { button: "primary_action" })
                 }
               >
-                主要操作
+                Primary action
               </Button>
               <Button
                 variant="outline"
@@ -79,7 +79,7 @@ export default function PlaygroundPage() {
                   trackEvent("button_clicked", { button: "secondary_action" })
                 }
               >
-                次要操作
+                Secondary action
               </Button>
               <Button
                 variant="secondary"
@@ -90,7 +90,7 @@ export default function PlaygroundPage() {
                   })
                 }
               >
-                导出数据
+                Export data
               </Button>
               <Button
                 variant="destructive"
@@ -98,7 +98,7 @@ export default function PlaygroundPage() {
                   trackEvent("account_action", { action: "delete_requested" })
                 }
               >
-                删除账户（模拟）
+                Delete account (simulated)
               </Button>
             </CardContent>
           </Card>
@@ -107,9 +107,9 @@ export default function PlaygroundPage() {
         <TabsContent value="form" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>订阅表单</CardTitle>
+              <CardTitle>Subscription form</CardTitle>
               <CardDescription>
-                提交后触发 <code>demo_form_submitted</code> 事件
+                Submitting fires a <code>demo_form_submitted</code> event
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -123,12 +123,12 @@ export default function PlaygroundPage() {
                 />
                 <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700">
                   <Send className="size-4" />
-                  提交
+                  Submit
                 </Button>
               </form>
               {submitted && (
                 <p className="mt-3 text-sm text-green-600 dark:text-green-400">
-                  表单已提交，事件已采集！
+                  Form submitted — event captured!
                 </p>
               )}
             </CardContent>
@@ -138,26 +138,26 @@ export default function PlaygroundPage() {
         <TabsContent value="identity" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>用户识别</CardTitle>
+              <CardTitle>User identify</CardTitle>
               <CardDescription>
-                调用 PostHog identify，将匿名用户关联到具体 ID
+                Call PostHog identify to link an anonymous visitor to a user ID
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex max-w-md gap-2">
                 <Input
-                  placeholder="用户 ID（留空自动生成）"
+                  placeholder="User ID (auto-generated if empty)"
                   value={userId}
                   onChange={(e) => setUserId(e.target.value)}
                 />
                 <Button onClick={handleIdentify}>
                   <UserPlus className="size-4" />
-                  识别用户
+                  Identify user
                 </Button>
               </div>
               {userId && (
                 <p className="text-sm text-muted-foreground">
-                  当前用户 ID：<code>{userId}</code>
+                  Current user ID: <code>{userId}</code>
                 </p>
               )}
             </CardContent>
