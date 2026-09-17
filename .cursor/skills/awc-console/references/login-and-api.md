@@ -81,6 +81,16 @@ Legacy Lakehouse experience ids used `lakehouse-bp-*`; newer CLE deployments use
 
 If running from outside the test VPC, prior agents used AWS EC2 Instance Connect + SSH port 2222 to a bastion, then curl from inside the network. Cloud Agent pods in this environment can usually reach Console/Knox directly.
 
+## CSA (Streaming Analytics / Flink SQL)
+
+| Item | Value |
+|------|--------|
+| Experience | `deploy-018` / `csa-bp` on cluster `cldr-csk-csa-1` |
+| UI (SSB) | https://csa-bp-csa-ssb-sse.cldr-csk-csa-1.a70735.test.cldr.work/ui/console |
+| Login | Knox WebSSO first (`admin` / `awc-admin-password`), then open UI URL |
+
+**NXDOMAIN / UI unreachable:** CSA cluster Istio ingress was **internal-only** and Route53 had no records. Fix pattern (2026-09-17): create **internet-facing** NLB alias records in Route53 for `cldr-csk-csa-1.a70735.test.cldr.work`, `*.cldr-csk-csa-1...`, and `csa-bp-csa-ssb-sse.cldr-csk-csa-1...` pointing at the cluster Istio targets. Long-term: patch `istio-ingress/default-awc-istio` Service on CSA cluster to `internet-facing` + public subnet so `external-dns` manages records.
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -88,4 +98,5 @@ If running from outside the test VPC, prior agents used AWS EC2 Instance Connect
 | `CONSOLE_PASSWORD is required` | Export password or read this file |
 | Knox login page loop | Use WebSSO POST + Basic Auth, not form fields |
 | Experience 404 | Fetch `landingPageUrl` from `/api/v0/console/experiences` |
+| CSA / experience NXDOMAIN | See CSA section above; verify Route53 + public Istio NLB |
 | Stale deployment list | Re-run `sync_console_catalog.py` |
