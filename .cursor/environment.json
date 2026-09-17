@@ -1,0 +1,19 @@
+{
+  "name": "DataPulse",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "producer",
+      "command": ".venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080"
+    },
+    {
+      "name": "consumer",
+      "command": ".venv/bin/uvicorn app.spark_stream.web:app --host 0.0.0.0 --port 8081"
+    }
+  ],
+  "ports": [
+    { "name": "producer", "port": 8080 },
+    { "name": "consumer", "port": 8081 }
+  ]
+}
