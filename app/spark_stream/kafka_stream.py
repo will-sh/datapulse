@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import json
 import os
 import subprocess
 import sys
@@ -292,6 +293,12 @@ def _start_spark_connect_streaming() -> None:
     query.awaitTermination()
 
 
+def _write_cli_status(payload: dict[str, object]) -> None:
+    path = _config_dir() / "consumer-cli-status.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
 def _consume_kafka_cli_line(line: str) -> None:
     line = line.strip()
     if not line:
@@ -332,12 +339,14 @@ def _start_kafka_cli_consumer() -> None:
     env = os.environ.copy()
     env["KAFKA_OPTS"] = f"-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls={token_url}"
 
+    properties_name = (_config_dir() / "external.properties").name
+
     cmd = [
         str(consumer),
         "--bootstrap-server",
         bootstrap,
         "--consumer.config",
-        str(config_dir / "external.properties"),
+        properties_name,
         "--topic",
         topic,
         "--group",
@@ -347,6 +356,7 @@ def _start_kafka_cli_consumer() -> None:
         cmd.append("--from-beginning")
 
     STORE.set_status(f"kafka-cli streaming (group={group})", active=True)
+    _write_cli_status({"ok": True, "phase": "starting", "group": group, "config_dir": str(config_dir)})
     while True:
         proc = subprocess.Popen(
             cmd,
@@ -368,9 +378,26 @@ def _start_kafka_cli_consumer() -> None:
             if proc.stdout is not None:
                 for line in proc.stdout:
                     _consume_kafka_cli_line(line)
+                    if STORE.total_received == 1:
+                        _write_cli_status(
+                            {
+                                "ok": True,
+                                "phase": "streaming",
+                                "group": group,
+                                "total_received": STORE.total_received,
+                            }
+                        )
         finally:
             proc.wait(timeout=30)
             if proc.returncode not in (0,):
+                _write_cli_status(
+                    {
+                        "ok": False,
+                        "returncode": proc.returncode,
+                        "group": group,
+                        "config_dir": str(config_dir),
+                    }
+                )
                 STORE.set_status(
                     f"kafka-cli exited ({proc.returncode}); reconnecting (group={group})",
                     active=True,
