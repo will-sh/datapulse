@@ -104,9 +104,16 @@ Knox WebSSO cookie auth, then SSB API on the CSA host. If local DNS for the SSB 
 
 **Job config enums:** `runtime_config.execution_mode` ∈ `APPLICATION` \| `PER_JOB` \| `SESSION`; `runtime_config.runtime_mode` ∈ `STREAMING` \| `BATCH` \| `AUTOMATIC`. Job names must match `[A-Za-z_][A-Za-z0-9_]*` (no hyphens).
 
-**Kafka OAuth in Flink:** avoid `sasl.login.callback.handler.class=OAuthBearerLoginCallbackHandler` (class missing in CSA Flink image). Use `properties.sasl.jaas.config` + embedded `properties.ssl.truststore.certificates` (PEM). See `scripts/csa_flink_kafka_iceberg.py`.
+**Kafka OAuth in Flink:** avoid `sasl.login.callback.handler.class=OAuthBearerLoginCallbackHandler` (class missing in CSA Flink image). Use `properties.sasl.jaas.config` + embedded `properties.ssl.truststore.certificates` (PEM with literal `\n`, not raw newlines). See `scripts/csa_flink_kafka_iceberg.py`. As of 2026-09-17, Flink’s shaded Kafka connector still auto-resolves the non-shaded `OAuthBearerLoginCallbackHandler` and fails at runtime (`Class ... could not be found`) — requires CSA image / classpath fix (kafka-clients in Flink lib).
 
-**Iceberg sink blockers (2026-09-17):** CSA Flink pods cannot reach Lakehouse HMS Thrift `:9083` (`Failed to list namespace datapulse`). Trino on `:443` works; Flink Iceberg connector needs Thrift HMS or a platform-provided catalog/data connection. Until network/catalog integration is fixed, use CAI/Trino ingest (`trino-ingest`) for Iceberg writes.
+**Iceberg sink (2026-09-17 probes):**
+
+| HMS URI | Result from CSA Flink pods |
+|---------|----------------------------|
+| `thrift://hivemetastore.cldr-csk-lakehouse...:9083` (public) | TCP/HMS connect OK; sink fails: `Failed to list namespace under namespace: datapulse` (also `default`) — typical Ranger `USE` denial for the Flink HMS principal |
+| `thrift://metastore-service.lakehouse-bp-*.svc.cluster.local:9083` | `Failed to connect to Hive Metastore` (cross-cluster; CSA `cldr-csk-csa-1` cannot reach Lakehouse in-cluster services) |
+
+Trino on `:443` works (`iceberg.datapulse.events` has data). Flink Iceberg connector needs HMS Thrift **plus** Ranger policies for the CSA Flink service user on target databases, or a platform-provided Lakehouse catalog/data connection (like CAI `lakehouse-integrated`). Until fixed, use CAI/Trino ingest (`python3 scripts/cai_submit_lakehouse_job.py --mode trino-ingest`).
 
 ## Troubleshooting
 
