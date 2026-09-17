@@ -231,10 +231,19 @@ def create_spark_session_from_data_connection(
 
     try:
         spark = _build_spark_connect_session(settings, external_dir=external_dir)
-    except Exception as exc:  # noqa: BLE001
-        raise RuntimeError(
-            f"Failed to open CAI data connection {connection_name!r} via Spark Connect: {exc}"
-        ) from exc
+    except Exception as connect_exc:  # noqa: BLE001
+        print(f"Spark Connect session failed ({connect_exc}); trying cml.data_v1.get_spark_session()")
+        _patch_cml_connection_lookup(connection)
+        try:
+            import cml.data_v1 as cmldata
+
+            conn = cmldata.get_connection(connection_name)
+            spark = conn.get_spark_session()
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(
+                f"Failed to open CAI data connection {connection_name!r} "
+                f"(Spark Connect: {connect_exc}; cml: {exc})"
+            ) from exc
 
     _configure_iceberg_catalog(spark, settings)
     status = _hive_site_status()

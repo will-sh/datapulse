@@ -18,7 +18,7 @@ OUT = ROOT / "config" / "lakehouse" / "last-job-run.json"
 SPARK_CONNECT_ZIP = Path("/opt/spark-connect/spark_connect.zip")
 SPARK_CONNECT_NATIVE = Path("/opt/spark-connect/native")
 SPARK_CONNECT_DIR = Path("/tmp/spark-connect-unpack")
-SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"}
+SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-layout", "spark-pi"}
 TRINO_MODES = {"trino-probe", "trino-bootstrap", "trino-verify"}
 
 

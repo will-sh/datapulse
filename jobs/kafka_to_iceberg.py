@@ -369,6 +369,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "stream",
             "verify",
             "spark-probe",
+            "spark-layout",
             "spark-pi",
             "trino-probe",
             "trino-bootstrap",
@@ -433,6 +434,30 @@ def trino_verify() -> int:
     return 0
 
 
+def spark_layout_probe() -> int:
+    from app.spark_connect_env import log_runtime_addon_state, prepare_spark_connect, resolve_spark_connect_paths
+
+    log_runtime_addon_state()
+    zip_path, native_dir, root = resolve_spark_connect_paths()
+    payload = {
+        "zip_path": str(zip_path) if zip_path else None,
+        "native_dir": str(native_dir) if native_dir else None,
+        "root": str(root) if root else None,
+        "spark_home": os.getenv("SPARK_HOME"),
+        "spark_connect_url": os.getenv("SPARK_CONNECT_URL"),
+        "runtime_spark_ports": {
+            key: value
+            for key, value in os.environ.items()
+            if key.endswith("_SERVICE_PORT_SPARK")
+        },
+    }
+    prepare_spark_connect()
+    payload["spark_connect_url_after_prepare"] = os.getenv("SPARK_CONNECT_URL")
+    payload["spark_home_after_prepare"] = os.getenv("SPARK_HOME")
+    _print_json("spark-layout", payload)
+    return 0
+
+
 def spark_probe() -> int:
     connection_name = resolve_data_connection_name()
     spark, settings = _create_lakehouse_spark_session(include_kafka=False)
@@ -462,6 +487,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.mode == "discover":
         return discover_environment()
+    if args.mode == "spark-layout":
+        return spark_layout_probe()
     if args.mode == "spark-probe":
         return spark_probe()
     if args.mode == "spark-pi":

@@ -171,8 +171,51 @@ def try_start_spark_connect_server() -> bool:
     return False
 
 
+def log_runtime_addon_state() -> None:
+    runtime_keys = sorted(
+        key
+        for key in os.environ
+        if key.startswith(("DS_RUNTIME_", "CDSW_", "SPARK_", "ML_"))
+    )
+    print(f"Spark runtime env keys ({len(runtime_keys)}): {runtime_keys}")
+    zip_path, native_dir, root = resolve_spark_connect_paths()
+    print(f"Spark Connect paths: zip={zip_path} native={native_dir} root={root}")
+    if root and root.is_dir():
+        for entry in sorted(root.iterdir()):
+            print(f"  {entry.name}{'/' if entry.is_dir() else ''}")
+
+
+def ensure_spark_home() -> str | None:
+    existing = os.getenv("SPARK_HOME", "").strip()
+    if existing:
+        return existing
+
+    _, _, root = resolve_spark_connect_paths()
+    search_roots = [path for path in (root, Path("/opt/spark-connect")) if path is not None]
+    candidates: list[Path] = []
+    for base in search_roots:
+        candidates.extend(
+            [
+                base,
+                base / "spark",
+                base / "spark-distribution",
+                base / "pyspark" / "spark-distribution",
+            ]
+        )
+
+    for candidate in candidates:
+        if (candidate / "bin" / "spark-submit").is_file() or (candidate / "bin" / "spark-shell").is_file():
+            os.environ["SPARK_HOME"] = str(candidate)
+            print(f"Resolved SPARK_HOME={candidate}")
+            return str(candidate)
+    return None
+
+
 def prepare_spark_connect() -> str:
+    log_runtime_addon_state()
     configure_spark_connect_python()
+    ensure_spark_home()
     url = detect_spark_connect_url()
-    try_start_spark_connect_server()
+    started = try_start_spark_connect_server()
+    print(f"Spark Connect autostart attempted: {started}")
     return url

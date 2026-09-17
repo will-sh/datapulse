@@ -28,7 +28,7 @@ DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 # sparkconnect354 combined with hadoop-cli breaks CAI Job engine startup; local Spark uses hadoop-cli only.
 SPARK_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 SPARK_DATA_CONNECTION_ADDONS = ["sparkconnect354-731-26"]
-SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"}
+SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-layout", "spark-pi"}
 TRINO_MODES = {"trino-probe", "trino-bootstrap", "trino-verify"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
 JOB_ID = os.getenv("CAI_LAKEHOUSE_JOB_ID", "4h98-444z-iu1n-5x3m")
@@ -294,6 +294,7 @@ def parse_args() -> argparse.Namespace:
             "stream",
             "verify",
             "spark-probe",
+            "spark-layout",
             "spark-pi",
             "trino-probe",
             "trino-bootstrap",
