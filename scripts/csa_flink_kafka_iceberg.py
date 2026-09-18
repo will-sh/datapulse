@@ -33,23 +33,17 @@ KAFKA_CONFIG_DIR = Path(os.getenv("KAFKA_CONFIG_DIR", "config/kafka"))
 # thrift://metastore-service.<warehouseId>.svc.cluster.local:9083
 # warehouseId for this env matches ozone release hash lakehouse-bp-b05257 (see console_catalog.json).
 # Public Route53 HMS is reachable from CSA Flink pods; in-cluster svc URIs are not (cross-cluster).
+# Public HMS (CSA cluster). In-cluster URI for reference only (lakehouse-bp-ccbe9d, not reachable from CSA):
+# thrift://lakehouse-bp-hms-hms-service.lakehouse-bp-ccbe9d.svc.cluster.local:9083
 HMS_URI_DEFAULT = "thrift://hivemetastore.cldr-csk-lakehouse.a70735.test.cldr.work:9083"
 HMS_URI = os.getenv("HMS_URI", HMS_URI_DEFAULT)
 HMS_URI_CANDIDATES = [
     uri.strip()
-    for uri in os.getenv(
-        "HMS_URI_CANDIDATES",
-        ";".join(
-            [
-                HMS_URI_DEFAULT,
-                "thrift://metastore-service.lakehouse-bp-b05257.svc.cluster.local:9083",
-                "thrift://metastore-service.lakehouse-bp-556b64.svc.cluster.local:9083",
-                "thrift://hivemetastore.lakehouse-bp-b05257.svc.cluster.local:9083",
-            ]
-        ),
-    ).split(";")
+    for uri in os.getenv("HMS_URI_CANDIDATES", HMS_URI_DEFAULT).split(";")
     if uri.strip()
 ]
+# Populated by scripts/csa_patch_flink_lakehouse_conf.sh from lakehouse-bp-310fe0-cfg.
+FLINK_LAKEHOUSE_CONF_DIR = os.getenv("FLINK_LAKEHOUSE_CONF_DIR", "/opt/flink/lakehouse-conf")
 ICEBERG_WAREHOUSE = os.getenv("ICEBERG_WAREHOUSE", "s3a://hive-warehouse/external")
 ICEBERG_DATABASE = os.getenv("ICEBERG_DATABASE", "datapulse")
 ICEBERG_TABLE = os.getenv("ICEBERG_TABLE", "events")
@@ -73,6 +67,7 @@ KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "datapulse-events")
 POLL_INTERVAL = int(os.getenv("CSA_POLL_INTERVAL", "10"))
 WAIT_TIMEOUT = int(os.getenv("CSA_WAIT_TIMEOUT", "600"))
 PROBE_JOB_NAME = os.getenv("CSA_PROBE_JOB_NAME", "datapulse_hms_probe")
+PROBE_CONF_JOB_NAME = os.getenv("CSA_PROBE_CONF_JOB_NAME", "datapulse_hms_conf_probe")
 
 
 def _resolve_ip(host: str) -> str:
@@ -153,9 +148,28 @@ def _sql_string(value: str) -> str:
     return value.replace("'", "''")
 
 
-def _iceberg_sink_ddl(*, hms_uri: str, table_name: str = "iceberg_events_sink") -> str:
+def _lakehouse_conf_props() -> str:
+    if os.getenv("FLINK_USE_LAKEHOUSE_CONF", "1").strip().lower() in {"0", "false", "no"}:
+        return ""
+    conf = _sql_string(FLINK_LAKEHOUSE_CONF_DIR)
+    return (
+        f"  'hive-conf-dir' = '{conf}',\n"
+        f"  'hadoop-conf-dir' = '{conf}',\n"
+    )
+
+
+def _iceberg_sink_ddl(
+    *,
+    hms_uri: str,
+    table_name: str = "iceberg_events_sink",
+    catalog_database: str | None = None,
+    catalog_table: str | None = None,
+) -> str:
+    lakehouse_conf = _lakehouse_conf_props()
+    db = catalog_database or ICEBERG_DATABASE
+    table = catalog_table or ICEBERG_TABLE
     return f"""
-CREATE TABLE IF NOT EXISTS {table_name} (
+CREATE TABLE {table_name} (
   event_id STRING,
   project_id STRING,
   event_name STRING,
@@ -175,15 +189,37 @@ CREATE TABLE IF NOT EXISTS {table_name} (
   'connector' = 'iceberg',
   'catalog-name' = 'lakehouse_hive',
   'catalog-type' = 'hive',
-  'uri' = '{_sql_string(hms_uri)}',
+{lakehouse_conf}  'uri' = '{_sql_string(hms_uri)}',
   'warehouse' = '{_sql_string(ICEBERG_WAREHOUSE)}',
-  'catalog-database' = '{_sql_string(ICEBERG_DATABASE)}',
-  'catalog-table' = '{_sql_string(ICEBERG_TABLE)}',
+  'catalog-database' = '{_sql_string(db)}',
+  'catalog-table' = '{_sql_string(table)}',
   'iceberg.hadoop.fs.s3a.endpoint' = '{_sql_string(OZONE_S3_ENDPOINT)}',
   'iceberg.hadoop.fs.s3a.path.style.access' = 'true',
   'iceberg.hadoop.fs.s3a.connection.ssl.enabled' = 'true',
   'iceberg.hadoop.fs.s3a.impl' = 'org.apache.hadoop.fs.s3a.S3AFileSystem'
 )
+""".strip()
+
+
+def build_hms_conf_probe_sql(*, hms_uri: str) -> str:
+    """Lightweight probe: requires hive-site.xml on pod at FLINK_LAKEHOUSE_CONF_DIR."""
+    conf = _sql_string(FLINK_LAKEHOUSE_CONF_DIR)
+    catalog = f"lh_conf_probe_{abs(hash(hms_uri)) % 100000}"
+    return f"""
+CREATE CATALOG {catalog} WITH (
+  'type' = 'iceberg',
+  'catalog-type' = 'hive',
+  'hive-conf-dir' = '{conf}',
+  'hadoop-conf-dir' = '{conf}',
+  'uri' = '{_sql_string(hms_uri)}',
+  'warehouse' = '{_sql_string(ICEBERG_WAREHOUSE)}',
+  'iceberg.hadoop.fs.s3a.endpoint' = '{_sql_string(OZONE_S3_ENDPOINT)}',
+  'iceberg.hadoop.fs.s3a.path.style.access' = 'true',
+  'iceberg.hadoop.fs.s3a.connection.ssl.enabled' = 'true',
+  'iceberg.hadoop.fs.s3a.impl' = 'org.apache.hadoop.fs.s3a.S3AFileSystem'
+);
+USE CATALOG {catalog};
+SHOW DATABASES
 """.strip()
 
 
@@ -206,7 +242,7 @@ CREATE TABLE {src} (
   'fields.event_name.length' = '8'
 );
 
-{_iceberg_sink_ddl(hms_uri=hms_uri, table_name=sink)};
+{_iceberg_sink_ddl(hms_uri=hms_uri, table_name=sink, catalog_database=os.getenv("ICEBERG_PROBE_DATABASE", "datapulse"), catalog_table=os.getenv("ICEBERG_PROBE_TABLE", "flink_hms_probe"))};
 
 INSERT INTO {sink}
 SELECT
@@ -304,7 +340,7 @@ SELECT event_id, name FROM kafka_datapulse_events
 """.strip()
         )
 
-    iceberg_ddl = _iceberg_sink_ddl(hms_uri=hms)
+    iceberg_ddl = "DROP TABLE IF EXISTS iceberg_events_sink;\n\n" + _iceberg_sink_ddl(hms_uri=hms)
 
     insert_sql = """
 INSERT INTO iceberg_events_sink
@@ -335,6 +371,7 @@ def _job_payload(
     *,
     job_name: str | None = None,
     kafka_only: bool = False,
+    runtime_mode: str = "STREAMING",
 ) -> dict[str, Any]:
     resolved_name = job_name or (CSA_JOB_NAME if not kafka_only else f"{CSA_JOB_NAME}_probe")
     return {
@@ -343,7 +380,7 @@ def _job_payload(
             "job_name": resolved_name,
             "runtime_config": {
                 "execution_mode": "APPLICATION",
-                "runtime_mode": "STREAMING",
+                "runtime_mode": runtime_mode,
                 "parallelism": 1,
                 "start_with_savepoint": False,
                 "sample_interval": 1000,
@@ -401,15 +438,22 @@ def update_job(
     *,
     job_name: str | None = None,
     kafka_only: bool = False,
+    runtime_mode: str = "STREAMING",
 ) -> None:
     api_request(
         "PUT",
         f"/api/v2/projects/{CSA_PROJECT_ID}/jobs/{job_id}",
-        _job_payload(sql, job_name=job_name, kafka_only=kafka_only),
+        _job_payload(sql, job_name=job_name, kafka_only=kafka_only, runtime_mode=runtime_mode),
     )
 
 
-def ensure_job(sql: str, *, job_name: str | None = None, kafka_only: bool = False) -> int:
+def ensure_job(
+    sql: str,
+    *,
+    job_name: str | None = None,
+    kafka_only: bool = False,
+    runtime_mode: str = "STREAMING",
+) -> int:
     name = job_name or CSA_JOB_NAME
     status, jobs_raw = api_request("GET", f"/internal/job/projects/{CSA_PROJECT_ID}")
     if status != 200 or not isinstance(jobs_raw, list):
@@ -420,14 +464,14 @@ def ensure_job(sql: str, *, job_name: str | None = None, kafka_only: bool = Fals
             api_request(
                 "PUT",
                 f"/api/v2/projects/{CSA_PROJECT_ID}/jobs/{job_id}",
-                _job_payload(sql, job_name=name, kafka_only=kafka_only),
+                _job_payload(sql, job_name=name, kafka_only=kafka_only, runtime_mode=runtime_mode),
             )
             return job_id
 
     status, created = api_request(
         "POST",
         f"/api/v2/projects/{CSA_PROJECT_ID}/jobs",
-        _job_payload(sql, job_name=name, kafka_only=kafka_only),
+        _job_payload(sql, job_name=name, kafka_only=kafka_only, runtime_mode=runtime_mode),
     )
     if status != 200 or not isinstance(created, dict):
         raise RuntimeError(f"create job failed: HTTP {status} {created}")
@@ -440,11 +484,12 @@ def execute_job(
     *,
     job_name: str | None = None,
     kafka_only: bool = False,
+    runtime_mode: str = "STREAMING",
 ) -> dict[str, Any]:
     status, response = api_request(
         "POST",
         f"/internal/job/execute?jobId={job_id}",
-        _job_payload(sql, job_name=job_name, kafka_only=kafka_only),
+        _job_payload(sql, job_name=job_name, kafka_only=kafka_only, runtime_mode=runtime_mode),
     )
     if status >= 400:
         raise RuntimeError(f"execute failed: HTTP {status} {response}")
@@ -471,6 +516,45 @@ def wait_for_job(job_id: int) -> dict[str, Any]:
     return last
 
 
+def _classify_hms_error(message: str) -> str:
+    text = message or ""
+    if "hive-site.xml" in text and FLINK_LAKEHOUSE_CONF_DIR in text:
+        return "lakehouse_conf_mount_missing"
+    if "Could not find Hadoop configuration" in text or "Unexpected EOF in prolog" in text:
+        return "lakehouse_conf_invalid"
+    if "Failed to list namespace" in text:
+        return "hms_metadata_denied"
+    if "Failed to connect to Hive Metastore" in text:
+        return "hms_unreachable"
+    return "unknown"
+
+
+def probe_hms_conf(job_id: int, *, hms_uri: str) -> dict[str, Any]:
+    sql = build_hms_conf_probe_sql(hms_uri=hms_uri)
+    entry: dict[str, Any] = {"hms_uri": hms_uri, "conf_dir": FLINK_LAKEHOUSE_CONF_DIR}
+    try:
+        api_request(
+            "PUT",
+            f"/api/v2/projects/{CSA_PROJECT_ID}/jobs/{job_id}",
+            _job_payload(sql, job_name=PROBE_CONF_JOB_NAME, runtime_mode="BATCH"),
+        )
+        execute_job(job_id, sql, job_name=PROBE_CONF_JOB_NAME, runtime_mode="BATCH")
+        final = wait_for_job(job_id)
+        entry["status"] = final.get("status")
+        entry["flink_job_id"] = final.get("flink_job_id")
+        error = (final.get("status") or {}).get("error") or ""
+        entry["error_class"] = _classify_hms_error(str(error))
+        entry["error"] = error or None
+        kind = (final.get("status") or {}).get("kind")
+        entry["ok"] = kind == "RUNNING" and bool(final.get("flink_job_id"))
+    except RuntimeError as exc:
+        message = str(exc)
+        entry["error_class"] = _classify_hms_error(message)
+        entry["error"] = message
+        entry["ok"] = False
+    return entry
+
+
 def probe_hms_candidates(job_id: int) -> tuple[str | None, list[dict[str, Any]]]:
     results: list[dict[str, Any]] = []
     working_uri: str | None = None
@@ -492,9 +576,13 @@ def probe_hms_candidates(job_id: int) -> tuple[str | None, list[dict[str, Any]]]
                 working_uri = uri
                 results.append(entry)
                 break
-            entry["error"] = (final.get("status") or {}).get("error")
+            error = (final.get("status") or {}).get("error") or ""
+            entry["error"] = error or None
+            entry["error_class"] = _classify_hms_error(str(error))
         except RuntimeError as exc:
-            entry["error"] = str(exc)
+            message = str(exc)
+            entry["error"] = message
+            entry["error_class"] = _classify_hms_error(message)
         results.append(entry)
     return working_uri, results
 
@@ -503,7 +591,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=["create", "execute", "run", "status", "probe-kafka", "probe-hms"],
+        choices=["create", "execute", "run", "status", "probe-kafka", "probe-hms-conf", "probe-hms"],
         help="create/update job SQL, execute, run end-to-end, print status, or probes",
     )
     parser.add_argument("--job-id", type=int, default=int(CSA_JOB_ID) if CSA_JOB_ID else 0)
@@ -514,11 +602,59 @@ def main() -> int:
     kafka_only = args.action == "probe-kafka"
     hms_override = args.hms_uri.strip() or None
 
+    if args.action == "probe-hms-conf":
+        uri = hms_override or HMS_URI_CANDIDATES[0]
+        sql = build_hms_conf_probe_sql(hms_uri=uri)
+        job_id = args.job_id or ensure_job(
+            sql,
+            job_name=PROBE_CONF_JOB_NAME,
+            runtime_mode="BATCH",
+        )
+        result = probe_hms_conf(job_id, hms_uri=uri)
+        print(json.dumps(result, indent=2, default=str))
+        if result.get("error_class") == "lakehouse_conf_mount_missing":
+            print(
+                "\nRun on readygo bastion: bash scripts/csa_patch_flink_lakehouse_conf.sh",
+                file=sys.stderr,
+            )
+        return 0 if result.get("ok") else 1
+
     if args.action == "probe-hms":
-        sql = build_hms_probe_sql(hms_uri=hms_override or HMS_URI_CANDIDATES[0])
+        uri = hms_override or HMS_URI_CANDIDATES[0]
+        conf_job_id = args.job_id or ensure_job(
+            build_hms_conf_probe_sql(hms_uri=uri),
+            job_name=PROBE_CONF_JOB_NAME,
+            runtime_mode="BATCH",
+        )
+        conf_result = probe_hms_conf(conf_job_id, hms_uri=uri)
+        if not conf_result.get("ok"):
+            print(
+                json.dumps(
+                    {
+                        "stage": "conf_probe",
+                        "conf_result": conf_result,
+                        "hint": "Deploy lakehouse conf mount before sink probe",
+                    },
+                    indent=2,
+                    default=str,
+                )
+            )
+            if conf_result.get("error_class") == "lakehouse_conf_mount_missing":
+                print(
+                    "Run on readygo bastion: bash scripts/csa_patch_flink_lakehouse_conf.sh",
+                    file=sys.stderr,
+                )
+            return 1
+        sql = build_hms_probe_sql(hms_uri=uri)
         job_id = args.job_id or ensure_job(sql, job_name=PROBE_JOB_NAME)
         working_uri, results = probe_hms_candidates(job_id)
-        print(json.dumps({"working_hms_uri": working_uri, "results": results}, indent=2, default=str))
+        print(
+            json.dumps(
+                {"stage": "sink_probe", "conf_result": conf_result, "working_hms_uri": working_uri, "results": results},
+                indent=2,
+                default=str,
+            )
+        )
         return 0 if working_uri else 1
 
     sql = build_job_sql(kafka_only=kafka_only, hms_uri=hms_override)

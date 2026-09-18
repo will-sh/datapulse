@@ -29,6 +29,8 @@ DEFAULT_USERS = [
     "ssb",
     "hadoop",
     "anonymous",
+    # Console Access Key used by Kafka OAuth clients (also HMS when impersonated).
+    "72491e16-87cc-4e7a-8ee0-2cae66dd9876",
 ]
 DEFAULT_GROUPS = ["public", "hive"]
 DEFAULT_ACCESSES = [

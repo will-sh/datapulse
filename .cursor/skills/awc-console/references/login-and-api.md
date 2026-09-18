@@ -127,6 +127,23 @@ Re-run: `KAFKA_CONFIG_DIR=config/kafka bash scripts/csa_patch_flink_kafka_oauth.
 
 Verify: `python3 scripts/csa_flink_kafka_iceberg.py probe-kafka --job-id 5210`
 
+**Lakehouse HMS conf mount (Flink → Iceberg, 2026-09-18):**
+
+Source ConfigMap on Lakehouse HMS: `lakehouse-bp-310fe0-cfg` in namespace `lakehouse-bp-ccbe9d` (mounted on HMS pods at `/etc/hive/conf`). Sync to CSA via readygo bastion:
+
+```bash
+bash scripts/csa_patch_flink_lakehouse_conf.sh
+```
+
+This exports/patches XML for cross-cluster use (public HMS thrift URI, Ozone S3 endpoint, Ranger REST URL, minimal `hdfs-site.xml`), publishes CSA ConfigMap `flink-lakehouse-hive-conf`, and merges SSB `ssb-config-pod-volumes` / `ssb-config-pod-volume-mounts` so **Flink job pods** (not the SSB deployment pod) mount conf at `/opt/flink/lakehouse-conf`. Flink SQL uses `'hive-conf-dir'` + `'hadoop-conf-dir'` pointing at that path.
+
+| Probe | Command | Pass criteria |
+|-------|---------|---------------|
+| Conf mount | `python3 scripts/csa_flink_kafka_iceberg.py probe-hms-conf` | `CREATE CATALOG` + `SHOW DATABASES` succeeds (no `hive-site.xml` missing error) |
+| Iceberg sink | `python3 scripts/csa_flink_kafka_iceberg.py probe-hms` | Runs conf probe first, then datagen → Iceberg sink on `datapulse.flink_hms_probe` |
+
+If conf probe fails with `There should be a hive-site.xml file under .../lakehouse-conf`, re-run the patch script on bastion. If conf probe passes but sink fails with `Failed to list namespace`, check Ranger (`python3 scripts/ranger_grant_hive.py grant-service-users`) and `HADOOP_USER_NAME` on Flink pods (patch script sets operator podTemplate default `admin`).
+
 **Ranger Hive (HMS) policies:** grant via Ranger REST API (Knox WebSSO cookie), same pattern as Trino `cm_trino` fixes:
 
 ```bash
