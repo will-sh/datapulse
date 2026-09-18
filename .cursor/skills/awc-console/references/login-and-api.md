@@ -112,13 +112,20 @@ This is **not** fixable from Flink SQL alone. CSA SQL job API has no `flinkConfi
 
 **Platform fix (applied on `cldr-csk-csa-1` via readygo bastion, 2026-09-18):**
 
-1. EFS PVC `flink-kafka-clients-lib-efs` holds `kafka-clients-3.9.1.7.3.2.0-957.jar` (copied from SSB image).
-2. SSB `ssb-config-pod-volumes` / `ssb-config-pod-volume-mounts` mount the jar at `/opt/flink/lib/kafka-clients-*.jar` on JM/TM (`CustomVolumesResourceDecorator`).
-3. `flink-operator-config` appends `-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls=<token_url>` to `env.java.default-opts.all` (Java 17 opens preserved).
+1. EFS PVC `flink-kafka-clients-lib-efs` holds `kafka-clients-*.jar` plus `kafka-ca.crt` / `oauth-ca.crt` (from `config/kafka/`).
+2. SSB `ssb-config-pod-volumes` / `ssb-config-pod-volume-mounts` mount jar + certs on JM/TM (`CustomVolumesResourceDecorator`).
+3. `flink-operator-config` appends `-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls=<token_url>` to `env.java.default-opts.all`.
 
-Re-run: `scripts/csa_patch_flink_kafka_oauth.sh` on bastion (`KUBECONFIG=.../csa/config/kubeconfig`). Verify: `KAFKA_CALLBACK_HANDLER=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler python3 scripts/csa_flink_kafka_iceberg.py probe-kafka`.
+Re-run: `KAFKA_CONFIG_DIR=config/kafka bash scripts/csa_patch_flink_kafka_oauth.sh` on bastion (`KUBECONFIG=.../csa/config/kubeconfig`).
 
-After the classloader fix, remaining Kafka failures may be JAAS (`KafkaClient` entry) or broker TLS — not `OAuthBearerLoginCallbackHandler could not be found`.
+**Flink SQL (aligned with CAI `config/kafka/external.properties`, 2026-09-18 verified RUNNING):**
+
+- Shaded OAuth classes: `org.apache.flink.kafka.shaded.org.apache.kafka.common.security.oauthbearer.*`
+- `DROP TABLE` before `CREATE` so Kafka connector props refresh (avoid stale `IF NOT EXISTS` catalog).
+- JAAS module-only `sasl.jaas.config` with quoted `ssl.truststore.location="/opt/flink/certs/oauth-ca.crt"`.
+- Broker TLS: `properties.ssl.truststore.location=/opt/flink/certs/kafka-ca.crt` (PEM file, not inline `\n` PEM in SQL).
+
+Verify: `python3 scripts/csa_flink_kafka_iceberg.py probe-kafka --job-id 5210`
 
 **Ranger Hive (HMS) policies:** grant via Ranger REST API (Knox WebSSO cookie), same pattern as Trino `cm_trino` fixes:
 
