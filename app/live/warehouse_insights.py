@@ -219,6 +219,7 @@ def load_insights_events(
     source: str = "auto",
     window_seconds: int | None = None,
     window_days: int | None = None,
+    comparison: bool = False,
 ) -> tuple[list[StreamEvent], str, int, str, dict[str, Any] | None]:
     """Return events, resolved source, effective window seconds, note, warehouse meta."""
     from app.live.service import pipeline_out
@@ -241,12 +242,22 @@ def load_insights_events(
 
     if use_trino:
         try:
-            events, meta = _fetch_trino_events(window_days=days)
+            fetch_days = min(days * 2, 30) if comparison else days
+            events, meta = _fetch_trino_events(window_days=fetch_days)
+            meta = {
+                **meta,
+                "fetch_days": fetch_days,
+                "comparison_enabled": comparison and fetch_days > days,
+            }
             window = days * 86400
             note = (
                 f"Insights from Lakehouse table {meta['qualified_table']} "
                 f"(last {days} day(s), deduped by event_id)."
             )
+            if meta.get("comparison_enabled"):
+                note += f" Comparison uses the prior {days} day(s)."
+            elif comparison and fetch_days == days:
+                note += " Period comparison uses the first vs second half of the window."
             return events, "trino", window, note, meta
         except Exception as exc:  # noqa: BLE001
             if normalized == "trino":

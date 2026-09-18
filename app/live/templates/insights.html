@@ -6,6 +6,7 @@
   <title>DataPulse Insights</title>
   <link rel="stylesheet" href="/live/static/live.css">
   <link rel="stylesheet" href="/live/static/insights.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -39,68 +40,163 @@
   <main class="insights-shell">
     <section class="kpi-grid" id="kpi-grid"></section>
 
+    <section class="panel panel-wide panel-chart">
+      <div class="panel-head">
+        <h2>Activity over time</h2>
+        <p class="hint">Events, sessions, and form submissions in the selected Lakehouse window</p>
+      </div>
+      <div class="chart-wrap chart-wrap--tall">
+        <canvas id="trend-chart" aria-label="Activity over time"></canvas>
+        <div id="trend-empty" class="empty hidden">No activity in this window yet</div>
+      </div>
+    </section>
+
     <div class="insights-grid">
       <section class="panel">
         <div class="panel-head">
-          <h2>Lead form conversion funnel</h2>
-          <p class="hint">Session-level progression in the selected Lakehouse window</p>
+          <h2>Lead conversion funnel</h2>
+          <p class="hint">Session-level progression from visit to form submit</p>
         </div>
         <div id="funnel-panel" class="funnel-panel"></div>
       </section>
 
       <section class="panel">
         <div class="panel-head">
-          <h2>Engagement & retention proxies</h2>
-          <p class="hint">Engagement signals from historical warehouse events</p>
+          <h2>Top blueprints</h2>
+          <p class="hint">Marketplace blueprint interactions in the window</p>
         </div>
-        <div id="retention-panel" class="retention-panel"></div>
-      </section>
-
-      <section class="panel panel-wide">
-        <div class="panel-head panel-head--toolbar">
-          <div>
-            <h2>All sessions</h2>
-            <p class="hint">Visitor sessions in the selected window · anonymous until form identify</p>
-          </div>
-          <div class="session-toolbar">
-            <label class="session-filter">
-              <span>Show</span>
-              <select id="session-filter">
-                <option value="all">All sessions</option>
-                <option value="converted">Converted only</option>
-                <option value="not_converted">Not converted</option>
-                <option value="anonymous">Anonymous only</option>
-                <option value="identified">Identified (form submit)</option>
-              </select>
-            </label>
-            <span id="session-count-label" class="session-count-label"></span>
-          </div>
+        <div class="chart-wrap">
+          <canvas id="blueprint-chart" aria-label="Top blueprints"></canvas>
         </div>
-        <div id="sessions-panel" class="converters-panel"></div>
-      </section>
-
-      <section class="panel panel-wide">
-        <div class="panel-head">
-          <h2>Recent form submissions</h2>
-          <p class="hint">Sessions that reached <code>awc_lead_form_submitted</code> or <code>demo_form_submitted</code></p>
-        </div>
-        <div id="converters-panel" class="converters-panel"></div>
+        <div id="blueprint-empty" class="empty hidden">No blueprint interactions yet</div>
       </section>
 
       <section class="panel">
         <div class="panel-head">
           <h2>Top pages</h2>
+          <p class="hint">$pageview counts by path</p>
         </div>
-        <div id="pages-panel" class="stats-panel"></div>
+        <div class="chart-wrap">
+          <canvas id="pages-chart" aria-label="Top pages"></canvas>
+        </div>
+        <div id="pages-empty" class="empty hidden">No page views yet</div>
       </section>
 
       <section class="panel">
         <div class="panel-head">
           <h2>Top events</h2>
+          <p class="hint">Most frequent event names</p>
         </div>
-        <div id="events-panel" class="stats-panel"></div>
+        <div class="chart-wrap">
+          <canvas id="events-chart" aria-label="Top events"></canvas>
+        </div>
+        <div id="events-empty" class="empty hidden">No events yet</div>
       </section>
     </div>
+
+    <section class="panel panel-wide panel-chart">
+      <div class="panel-head">
+        <h2>Activity heatmap</h2>
+        <p class="hint">Event volume by day of week and hour (UTC)</p>
+      </div>
+      <div id="heatmap-panel" class="heatmap-panel"></div>
+      <div id="heatmap-empty" class="empty hidden">No timed events in this window yet</div>
+    </section>
+
+    <div class="insights-grid">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Time to convert</h2>
+          <p class="hint">Duration from first pageview to form submit in converted sessions</p>
+        </div>
+        <p id="time-to-convert-summary" class="metric-summary"></p>
+        <div class="chart-wrap">
+          <canvas id="time-to-convert-chart" aria-label="Time to convert"></canvas>
+        </div>
+        <div id="time-to-convert-empty" class="empty hidden">No converted sessions yet</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Visitor mix</h2>
+          <p class="hint">New vs returning anonymous visitors in the window</p>
+        </div>
+        <div class="chart-wrap chart-wrap--square">
+          <canvas id="visitor-mix-chart" aria-label="Visitor mix"></canvas>
+        </div>
+        <div id="visitor-mix-empty" class="empty hidden">No anonymous visitors yet</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Top CTAs & buttons</h2>
+          <p class="hint">Hero, header, and tracked button clicks</p>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="cta-chart" aria-label="Top CTAs"></canvas>
+        </div>
+        <div id="cta-empty" class="empty hidden">No CTA clicks yet</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>FAQ engagement</h2>
+          <p class="hint">Most opened FAQ questions</p>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="faq-chart" aria-label="FAQ engagement"></canvas>
+        </div>
+        <div id="faq-empty" class="empty hidden">No FAQ interactions yet</div>
+      </section>
+
+      <section class="panel panel-wide">
+        <div class="panel-head">
+          <h2>Playground engines</h2>
+          <p class="hint">Engine deploy clicks and playground tab changes</p>
+        </div>
+        <div class="chart-wrap chart-wrap--short">
+          <canvas id="engine-chart" aria-label="Playground engines"></canvas>
+        </div>
+        <div id="engine-empty" class="empty hidden">No playground interactions yet</div>
+      </section>
+    </div>
+
+    <section class="panel panel-wide panel-tabs">
+      <div class="panel-head panel-head--toolbar">
+        <div>
+          <h2>Session drill-down</h2>
+          <p class="hint">Browse sessions, conversions, and common navigation paths</p>
+        </div>
+        <div class="session-toolbar">
+          <div class="tab-bar" role="tablist" aria-label="Session drill-down">
+            <button type="button" class="tab-btn is-active" data-tab="sessions" role="tab" aria-selected="true">All sessions</button>
+            <button type="button" class="tab-btn" data-tab="conversions" role="tab" aria-selected="false">Form submissions</button>
+            <button type="button" class="tab-btn" data-tab="paths" role="tab" aria-selected="false">Top paths</button>
+          </div>
+          <label class="session-filter tab-panel tab-panel--sessions">
+            <span>Show</span>
+            <select id="session-filter">
+              <option value="all">All sessions</option>
+              <option value="converted">Converted only</option>
+              <option value="not_converted">Not converted</option>
+              <option value="anonymous">Anonymous only</option>
+              <option value="identified">Identified (form submit)</option>
+            </select>
+          </label>
+          <span id="session-count-label" class="session-count-label tab-panel tab-panel--sessions"></span>
+        </div>
+      </div>
+
+      <div id="tab-sessions" class="tab-content is-active" role="tabpanel">
+        <div id="sessions-panel" class="converters-panel"></div>
+      </div>
+      <div id="tab-conversions" class="tab-content" role="tabpanel" hidden>
+        <div id="converters-panel" class="converters-panel"></div>
+      </div>
+      <div id="tab-paths" class="tab-content" role="tabpanel" hidden>
+        <div id="paths-panel" class="converters-panel"></div>
+      </div>
+    </section>
   </main>
 
   <script>

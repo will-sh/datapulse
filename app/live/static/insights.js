@@ -2,23 +2,53 @@
   "use strict";
 
   const REFRESH_MS = 30000;
+  const CHART_COLORS = {
+    events: "#60a5fa",
+    sessions: "#34d399",
+    forms: "#fbbf24",
+    blueprint: "#818cf8",
+    pages: "#38bdf8",
+    eventsBar: "#a78bfa",
+    convert: "#f472b6",
+    cta: "#fb923c",
+    faq: "#2dd4bf",
+    engine: "#c084fc",
+    returning: "#34d399",
+    newVisitor: "#60a5fa",
+    unknown: "#64748b",
+    grid: "rgba(148, 163, 184, 0.12)",
+    text: "#94a3b8",
+  };
+
   let timer = null;
   let cachedSessions = [];
   let cachedSessionSummary = {};
+  let comparisonLabel = "";
+  const charts = {};
 
   const els = {
     statusBar: document.getElementById("status-bar"),
     kpiGrid: document.getElementById("kpi-grid"),
     funnelPanel: document.getElementById("funnel-panel"),
-    retentionPanel: document.getElementById("retention-panel"),
     sessionsPanel: document.getElementById("sessions-panel"),
     sessionFilter: document.getElementById("session-filter"),
     sessionCountLabel: document.getElementById("session-count-label"),
     convertersPanel: document.getElementById("converters-panel"),
-    pagesPanel: document.getElementById("pages-panel"),
-    eventsPanel: document.getElementById("events-panel"),
+    pathsPanel: document.getElementById("paths-panel"),
     autoRefresh: document.getElementById("auto-refresh"),
     windowDays: document.getElementById("window-days"),
+    blueprintEmpty: document.getElementById("blueprint-empty"),
+    pagesEmpty: document.getElementById("pages-empty"),
+    eventsEmpty: document.getElementById("events-empty"),
+    trendEmpty: document.getElementById("trend-empty"),
+    heatmapPanel: document.getElementById("heatmap-panel"),
+    heatmapEmpty: document.getElementById("heatmap-empty"),
+    timeToConvertSummary: document.getElementById("time-to-convert-summary"),
+    timeToConvertEmpty: document.getElementById("time-to-convert-empty"),
+    visitorMixEmpty: document.getElementById("visitor-mix-empty"),
+    ctaEmpty: document.getElementById("cta-empty"),
+    faqEmpty: document.getElementById("faq-empty"),
+    engineEmpty: document.getElementById("engine-empty"),
   };
 
   function fmtPct(value) {
@@ -28,6 +58,14 @@
   function fmtTime(seconds) {
     if (!seconds) return "-";
     return new Date(seconds * 1000).toLocaleString("en-US");
+  }
+
+  function fmtDuration(seconds) {
+    if (seconds == null) return "—";
+    const value = Number(seconds);
+    if (value < 60) return `${Math.round(value)}s`;
+    if (value < 3600) return `${Math.round(value / 60)}m`;
+    return `${(value / 3600).toFixed(1)}h`;
   }
 
   function formatWindow(data) {
@@ -45,6 +83,49 @@
     return "Live buffer (fallback)";
   }
 
+  function chartDefaults() {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: { color: CHART_COLORS.text, boxWidth: 12 },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: CHART_COLORS.text, maxRotation: 45, minRotation: 0 },
+          grid: { color: CHART_COLORS.grid },
+        },
+        y: {
+          ticks: { color: CHART_COLORS.text },
+          grid: { color: CHART_COLORS.grid },
+        },
+      },
+    };
+  }
+
+  function destroyChart(key) {
+    if (charts[key]) {
+      charts[key].destroy();
+      delete charts[key];
+    }
+  }
+
+  function setEmptyState(canvasId, emptyEl, hasData) {
+    const canvas = document.getElementById(canvasId);
+    if (canvas) canvas.style.display = hasData ? "block" : "none";
+    if (emptyEl) emptyEl.classList.toggle("hidden", hasData);
+  }
+
+  function renderDelta(key, comparison) {
+    if (!comparison || comparison[key] == null) return "";
+    const delta = Number(comparison[key]);
+    const direction = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+    const prefix = delta > 0 ? "+" : "";
+    return `<span class="kpi-delta kpi-delta--${direction}" title="${comparisonLabel}">${prefix}${delta.toFixed(1)}%</span>`;
+  }
+
   function renderStatus(data) {
     const pipeline = data.pipeline || {};
     const activeClass = pipeline.stream_active ? "ok" : "err";
@@ -59,28 +140,31 @@
     } else {
       rows.push(`<div>Buffer: ${pipeline.buffer_used || 0}/${pipeline.buffer_size || 0}</div>`);
     }
+    if (data.comparison_label) {
+      rows.push(`<div>Comparison: <strong>${data.comparison_label}</strong></div>`);
+    }
     if (data.note) {
       rows.push(`<div class="status-note">${data.note}</div>`);
     }
     els.statusBar.innerHTML = rows.join("");
   }
 
-  function renderKpis(kpis) {
+  function renderKpis(kpis, comparison) {
     const cards = [
-      ["Sessions", kpis.sessions, "Distinct session / anonymous keys"],
-      ["Form submissions", kpis.form_submissions, "Lead + demo forms"],
-      ["Conversion rate", fmtPct(kpis.conversion_rate_pct), "Form submit / pageview sessions"],
-      ["Identified users", kpis.identified_users, "After identify() or user_id"],
-      ["Marketplace engagement", fmtPct(kpis.marketplace_engagement_rate_pct), "Marketplace events / pageviews"],
-      ["Multi-page sessions", fmtPct(kpis.multi_page_session_rate_pct), "2+ unique paths in session"],
+      ["Sessions", kpis.sessions, "sessions", "Distinct session / anonymous keys"],
+      ["Form submissions", kpis.form_submissions, "form_submissions", "Lead + demo forms"],
+      ["Conversion rate", fmtPct(kpis.conversion_rate_pct), "conversion_rate_pct", "Form submit / pageview sessions"],
+      ["Identified users", kpis.identified_users, "identified_users", "After identify() or user_id"],
+      ["Marketplace engagement", fmtPct(kpis.marketplace_engagement_rate_pct), "marketplace_engagement_rate_pct", "Marketplace events / pageviews"],
+      ["Multi-page sessions", fmtPct(kpis.multi_page_session_rate_pct), null, "2+ unique paths in session"],
     ];
 
     els.kpiGrid.innerHTML = cards
       .map(
-        ([label, value, sub]) => `
+        ([label, value, deltaKey, sub]) => `
         <article class="kpi-card">
           <p class="kpi-label">${label}</p>
-          <p class="kpi-value">${value}</p>
+          <p class="kpi-value">${value}${deltaKey ? renderDelta(deltaKey, comparison) : ""}</p>
           <p class="kpi-sub">${sub}</p>
         </article>`,
       )
@@ -110,22 +194,206 @@
       .join("");
   }
 
-  function renderRetention(kpis, retention) {
-    els.retentionPanel.innerHTML = `
-      <div class="retention-row">
-        <span>Multi-page sessions</span>
-        <strong>${retention.multi_page_sessions} · ${fmtPct(kpis.multi_page_session_rate_pct)}</strong>
-      </div>
-      <div class="retention-row">
-        <span>Engaged sessions (3+ events)</span>
-        <strong>${retention.engaged_sessions} · ${fmtPct(kpis.engaged_session_rate_pct)}</strong>
-      </div>
-      <div class="retention-row">
-        <span>Identified users</span>
-        <strong>${kpis.identified_users}</strong>
-      </div>
-      <p class="hint">${retention.description}</p>
-    `;
+  function renderTrendChart(trends) {
+    const canvas = document.getElementById("trend-chart");
+    if (!canvas || typeof Chart === "undefined") return;
+
+    destroyChart("trend");
+    const hasData = Boolean(trends?.labels?.length);
+    setEmptyState("trend-chart", els.trendEmpty, hasData);
+    if (!hasData) return;
+
+    charts.trend = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: trends.labels,
+        datasets: [
+          {
+            label: "Events",
+            data: trends.events,
+            borderColor: CHART_COLORS.events,
+            backgroundColor: "rgba(96, 165, 250, 0.15)",
+            fill: true,
+            tension: 0.3,
+          },
+          {
+            label: "Sessions",
+            data: trends.sessions,
+            borderColor: CHART_COLORS.sessions,
+            backgroundColor: "rgba(52, 211, 153, 0.08)",
+            fill: true,
+            tension: 0.3,
+          },
+          {
+            label: "Form submissions",
+            data: trends.form_submissions,
+            borderColor: CHART_COLORS.forms,
+            backgroundColor: "rgba(251, 191, 36, 0.08)",
+            fill: true,
+            tension: 0.3,
+          },
+        ],
+      },
+      options: {
+        ...chartDefaults(),
+        interaction: { mode: "index", intersect: false },
+      },
+    });
+  }
+
+  function renderHorizontalBarChart(key, canvasId, emptyEl, rows, labelKey, valueKey, color) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || typeof Chart === "undefined") return;
+
+    destroyChart(key);
+    const hasData = rows.length > 0;
+    setEmptyState(canvasId, emptyEl, hasData);
+    if (!hasData) return;
+
+    const labels = rows.map((row) => row[labelKey]).reverse();
+    const values = rows.map((row) => row[valueKey]).reverse();
+
+    charts[key] = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            data: values,
+            backgroundColor: color,
+            borderRadius: 6,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            ticks: { color: CHART_COLORS.text },
+            grid: { color: CHART_COLORS.grid },
+          },
+          y: {
+            ticks: { color: CHART_COLORS.text },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  function heatColor(intensity, maxCount) {
+    if (!maxCount) return "rgb(15 23 42)";
+    const ratio = intensity / maxCount;
+    const alpha = 0.12 + ratio * 0.88;
+    return `rgba(96, 165, 250, ${alpha.toFixed(2)})`;
+  }
+
+  function renderHeatmap(heatmap) {
+    if (!els.heatmapPanel) return;
+    const maxCount = heatmap?.max_count || 0;
+    const hasData = maxCount > 0;
+    els.heatmapPanel.classList.toggle("hidden", !hasData);
+    if (els.heatmapEmpty) els.heatmapEmpty.classList.toggle("hidden", hasData);
+    if (!hasData) {
+      els.heatmapPanel.innerHTML = "";
+      return;
+    }
+
+    const hours = heatmap.hours || [];
+    const days = heatmap.days || [];
+    const matrix = heatmap.matrix || [];
+
+    const header = `<div class="heatmap-cell heatmap-cell--head"></div>${hours
+      .map((hour) => `<div class="heatmap-cell heatmap-cell--head">${hour}</div>`)
+      .join("")}`;
+
+    const rows = days
+      .map((day, dayIndex) => {
+        const cells = (matrix[dayIndex] || [])
+          .map(
+            (count) =>
+              `<div class="heatmap-cell" style="background:${heatColor(count, maxCount)}" title="${count} events">${count || ""}</div>`,
+          )
+          .join("");
+        return `<div class="heatmap-row"><div class="heatmap-cell heatmap-cell--day">${day}</div>${cells}</div>`;
+      })
+      .join("");
+
+    els.heatmapPanel.innerHTML = `<div class="heatmap-grid">${header}${rows}</div>`;
+  }
+
+  function renderTimeToConvert(data) {
+    const canvas = document.getElementById("time-to-convert-chart");
+    if (!canvas || typeof Chart === "undefined") return;
+
+    destroyChart("timeToConvert");
+    const buckets = data?.buckets || [];
+    const hasData = (data?.converted_sessions || 0) > 0;
+    setEmptyState("time-to-convert-chart", els.timeToConvertEmpty, hasData);
+
+    if (els.timeToConvertSummary) {
+      els.timeToConvertSummary.textContent = hasData
+        ? `${data.converted_sessions} converted sessions · median ${fmtDuration(data.median_seconds)}`
+        : "";
+    }
+    if (!hasData) return;
+
+    charts.timeToConvert = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: buckets.map((row) => row.label),
+        datasets: [
+          {
+            label: "Sessions",
+            data: buckets.map((row) => row.sessions),
+            backgroundColor: CHART_COLORS.convert,
+            borderRadius: 8,
+          },
+        ],
+      },
+      options: {
+        ...chartDefaults(),
+        plugins: { legend: { display: false } },
+      },
+    });
+  }
+
+  function renderVisitorMix(mix) {
+    const canvas = document.getElementById("visitor-mix-chart");
+    if (!canvas || typeof Chart === "undefined") return;
+
+    destroyChart("visitorMix");
+    const total = mix?.total || 0;
+    const hasData = total > 0;
+    setEmptyState("visitor-mix-chart", els.visitorMixEmpty, hasData);
+    if (!hasData) return;
+
+    charts.visitorMix = new Chart(canvas, {
+      type: "doughnut",
+      data: {
+        labels: ["Returning", "New", "Unknown"],
+        datasets: [
+          {
+            data: [mix.returning, mix.new_visitors, mix.unknown],
+            backgroundColor: [CHART_COLORS.returning, CHART_COLORS.newVisitor, CHART_COLORS.unknown],
+            borderWidth: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: CHART_COLORS.text, boxWidth: 12 },
+          },
+        },
+      },
+    });
   }
 
   function filterSessions(rows) {
@@ -203,6 +471,7 @@
             <th>Submitted</th>
             <th>Event</th>
             <th>User</th>
+            <th>Time to convert</th>
             <th>Journey</th>
             <th>Events</th>
           </tr>
@@ -215,6 +484,7 @@
               <td>${fmtTime(row.submitted_at)}</td>
               <td><code>${row.event_name}</code></td>
               <td>${row.email_masked || row.user_id || "-"}</td>
+              <td>${fmtDuration(row.time_to_convert_seconds)}</td>
               <td>${(row.pages || []).map((path) => `<span class="path-chip">${path}</span>`).join("") || "-"}</td>
               <td>${row.event_count}</td>
             </tr>`,
@@ -225,20 +495,57 @@
     `;
   }
 
-  function renderSimpleStats(target, rows, labelKey, valueKey, emptyText) {
+  function renderPaths(rows) {
     if (!rows.length) {
-      target.innerHTML = `<p class="empty">${emptyText}</p>`;
+      els.pathsPanel.innerHTML =
+        '<p class="empty">No multi-step navigation paths yet. Pageview journeys appear after users browse multiple pages.</p>';
       return;
     }
-    target.innerHTML = rows
-      .map(
-        (row) => `
-        <div class="stat-row">
-          <span>${row[labelKey]}</span>
-          <strong>${row[valueKey]}</strong>
-        </div>`,
-      )
-      .join("");
+
+    els.pathsPanel.innerHTML = `
+      <table class="converters-table">
+        <thead>
+          <tr>
+            <th>Path (up to 3 pageviews)</th>
+            <th>Sessions</th>
+            <th>Converted</th>
+            <th>Conv. rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (row) => `
+            <tr>
+              <td>${(row.path || "")
+                .split(" → ")
+                .map((segment) => `<span class="path-chip">${segment}</span>`)
+                .join('<span class="path-arrow">→</span>')}</td>
+              <td>${row.sessions}</td>
+              <td>${row.converted}</td>
+              <td>${fmtPct(row.conversion_rate_pct)}</td>
+            </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function setActiveTab(tab) {
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      const isActive = btn.dataset.tab === tab;
+      btn.classList.toggle("is-active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+    document.querySelectorAll(".tab-content").forEach((panel) => {
+      const isActive = panel.id === `tab-${tab}`;
+      panel.classList.toggle("is-active", isActive);
+      panel.hidden = !isActive;
+    });
+    document.querySelectorAll(".tab-panel").forEach((el) => {
+      el.classList.toggle("tab-panel--sessions", tab === "sessions");
+    });
   }
 
   function summaryUrl() {
@@ -255,16 +562,73 @@
       const response = await fetch(summaryUrl());
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
+      comparisonLabel = data.comparison_label || "vs prior period";
       renderStatus(data);
-      renderKpis(data.kpis);
+      renderKpis(data.kpis, data.kpi_comparison);
       renderFunnel(data.funnel);
-      renderRetention(data.kpis, data.retention);
+      renderTrendChart(data.activity_trends);
+      renderHeatmap(data.activity_heatmap);
+      renderTimeToConvert(data.time_to_convert);
+      renderVisitorMix(data.visitor_mix);
+      renderHorizontalBarChart(
+        "blueprint",
+        "blueprint-chart",
+        els.blueprintEmpty,
+        data.blueprint_leaderboard || [],
+        "blueprint",
+        "interactions",
+        CHART_COLORS.blueprint,
+      );
+      renderHorizontalBarChart(
+        "pages",
+        "pages-chart",
+        els.pagesEmpty,
+        data.top_pages || [],
+        "path",
+        "views",
+        CHART_COLORS.pages,
+      );
+      renderHorizontalBarChart(
+        "events",
+        "events-chart",
+        els.eventsEmpty,
+        data.top_events || [],
+        "name",
+        "count",
+        CHART_COLORS.eventsBar,
+      );
+      renderHorizontalBarChart(
+        "cta",
+        "cta-chart",
+        els.ctaEmpty,
+        data.cta_leaderboard || [],
+        "label",
+        "clicks",
+        CHART_COLORS.cta,
+      );
+      renderHorizontalBarChart(
+        "faq",
+        "faq-chart",
+        els.faqEmpty,
+        data.faq_leaderboard || [],
+        "question",
+        "opens",
+        CHART_COLORS.faq,
+      );
+      renderHorizontalBarChart(
+        "engine",
+        "engine-chart",
+        els.engineEmpty,
+        data.engine_leaderboard || [],
+        "engine",
+        "interactions",
+        CHART_COLORS.engine,
+      );
       cachedSessions = data.all_sessions || [];
       cachedSessionSummary = data.session_summary || {};
       renderSessions(cachedSessions, cachedSessionSummary);
-      renderConverters(data.recent_converters);
-      renderSimpleStats(els.pagesPanel, data.top_pages, "path", "views", "No page views yet");
-      renderSimpleStats(els.eventsPanel, data.top_events, "name", "count", "No events yet");
+      renderConverters(data.recent_converters || []);
+      renderPaths(data.top_paths || []);
     } catch (error) {
       els.statusBar.innerHTML = `<span class="err">Load failed: ${error.message}</span>`;
     }
@@ -277,6 +641,10 @@
     }
   }
 
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setActiveTab(btn.dataset.tab || "sessions"));
+  });
+
   els.autoRefresh.addEventListener("change", schedule);
   els.windowDays?.addEventListener("change", () => {
     refresh();
@@ -285,6 +653,15 @@
   els.sessionFilter?.addEventListener("change", () => {
     renderSessions(cachedSessions, cachedSessionSummary);
   });
-  refresh();
-  schedule();
+
+  function initWhenReady() {
+    if (typeof Chart === "undefined") {
+      window.setTimeout(initWhenReady, 50);
+      return;
+    }
+    refresh();
+    schedule();
+  }
+
+  initWhenReady();
 })();
