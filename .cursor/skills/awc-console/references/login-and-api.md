@@ -135,7 +135,7 @@ Cross-cluster Thrift uses a dedicated NLB (not Istio :443). On readygo bastion:
 bash scripts/lakehouse_patch_public_hms.sh
 ```
 
-Creates `hivemetastore-public-proxy` DaemonSet (hostNetwork socat :9083), `hivemetastore-public-lb` NLB, Route53 alias for `hivemetastore.cldr-csk-lakehouse.a70735.test.cldr.work`, worker SG :9083, and retargets NLB to instance port 9083 (K8s default NodePort path is broken with Istio waypoint). HMS speaks **HTTP Thrift** — client `hive.metastore.client.thrift.transport.mode` must be `http`. Expect Ranger/HMS auth responses (401) before policies/UGI are correct; that confirms the network path is up.
+Creates `hivemetastore-public-proxy` DaemonSet (socat + **hostPort** :9083, `istio.io/dataplane-mode: ambient` + `ambient.istio.io/bypass-inbound-capture: "true"`), `hivemetastore-public-lb` NLB, Route53 alias (public **and** private zone) for `hivemetastore.cldr-csk-lakehouse.a70735.test.cldr.work`, worker SG :9083, and retargets NLB to instance port 9083 (K8s default NodePort target is wrong; plain hostNetwork cannot reach in-mesh HMS). HMS speaks **HTTP Thrift** — client `hive.metastore.client.thrift.transport.mode` must be `http` and send `x-actor-username` (via `HADOOP_USER_NAME=admin`). HTTP 500 on GET/curl is OK (Thrift expects POST); connection reset/empty reply means Istio inbound capture not bypassed.
 
 **Lakehouse HMS conf mount (Flink → Iceberg, 2026-09-18):**
 

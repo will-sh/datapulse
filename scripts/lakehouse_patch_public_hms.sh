@@ -2,8 +2,10 @@
 # Expose Lakehouse HMS Thrift (HTTP mode on :9083) on the public internet.
 # Run on readygo bastion with Lakehouse kubeconfig (+ AWS CLI for Route53/SG).
 #
-# Istio waypoint breaks NodePort -> HMS. Use hostNetwork socat proxies that
-# listen on node :9083 and forward to the in-cluster HMS ClusterIP.
+# Lakehouse namespace uses Istio ambient + waypoint. hostNetwork socat cannot reach
+# in-mesh HMS; NLB IP targets cannot reach overlay pod CIDR. Use socat DaemonSet
+# pods with hostPort :9083, ambient outbound to HMS, and
+# ambient.istio.io/bypass-inbound-capture for NLB/NodePort inbound.
 set -euo pipefail
 
 LH_K="${KUBECONFIG:-/home/ubuntu/awc_installer_workspace/awc-experience/lakehouse/config/kubeconfig}"
@@ -16,7 +18,8 @@ PROXY_NAME="${HMS_PROXY_NAME:-hivemetastore-public-proxy}"
 PUBLIC_SVC="${HMS_PUBLIC_SERVICE:-hivemetastore-public-lb}"
 PUBLIC_SUBNET="${HMS_PUBLIC_SUBNET:-subnet-0722d44fcee4166ef}"
 HMS_HOST="${HMS_PUBLIC_HOST:-hivemetastore.cldr-csk-lakehouse.a70735.test.cldr.work}"
-ROUTE53_ZONE="${ROUTE53_ZONE_ID:-Z04021161DHC0MRSG6S6C}"
+ROUTE53_ZONE_PUBLIC="${ROUTE53_ZONE_ID:-Z04021161DHC0MRSG6S6C}"
+ROUTE53_ZONE_PRIVATE="${ROUTE53_PRIVATE_ZONE_ID:-Z08539841F63EJ3V9QD0Q}"
 WORKER_SG="${LAKEHOUSE_WORKER_SG:-sg-0c501f15c681ddd3f}"
 AWS_REGION="${AWS_REGION:-us-west-1}"
 SOCAT_IMAGE="${HMS_SOCAT_IMAGE:-alpine/socat:1.0.5}"
@@ -26,6 +29,7 @@ kubectl get ns "$LH_NS" >/dev/null
 # Remove experimental routes/policies from prior attempts.
 kubectl delete httproute hivemetastore-public -n "$LH_NS" --ignore-not-found
 kubectl delete authorizationpolicy hivemetastore-public-allow -n "$LH_NS" --ignore-not-found
+kubectl delete authorizationpolicy hivemetastore-public-bypass -n "$LH_NS" --ignore-not-found
 kubectl delete tcproute hivemetastore-public -n "$LH_NS" --ignore-not-found
 
 cat <<EOF | kubectl apply -f -
@@ -45,9 +49,10 @@ spec:
     metadata:
       labels:
         app: ${PROXY_NAME}
+        istio.io/dataplane-mode: ambient
+      annotations:
+        ambient.istio.io/bypass-inbound-capture: "true"
     spec:
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
       tolerations:
       - operator: Exists
       containers:
@@ -153,7 +158,7 @@ if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1
     done
     LB_ZONE="$(aws elbv2 describe-load-balancers --load-balancer-arns "$LB_ARN" --region "$AWS_REGION" \
       --query 'LoadBalancers[0].CanonicalHostedZoneId' --output text)"
-    # K8s NLB maps instance targets to NodePort (31053), not hostNetwork :9083 — retarget.
+    # K8s NLB maps instance targets to NodePort, not hostPort :9083 — retarget.
     OLD_TG="$(aws elbv2 describe-target-groups --region "$AWS_REGION" \
       --query "TargetGroups[?contains(LoadBalancerArns, '${LB_ARN}')].TargetGroupArn | [0]" --output text 2>/dev/null || true)"
     VPC_ID="$(aws elbv2 describe-load-balancers --load-balancer-arns "$LB_ARN" --region "$AWS_REGION" \
@@ -164,7 +169,7 @@ if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1
       HOST_TG="$(aws elbv2 create-target-group --name hms-public-9083-host --protocol TCP --port "${HMS_PORT}" \
         --vpc-id "$VPC_ID" --target-type instance --health-check-protocol TCP --health-check-port "${HMS_PORT}" \
         --region "$AWS_REGION" --query 'TargetGroups[0].TargetGroupArn' --output text)"
-      echo "Created hostNetwork target group: $HOST_TG"
+      echo "Created hostPort target group: $HOST_TG"
     fi
     if [[ -n "$OLD_TG" && "$OLD_TG" != "None" ]]; then
       for inst in $(aws elbv2 describe-target-health --target-group-arn "$OLD_TG" --region "$AWS_REGION" \
@@ -178,29 +183,36 @@ if command -v aws >/dev/null 2>&1 && aws sts get-caller-identity >/dev/null 2>&1
     if [[ -n "$LISTENER_ARN" && "$LISTENER_ARN" != "None" ]]; then
       aws elbv2 modify-listener --listener-arn "$LISTENER_ARN" \
         --default-actions "Type=forward,TargetGroupArn=${HOST_TG}" --region "$AWS_REGION" >/dev/null
-      echo "Listener :${HMS_PORT} -> hostNetwork target group"
+      echo "Listener :${HMS_PORT} -> instance :${HMS_PORT} target group"
     fi
     echo "Opening worker SG ${WORKER_SG} :${HMS_PORT} from 0.0.0.0/0 (NLB preserves client IP) ..."
     aws ec2 authorize-security-group-ingress \
       --group-id "$WORKER_SG" \
-      --ip-permissions "IpProtocol=tcp,FromPort=${HMS_PORT},ToPort=${HMS_PORT},IpRanges=[{CidrIp=0.0.0.0/0,Description=Public Lakehouse HMS hostNetwork}]" \
+      --ip-permissions "IpProtocol=tcp,FromPort=${HMS_PORT},ToPort=${HMS_PORT},IpRanges=[{CidrIp=0.0.0.0/0,Description=Public Lakehouse HMS hostPort}]" \
       --region "$AWS_REGION" 2>/dev/null || echo "  worker SG rule may already exist"
 
-    echo "Upserting Route53 alias ${HMS_HOST} -> ${LB_HOST} ..."
-    aws route53 change-resource-record-sets --hosted-zone-id "$ROUTE53_ZONE" --change-batch "{
-      \"Changes\": [{
-        \"Action\": \"UPSERT\",
-        \"ResourceRecordSet\": {
-          \"Name\": \"${HMS_HOST}.\",
-          \"Type\": \"A\",
-          \"AliasTarget\": {
-            \"HostedZoneId\": \"${LB_ZONE}\",
-            \"DNSName\": \"${LB_HOST}.\",
-            \"EvaluateTargetHealth\": true
+    upsert_route53_alias() {
+      local zone_id="$1"
+      echo "Upserting Route53 (${zone_id}) alias ${HMS_HOST} -> ${LB_HOST} ..."
+      aws route53 change-resource-record-sets --hosted-zone-id "$zone_id" --change-batch "{
+        \"Changes\": [{
+          \"Action\": \"UPSERT\",
+          \"ResourceRecordSet\": {
+            \"Name\": \"${HMS_HOST}.\",
+            \"Type\": \"A\",
+            \"AliasTarget\": {
+              \"HostedZoneId\": \"${LB_ZONE}\",
+              \"DNSName\": \"${LB_HOST}.\",
+              \"EvaluateTargetHealth\": true
+            }
           }
-        }
-      }]
-    }" --region "$AWS_REGION" >/dev/null
+        }]
+      }" --region "$AWS_REGION" >/dev/null
+    }
+    upsert_route53_alias "$ROUTE53_ZONE_PUBLIC"
+    if [[ -n "$ROUTE53_ZONE_PRIVATE" ]]; then
+      upsert_route53_alias "$ROUTE53_ZONE_PRIVATE"
+    fi
   else
     echo "WARN: could not resolve NLB ARN; set Route53 alias manually"
   fi
@@ -243,7 +255,10 @@ for attempt in range(8):
     s.settimeout(10)
     try:
         s.connect((host, port))
-        s.sendall(b"GET /metastore/ HTTP/1.0\r\nHost: " + host.encode() + b"\r\n\r\n")
+        s.sendall(
+            b"GET /metastore/ HTTP/1.0\r\nHost: " + host.encode()
+            + b"\r\nx-actor-username: admin\r\n\r\n"
+        )
         s.settimeout(5)
         data = s.recv(256)
         print("tcp_ok", repr(data[:160]))
@@ -257,4 +272,4 @@ PY
 
 echo
 echo "Public HMS URI: thrift://${HMS_HOST}:${HMS_PORT}"
-echo "Client: hive.metastore.client.thrift.transport.mode=http"
+echo "Client: hive.metastore.client.thrift.transport.mode=http (requires x-actor-username / HADOOP_USER_NAME)"
