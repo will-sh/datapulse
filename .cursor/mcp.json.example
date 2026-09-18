@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "cdv-mcp-server": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/cloudera/CDV-MCP-Server@main",
+        "run-server"
+      ],
+      "env": {
+        "CDV_BASE_URL": "https://cdv-bp-1-dataviz.cldr-csk-cdv-2.a70735.test.cldr.work",
+        "CDV_API_KEY": "YOUR_CDV_API_KEY",
+        "CDV_USERNAME": "admin",
+        "CDV_PASSWORD": "awc-admin-password"
+      }
+    }
+  }
+}
