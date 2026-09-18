@@ -94,6 +94,73 @@
       </section>
     </div>
 
+    <section class="panel panel-wide panel-chart">
+      <div class="panel-head">
+        <h2>Activity heatmap</h2>
+        <p class="hint">Event volume by day of week and hour (UTC)</p>
+      </div>
+      <div id="heatmap-panel" class="heatmap-panel"></div>
+      <div id="heatmap-empty" class="empty hidden">No timed events in this window yet</div>
+    </section>
+
+    <div class="insights-grid">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Time to convert</h2>
+          <p class="hint">Duration from first pageview to form submit in converted sessions</p>
+        </div>
+        <p id="time-to-convert-summary" class="metric-summary"></p>
+        <div class="chart-wrap">
+          <canvas id="time-to-convert-chart" aria-label="Time to convert"></canvas>
+        </div>
+        <div id="time-to-convert-empty" class="empty hidden">No converted sessions yet</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Visitor mix</h2>
+          <p class="hint">New vs returning anonymous visitors in the window</p>
+        </div>
+        <div class="chart-wrap chart-wrap--square">
+          <canvas id="visitor-mix-chart" aria-label="Visitor mix"></canvas>
+        </div>
+        <div id="visitor-mix-empty" class="empty hidden">No anonymous visitors yet</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Top CTAs & buttons</h2>
+          <p class="hint">Hero, header, and tracked button clicks</p>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="cta-chart" aria-label="Top CTAs"></canvas>
+        </div>
+        <div id="cta-empty" class="empty hidden">No CTA clicks yet</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>FAQ engagement</h2>
+          <p class="hint">Most opened FAQ questions</p>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="faq-chart" aria-label="FAQ engagement"></canvas>
+        </div>
+        <div id="faq-empty" class="empty hidden">No FAQ interactions yet</div>
+      </section>
+
+      <section class="panel panel-wide">
+        <div class="panel-head">
+          <h2>Playground engines</h2>
+          <p class="hint">Engine deploy clicks and playground tab changes</p>
+        </div>
+        <div class="chart-wrap chart-wrap--short">
+          <canvas id="engine-chart" aria-label="Playground engines"></canvas>
+        </div>
+        <div id="engine-empty" class="empty hidden">No playground interactions yet</div>
+      </section>
+    </div>
+
     <section class="panel panel-wide panel-tabs">
       <div class="panel-head panel-head--toolbar">
         <div>

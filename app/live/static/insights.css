@@ -299,6 +299,78 @@
   color: var(--muted);
 }
 
+.kpi-delta {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.kpi-delta--up {
+  color: var(--ok);
+}
+
+.kpi-delta--down {
+  color: var(--err);
+}
+
+.kpi-delta--flat {
+  color: var(--muted);
+}
+
+.metric-summary {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chart-wrap--square {
+  height: 240px;
+}
+
+.chart-wrap--short {
+  height: 180px;
+}
+
+.heatmap-panel {
+  overflow-x: auto;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: 56px repeat(24, minmax(28px, 1fr));
+  gap: 4px;
+  min-width: 760px;
+}
+
+.heatmap-row {
+  display: contents;
+}
+
+.heatmap-cell {
+  min-height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--text);
+  background: #0f172a;
+}
+
+.heatmap-cell--head,
+.heatmap-cell--day {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  background: transparent;
+}
+
+.heatmap-cell--day {
+  justify-content: flex-start;
+}
+
 @media (max-width: 900px) {
   .insights-grid {
     grid-template-columns: 1fr;
