@@ -45,8 +45,9 @@ HMS_URI_CANDIDATES = [
 # Populated by scripts/csa_patch_flink_lakehouse_conf.sh from lakehouse-bp-310fe0-cfg.
 FLINK_LAKEHOUSE_CONF_DIR = os.getenv("FLINK_LAKEHOUSE_CONF_DIR", "/opt/flink/lakehouse-conf")
 ICEBERG_WAREHOUSE = os.getenv("ICEBERG_WAREHOUSE", "s3a://hive-warehouse/external")
-ICEBERG_DATABASE = os.getenv("ICEBERG_DATABASE", "datapulse")
-ICEBERG_TABLE = os.getenv("ICEBERG_TABLE", "events")
+# CSA job target (avoid cloud-agent ICEBERG_* overrides used for Trino probes).
+ICEBERG_DATABASE = os.getenv("CSA_ICEBERG_DATABASE", os.getenv("ICEBERG_DATABASE", "datapulse"))
+ICEBERG_TABLE = os.getenv("CSA_ICEBERG_TABLE", os.getenv("ICEBERG_TABLE", "events"))
 OZONE_S3_ENDPOINT = os.getenv(
     "OZONE_S3_ENDPOINT",
     "https://lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work",
@@ -335,7 +336,7 @@ CREATE TABLE kafka_datapulse_events (
   'connector' = 'kafka',
   'topic' = '{KAFKA_TOPIC}',
   'format' = 'json',
-  'scan.startup.mode' = 'earliest-offset',
+  'scan.startup.mode' = '{os.getenv("KAFKA_SCAN_STARTUP_MODE", "latest-offset")}',
   'json.ignore-parse-errors' = 'true',
   'properties.bootstrap.servers' = '{bootstrap}',
   'properties.security.protocol' = 'SASL_SSL',
@@ -401,6 +402,18 @@ def _job_payload(
     runtime_mode: str = "STREAMING",
 ) -> dict[str, Any]:
     resolved_name = job_name or (CSA_JOB_NAME if not kafka_only else f"{CSA_JOB_NAME}_probe")
+    # Iceberg streaming sink commits on Flink checkpoint; probes stay checkpoint-free.
+    stream_to_iceberg = not kafka_only and runtime_mode == "STREAMING"
+    checkpoint_config: dict[str, Any] = {"enable_checkpointing": stream_to_iceberg}
+    if stream_to_iceberg:
+        interval_ms = int(os.getenv("CSA_CHECKPOINT_INTERVAL_MS", "60000"))
+        checkpoint_config.update(
+            {
+                "checkpoint_interval_millis": interval_ms,
+                "checkpoint_timeout_millis": int(os.getenv("CSA_CHECKPOINT_TIMEOUT_MS", "600000")),
+                "checkpoint_mode": os.getenv("CSA_CHECKPOINT_MODE", "EXACTLY_ONCE"),
+            }
+        )
     return {
         "sql": sql,
         "job_config": {
@@ -414,7 +427,7 @@ def _job_payload(
                 "sample_count": 100,
                 "window_size": 100,
             },
-            "checkpoint_config": {"enable_checkpointing": False},
+            "checkpoint_config": checkpoint_config,
             "kubernetes_config": {
                 "kubernetes_deployment_mode": "NATIVE",
                 "restart_failed_job": False,
