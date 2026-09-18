@@ -28,6 +28,15 @@ LH_KUBECONFIG="${LAKEHOUSE_KUBECONFIG:-/home/ubuntu/awc_installer_workspace/awc-
 
 HMS_URI="${HMS_URI:-thrift://hivemetastore.cldr-csk-lakehouse.a70735.test.cldr.work:9083}"
 OZONE_S3_ENDPOINT="${OZONE_S3_ENDPOINT:-https://lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work}"
+OZONE_S3_HOST="${OZONE_S3_HOST:-${OZONE_S3_ENDPOINT#https://}}"
+OZONE_S3_HOST="${OZONE_S3_HOST#http://}"
+OZONE_S3_CA_FILE="${OZONE_S3_CA_FILE:-ozone-s3-ca.crt}"
+OZONE_S3_TRUSTSTORE="${OZONE_S3_TRUSTSTORE:-ozone-s3-truststore.jks}"
+OZONE_S3_TRUSTSTORE_PASS="${OZONE_S3_TRUSTSTORE_PASS:-changeit}"
+AWC_CA_SECRET="${AWC_CA_SECRET:-default-awc-ca}"
+AWC_CA_SECRET_NS="${AWC_CA_SECRET_NS:-cert-manager}"
+OZONE_S3_CA_MOUNT="/opt/flink/certs/${OZONE_S3_CA_FILE}"
+OZONE_S3_TRUSTSTORE_MOUNT="/opt/flink/certs/${OZONE_S3_TRUSTSTORE}"
 RANGER_REST_URL="${RANGER_REST_URL:-https://ranger.lakehouse-bp-6b4b81.cldr-csk-lakehouse.a70735.test.cldr.work}"
 HADOOP_USER_NAME="${HADOOP_USER_NAME:-admin}"
 OP_NS="${FLINK_OPERATOR_NAMESPACE:-flink-kubernetes-operator}"
@@ -166,6 +175,41 @@ else:
         "  <property>\\n    <name>fs.s3a.connection.ssl.enabled</name>\\n    <value>true</value>\\n  </property>\\n</configuration>",
         1,
     )
+if "fs.s3a.path.style.access" in text:
+    text = re.sub(
+        r"(<name>fs\\.s3a\\.path\\.style\\.access</name>\\s*<value>)[^<]*(</value>)",
+        r"\\1true\\2",
+        text,
+        count=1,
+    )
+else:
+    text = text.replace(
+        "</configuration>",
+        "  <property>\\n    <name>fs.s3a.path.style.access</name>\\n    <value>true</value>\\n  </property>\\n</configuration>",
+        1,
+    )
+# S3A uses JVM/Hadoop SSL truststores (not fs.s3a.ssl.truststore.*).
+truststore = "${OZONE_S3_TRUSTSTORE_MOUNT}"
+trustpass = "${OZONE_S3_TRUSTSTORE_PASS}"
+ssl_props = {
+    "ssl.client.truststore.location": truststore,
+    "ssl.client.truststore.password": trustpass,
+    "ssl.client.truststore.type": "JKS",
+}
+for key, val in ssl_props.items():
+    if key in text:
+        text = re.sub(
+            rf"(<name>{re.escape(key)}</name>\s*<value>)[^<]*(</value>)",
+            rf"\1{val}\2",
+            text,
+            count=1,
+        )
+    else:
+        text = text.replace(
+            "</configuration>",
+            f"  <property>\\n    <name>{key}</name>\\n    <value>{val}</value>\\n  </property>\\n</configuration>",
+            1,
+        )
 core.write_text(text, encoding="utf-8")
 
 ranger_xml = work / "ranger-hive-security.xml"
@@ -328,6 +372,89 @@ spec:
 YAML
 kubectl --kubeconfig="$CSA_KUBECONFIG" wait -n "$CSA_NS" --for=condition=complete job/flink-s3a-aws-sdk-populate --timeout=300s
 
+echo "=== Export AWC Internal CA for Ozone S3 TLS (cert-manager/${AWC_CA_SECRET}) ==="
+OZONE_CA_PATH="${WORKDIR}/${OZONE_S3_CA_FILE}"
+kubectl --kubeconfig="$LH_KUBECONFIG" get secret "$AWC_CA_SECRET" -n "$AWC_CA_SECRET_NS" \
+  -o "jsonpath={.data.ca\.crt}" | base64 -d > "$OZONE_CA_PATH"
+python3 <<PY
+import subprocess
+from pathlib import Path
+
+ca = Path("${OZONE_CA_PATH}")
+host = "${OZONE_S3_HOST}"
+if ca.stat().st_size < 100:
+    raise SystemExit(f"missing/short CA at {ca}")
+leaf = subprocess.check_output(
+    [
+        "openssl", "s_client",
+        "-connect", f"{host}:443",
+        "-servername", host,
+    ],
+    input=b"",
+    stderr=subprocess.DEVNULL,
+)
+leaf_path = Path("${WORKDIR}/ozone-leaf.pem")
+leaf_path.write_bytes(
+    subprocess.check_output(["openssl", "x509"], input=leaf)
+)
+verify = subprocess.run(
+    ["openssl", "verify", "-CAfile", str(ca), str(leaf_path)],
+    capture_output=True,
+    text=True,
+)
+if verify.returncode != 0:
+    raise SystemExit(f"CA does not verify Ozone S3 leaf: {verify.stdout} {verify.stderr}")
+print(f"verified {ca.name} against https://{host} ({ca.stat().st_size} bytes)")
+PY
+
+kubectl --kubeconfig="$CSA_KUBECONFIG" create configmap flink-ozone-s3-ca-src -n "$CSA_NS" \
+  --from-file=ca.crt="$OZONE_CA_PATH" \
+  --dry-run=client -o yaml | kubectl --kubeconfig="$CSA_KUBECONFIG" apply -f -
+
+echo "=== Publish Ozone S3 CA + JKS truststore on EFS ==="
+kubectl --kubeconfig="$CSA_KUBECONFIG" delete job -n "$CSA_NS" flink-ozone-s3-ca-populate --ignore-not-found --wait=true
+kubectl --kubeconfig="$CSA_KUBECONFIG" apply -n "$CSA_NS" -f - <<YAML
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flink-ozone-s3-ca-populate
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: populate
+        image: ${FLINK_IMAGE}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          cp /ca/ca.crt /data/${OZONE_S3_CA_FILE}
+          rm -f /data/${OZONE_S3_TRUSTSTORE}
+          keytool -importcert -noprompt -alias awc-internal-ca \\
+            -file /ca/ca.crt \\
+            -keystore /data/${OZONE_S3_TRUSTSTORE} \\
+            -storepass ${OZONE_S3_TRUSTSTORE_PASS}
+          chmod 644 /data/${OZONE_S3_CA_FILE} /data/${OZONE_S3_TRUSTSTORE}
+          ls -la /data/${OZONE_S3_CA_FILE} /data/${OZONE_S3_TRUSTSTORE}
+        volumeMounts:
+        - name: ca
+          mountPath: /ca
+          readOnly: true
+        - name: lib
+          mountPath: /data
+      volumes:
+      - name: ca
+        configMap:
+          name: flink-ozone-s3-ca-src
+      - name: lib
+        persistentVolumeClaim:
+          claimName: ${KAFKA_PVC}
+YAML
+kubectl --kubeconfig="$CSA_KUBECONFIG" wait -n "$CSA_NS" --for=condition=complete job/flink-ozone-s3-ca-populate --timeout=300s
+
 echo "=== Publish ${CSA_CM} on CSA (${CSA_NS}) ==="
 kubectl --kubeconfig="$CSA_KUBECONFIG" create configmap "$CSA_CM" -n "$CSA_NS" \
   --from-file="${WORKDIR}/core-site.xml" \
@@ -372,6 +499,14 @@ POD_MOUNTS=$(cat <<YAML
 - name: kafka-clients-lib
   mountPath: /opt/flink/lib/${S3A_AWS_SDK_FLINK_LIB}
   subPath: ${S3A_AWS_SDK_FLINK_LIB}
+  readOnly: true
+- name: kafka-clients-lib
+  mountPath: ${OZONE_S3_CA_MOUNT}
+  subPath: ${OZONE_S3_CA_FILE}
+  readOnly: true
+- name: kafka-clients-lib
+  mountPath: ${OZONE_S3_TRUSTSTORE_MOUNT}
+  subPath: ${OZONE_S3_TRUSTSTORE}
   readOnly: true
 - name: lakehouse-hive-conf
   mountPath: /opt/flink/lakehouse-conf
@@ -437,17 +572,23 @@ else:
         print(f"patched flink-operator podTemplate HADOOP_USER_NAME={user}")
 PY
 
-echo "=== Patch ssb-flink-config (Flink JM/TM container env overrides image HADOOP_USER_NAME=flink) ==="
+echo "=== Patch ssb-flink-config (Flink JM/TM env + Ozone S3 JVM truststore) ==="
 python3 <<PY
 import json, subprocess
 kube = ["kubectl", "--kubeconfig=${CSA_KUBECONFIG}"]
 ns = "${CSA_NS}"
 user = "${HADOOP_USER_NAME}"
 cm = "ssb-flink-config"
+truststore = "${OZONE_S3_TRUSTSTORE_MOUNT}"
+trustpass = "${OZONE_S3_TRUSTSTORE_PASS}"
+java_opts = (
+    f"-Djavax.net.ssl.trustStore={truststore} "
+    f"-Djavax.net.ssl.trustStorePassword={trustpass} "
+    "-Djavax.net.ssl.trustStoreType=JKS"
+)
 raw = subprocess.check_output(kube + ["get", "cm", cm, "-n", ns, "-o", "json"], text=True)
 data = json.loads(raw).get("data") or {}
 conf = data.get("flink-conf.yaml", "")
-lines = [ln for ln in conf.splitlines() if not ln.startswith("containerized.")]
 mount = "${MOUNT_PATH}"
 hadoop_conf = "/etc/hadoop/conf"
 extra = [
@@ -459,14 +600,23 @@ extra = [
     "# Lakehouse HMS client UGI (overrides flink-extended-hadoop image default flink)",
     f"containerized.master.env.HADOOP_USER_NAME: {user}",
     f"containerized.taskmanager.env.HADOOP_USER_NAME: {user}",
+    "# Ozone S3 public HTTPS: trust AWC Internal CA (S3A uses JVM truststore)",
+    f"env.java.opts.all: {java_opts}",
 ]
+changed = False
 if f"containerized.master.env.HADOOP_CONF_DIR: {mount}" not in conf:
     conf = conf.rstrip() + "\\n" + "\\n".join(extra) + "\\n"
+    changed = True
+elif f"env.java.opts.all: {java_opts}" not in conf:
+    lines = [ln for ln in conf.splitlines() if not ln.startswith("env.java.opts.all:")]
+    conf = "\\n".join(lines).rstrip() + f"\\nenv.java.opts.all: {java_opts}\\n"
+    changed = True
+if changed:
     patch = {"data": {"flink-conf.yaml": conf}}
     subprocess.check_call(kube + ["patch", "cm", cm, "-n", ns, "--type", "merge", "-p", json.dumps(patch)])
-    print(f"patched {cm} HADOOP_USER_NAME={user}")
+    print(f"patched {cm} HADOOP_USER_NAME={user} + Ozone S3 JVM truststore")
 else:
-    print(f"{cm} already sets HADOOP_USER_NAME={user}")
+    print(f"{cm} already sets HADOOP_USER_NAME={user} and env.java.opts.all")
 PY
 
 echo "=== Patch SSB deployment pod (SQL validation reads hive-conf-dir on SSB, not only Flink pods) ==="

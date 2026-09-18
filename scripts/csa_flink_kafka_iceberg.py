@@ -51,7 +51,10 @@ OZONE_S3_ENDPOINT = os.getenv(
     "OZONE_S3_ENDPOINT",
     "https://lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work",
 )
-OZONE_S3_CA_PATH = os.getenv("OZONE_S3_CA_PATH", "/opt/flink/certs/ozone-s3-ca.crt")
+# Populated by scripts/csa_patch_flink_lakehouse_conf.sh (cert-manager default-awc-ca → JKS on EFS).
+OZONE_S3_TRUSTSTORE = os.getenv(
+    "OZONE_S3_TRUSTSTORE", "/opt/flink/certs/ozone-s3-truststore.jks"
+)
 FLINK_SHADED_KAFKA = "org.apache.flink.kafka.shaded.org.apache.kafka"
 KAFKA_CALLBACK_HANDLER = os.getenv(
     "KAFKA_CALLBACK_HANDLER",
@@ -160,9 +163,10 @@ def _lakehouse_conf_props() -> str:
 
 
 def _iceberg_s3_props() -> str:
-    """Forward Ozone S3A settings (incl. TLS truststore) into Iceberg Hadoop conf."""
-    ca = _sql_string(OZONE_S3_CA_PATH)
+    """Forward Ozone S3A settings into Iceberg Hadoop conf (TLS via JVM truststore on pod)."""
     endpoint = _sql_string(OZONE_S3_ENDPOINT)
+    truststore = _sql_string(OZONE_S3_TRUSTSTORE)
+    trustpass = _sql_string(os.getenv("OZONE_S3_TRUSTSTORE_PASS", "changeit"))
     return (
         f"  'iceberg.hadoop.fs.s3a.endpoint' = '{endpoint}',\n"
         "  'iceberg.hadoop.fs.s3a.path.style.access' = 'true',\n"
@@ -171,8 +175,9 @@ def _iceberg_s3_props() -> str:
         "  'iceberg.hadoop.fs.s3a.aws.credentials.provider' = 'org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider',\n"
         "  'iceberg.hadoop.fs.s3a.access.key' = 'ozone',\n"
         "  'iceberg.hadoop.fs.s3a.secret.key' = 'ozone',\n"
-        f"  'iceberg.hadoop.fs.s3a.ssl.truststore.location' = '{ca}',\n"
-        "  'iceberg.hadoop.fs.s3a.ssl.truststore.type' = 'PEM'\n"
+        f"  'iceberg.hadoop.ssl.client.truststore.location' = '{truststore}',\n"
+        f"  'iceberg.hadoop.ssl.client.truststore.password' = '{trustpass}',\n"
+        "  'iceberg.hadoop.ssl.client.truststore.type' = 'JKS'\n"
     )
 
 
