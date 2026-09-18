@@ -49,7 +49,7 @@ ICEBERG_DATABASE = os.getenv("ICEBERG_DATABASE", "datapulse")
 ICEBERG_TABLE = os.getenv("ICEBERG_TABLE", "events")
 OZONE_S3_ENDPOINT = os.getenv(
     "OZONE_S3_ENDPOINT",
-    "lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work",
+    "https://lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work",
 )
 FLINK_SHADED_KAFKA = "org.apache.flink.kafka.shaded.org.apache.kafka"
 KAFKA_CALLBACK_HANDLER = os.getenv(
