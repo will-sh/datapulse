@@ -37,6 +37,8 @@ AWC_CA_SECRET="${AWC_CA_SECRET:-default-awc-ca}"
 AWC_CA_SECRET_NS="${AWC_CA_SECRET_NS:-cert-manager}"
 OZONE_S3_CA_MOUNT="/opt/flink/certs/${OZONE_S3_CA_FILE}"
 OZONE_S3_TRUSTSTORE_MOUNT="/opt/flink/certs/${OZONE_S3_TRUSTSTORE}"
+# Iceberg streaming sink commits on Flink checkpoint; set cluster default checkpoint dir.
+CSA_FLINK_CHECKPOINTS_DIR="${CSA_FLINK_CHECKPOINTS_DIR:-file:///opt/flink/checkpoints}"
 RANGER_REST_URL="${RANGER_REST_URL:-https://ranger.lakehouse-bp-6b4b81.cldr-csk-lakehouse.a70735.test.cldr.work}"
 HADOOP_USER_NAME="${HADOOP_USER_NAME:-admin}"
 OP_NS="${FLINK_OPERATOR_NAMESPACE:-flink-kubernetes-operator}"
@@ -579,6 +581,7 @@ kube = ["kubectl", "--kubeconfig=${CSA_KUBECONFIG}"]
 ns = "${CSA_NS}"
 user = "${HADOOP_USER_NAME}"
 cm = "ssb-flink-config"
+checkpoints_dir = "${CSA_FLINK_CHECKPOINTS_DIR}"
 truststore = "${OZONE_S3_TRUSTSTORE_MOUNT}"
 trustpass = "${OZONE_S3_TRUSTSTORE_PASS}"
 java_opts = (
@@ -602,15 +605,30 @@ extra = [
     f"containerized.taskmanager.env.HADOOP_USER_NAME: {user}",
     "# Ozone S3 public HTTPS: trust AWC Internal CA (S3A uses JVM truststore)",
     f"env.java.opts.all: {java_opts}",
+    "# Iceberg streaming sink: checkpoint + savepoint dirs (required for exactly-once commits)",
+    f"state.checkpoints.dir: {checkpoints_dir}",
+    f"state.savepoints.dir: {checkpoints_dir}/savepoints",
 ]
 changed = False
 if f"containerized.master.env.HADOOP_CONF_DIR: {mount}" not in conf:
     conf = conf.rstrip() + "\\n" + "\\n".join(extra) + "\\n"
     changed = True
-elif f"env.java.opts.all: {java_opts}" not in conf:
-    lines = [ln for ln in conf.splitlines() if not ln.startswith("env.java.opts.all:")]
-    conf = "\\n".join(lines).rstrip() + f"\\nenv.java.opts.all: {java_opts}\\n"
-    changed = True
+else:
+    if f"env.java.opts.all: {java_opts}" not in conf:
+        lines = [ln for ln in conf.splitlines() if not ln.startswith("env.java.opts.all:")]
+        conf = "\\n".join(lines).rstrip() + f"\\nenv.java.opts.all: {java_opts}\\n"
+        changed = True
+    if f"state.checkpoints.dir: {checkpoints_dir}" not in conf:
+        lines = [
+            ln
+            for ln in conf.splitlines()
+            if not ln.startswith("state.checkpoints.dir:") and not ln.startswith("state.savepoints.dir:")
+        ]
+        conf = (
+            "\\n".join(lines).rstrip()
+            + f"\\nstate.checkpoints.dir: {checkpoints_dir}\\nstate.savepoints.dir: {checkpoints_dir}/savepoints\\n"
+        )
+        changed = True
 if changed:
     patch = {"data": {"flink-conf.yaml": conf}}
     subprocess.check_call(kube + ["patch", "cm", cm, "-n", ns, "--type", "merge", "-p", json.dumps(patch)])
