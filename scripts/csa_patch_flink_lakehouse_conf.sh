@@ -67,6 +67,21 @@ text = re.sub(
     text,
     count=1,
 )
+# Lakehouse in-cluster HMS uses HTTP thrift; public :9083 is binary — HTTP causes Connection reset
+# before HMS/Ranger sees the request (no flink user in Ranger audit).
+if "hive.metastore.client.thrift.transport.mode" in text:
+    text = re.sub(
+        r"(<name>hive\\.metastore\\.client\\.thrift\\.transport\\.mode</name>\\s*<value>)[^<]*(</value>)",
+        r"\\1binary\\2",
+        text,
+        count=1,
+    )
+else:
+    text = text.replace(
+        "</configuration>",
+        "  <property>\\n    <name>hive.metastore.client.thrift.transport.mode</name>\\n    <value>binary</value>\\n  </property>\\n</configuration>",
+        1,
+    )
 hive.write_text(text, encoding="utf-8")
 
 core = work / "core-site.xml"
@@ -109,7 +124,7 @@ if not hdfs.exists() or hdfs.stat().st_size == 0:
         '<?xml version="1.0" encoding="UTF-8"?>\n<configuration>\n</configuration>\n',
         encoding="utf-8",
     )
-print("patched hive-site.xml, core-site.xml, ranger-hive-security.xml; ensured hdfs-site.xml")
+print("patched hive-site.xml (uris + client thrift transport=binary), core-site.xml, ranger-hive-security.xml; ensured hdfs-site.xml")
 PY
 
 echo "=== Publish ${CSA_CM} on CSA (${CSA_NS}) ==="
