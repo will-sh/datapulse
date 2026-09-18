@@ -546,7 +546,17 @@ def probe_hms_conf(job_id: int, *, hms_uri: str) -> dict[str, Any]:
         entry["error_class"] = _classify_hms_error(str(error))
         entry["error"] = error or None
         kind = (final.get("status") or {}).get("kind")
-        entry["ok"] = kind == "RUNNING" and bool(final.get("flink_job_id"))
+        terminal = (final.get("status") or {}).get("terminal_state")
+        # BATCH SHOW DATABASES validates on SSB and finishes without a Flink job id.
+        entry["ok"] = (
+            not error
+            and (
+                (kind == "RUNNING" and bool(final.get("flink_job_id")))
+                or (kind == "FINISHED" and terminal)
+            )
+        )
+        if entry["ok"] and kind == "FINISHED":
+            entry["conf_mount_ok"] = True
         if entry["error_class"] == "hms_metadata_denied":
             entry["conf_mount_ok"] = True
             entry["ok"] = True

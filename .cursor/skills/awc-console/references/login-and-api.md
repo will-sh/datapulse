@@ -152,7 +152,7 @@ This exports/patches XML for cross-cluster use (public HMS thrift URI, Ozone S3 
 | Conf mount | `python3 scripts/csa_flink_kafka_iceberg.py probe-hms-conf` | `CREATE CATALOG` + `SHOW DATABASES` succeeds (no `hive-site.xml` missing error) |
 | Iceberg sink | `python3 scripts/csa_flink_kafka_iceberg.py probe-hms` | Runs conf probe first, then datagen → Iceberg sink on `datapulse.flink_hms_probe` |
 
-If conf probe fails with `There should be a hive-site.xml file under .../lakehouse-conf`, re-run the patch script on bastion. If conf probe passes but sink fails with `Failed to list namespace`, check Ranger (`python3 scripts/ranger_grant_hive.py grant-service-users`) and `HADOOP_USER_NAME` on Flink pods (patch script sets operator podTemplate default `admin`).
+If conf probe fails with `There should be a hive-site.xml file under .../lakehouse-conf`, re-run the patch script on bastion. If SSB returns `NoClassDefFoundError: javax/servlet/Servlet` / `Could not initialize class ... HMSHandler`, re-run the patch script — it publishes `javax.servlet-api-4.0.1.jar` on the Kafka EFS PVC and mounts it on SSB `loader.path` (`/opt/cloudera/ssb-sse/lib/`). Hive 3 `hive-exec` still references **javax** servlet; SSB/Tomcat 11 only ships **jakarta** servlet. If conf probe passes but sink fails with `Failed to list namespace`, check Ranger (`python3 scripts/ranger_grant_hive.py grant-service-users`) and `HADOOP_USER_NAME` on Flink pods (patch script sets operator podTemplate default `admin`).
 
 **Ranger Hive (HMS) policies:** grant via Ranger REST API (Knox WebSSO cookie), same pattern as Trino `cm_trino` fixes:
 

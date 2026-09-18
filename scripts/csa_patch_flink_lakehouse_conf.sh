@@ -9,6 +9,8 @@ LH_CM="${LAKEHOUSE_HMS_CONFIGMAP:-lakehouse-bp-310fe0-cfg}"
 CSA_CM="${CSA_LAKEHOUSE_CONF_CM:-flink-lakehouse-hive-conf}"
 KAFKA_PVC="${FLINK_KAFKA_CLIENTS_PVC:-flink-kafka-clients-lib-efs}"
 KAFKA_JAR="${KAFKA_CLIENTS_JAR:-kafka-clients-3.9.1.7.3.2.0-957.jar}"
+SERVLET_JAR="${HMS_SERVLET_JAR:-javax.servlet-api-4.0.1.jar}"
+SERVLET_URL="${HMS_SERVLET_URL:-https://repo1.maven.org/maven2/javax/servlet/javax.servlet-api/4.0.1/javax.servlet-api-4.0.1.jar}"
 
 CSA_KUBECONFIG="${CSA_KUBECONFIG:-/home/ubuntu/awc_installer_workspace/awc-experience/csa/config/kubeconfig}"
 LH_KUBECONFIG="${LAKEHOUSE_KUBECONFIG:-/home/ubuntu/awc_installer_workspace/awc-experience/lakehouse/config/kubeconfig}"
@@ -123,8 +125,40 @@ if not hdfs.exists() or hdfs.stat().st_size == 0:
         '<?xml version="1.0" encoding="UTF-8"?>\n<configuration>\n</configuration>\n',
         encoding="utf-8",
     )
-print("patched hive-site.xml (uris + client thrift transport=binary), core-site.xml, ranger-hive-security.xml; ensured hdfs-site.xml")
+print("patched hive-site.xml (uris + client thrift transport=http), core-site.xml, ranger-hive-security.xml; ensured hdfs-site.xml")
 PY
+
+echo "=== Publish javax.servlet-api on EFS (hive-exec HMSHandler needs javax.servlet on SSB) ==="
+kubectl --kubeconfig="$CSA_KUBECONFIG" delete job -n "$CSA_NS" flink-hms-servlet-populate --ignore-not-found --wait=true
+kubectl --kubeconfig="$CSA_KUBECONFIG" apply -n "$CSA_NS" -f - <<YAML
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flink-hms-servlet-populate
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: populate
+        image: curlimages/curl:8.5.0
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          curl -fsSL -o /data/${SERVLET_JAR} ${SERVLET_URL}
+          chmod 644 /data/${SERVLET_JAR}
+        volumeMounts:
+        - name: lib
+          mountPath: /data
+      volumes:
+      - name: lib
+        persistentVolumeClaim:
+          claimName: ${KAFKA_PVC}
+YAML
+kubectl --kubeconfig="$CSA_KUBECONFIG" wait -n "$CSA_NS" --for=condition=complete job/flink-hms-servlet-populate --timeout=120s
 
 echo "=== Publish ${CSA_CM} on CSA (${CSA_NS}) ==="
 kubectl --kubeconfig="$CSA_KUBECONFIG" create configmap "$CSA_CM" -n "$CSA_NS" \
@@ -156,6 +190,9 @@ POD_MOUNTS=$(cat <<YAML
 - name: kafka-clients-lib
   mountPath: /opt/flink/certs/kafka-ca.crt
   subPath: kafka-ca.crt
+- name: kafka-clients-lib
+  mountPath: /opt/hadoop/lib/${SERVLET_JAR}
+  subPath: ${SERVLET_JAR}
 - name: lakehouse-hive-conf
   mountPath: /opt/flink/lakehouse-conf
   readOnly: true
@@ -258,10 +295,17 @@ container = tpl["containers"][0]
 vols = tpl.setdefault("volumes", [])
 mounts = container.setdefault("volumeMounts", [])
 env = container.setdefault("env", [])
+servlet_jar = "${SERVLET_JAR}"
+pvc = "${KAFKA_PVC}"
+servlet_mount = f"/opt/cloudera/ssb-sse/lib/{servlet_jar}"
 if not any(v.get("name") == "lakehouse-hive-conf" for v in vols):
     vols.append({"name": "lakehouse-hive-conf", "configMap": {"name": cm}})
+if not any(v.get("name") == "kafka-clients-lib" for v in vols):
+    vols.append({"name": "kafka-clients-lib", "persistentVolumeClaim": {"claimName": pvc}})
 if not any(m.get("mountPath") == mount for m in mounts):
     mounts.append({"name": "lakehouse-hive-conf", "mountPath": mount, "readOnly": True})
+if not any(m.get("mountPath") == servlet_mount for m in mounts):
+    mounts.append({"name": "kafka-clients-lib", "mountPath": servlet_mount, "subPath": servlet_jar, "readOnly": True})
 env = [e for e in env if e.get("name") != "HADOOP_USER_NAME"]
 env.append({"name": "HADOOP_USER_NAME", "value": user})
 patch = {
