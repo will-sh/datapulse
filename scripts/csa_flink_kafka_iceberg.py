@@ -126,13 +126,24 @@ def _pem_certificates() -> str:
     return "\\n".join(chunks)
 
 
-def _jaas_config(props: dict[str, str]) -> str:
+def _jaas_module_line(props: dict[str, str]) -> str:
+    """OAuth login module line aligned with CAI config/kafka/external.properties."""
+    raw = (props.get("sasl.jaas.config") or "").strip()
+    if raw:
+        # CAI template embeds oauth-ca.crt for token-endpoint TLS; Flink pods use inline PEM instead.
+        return raw.replace(" ssl.truststore.location=oauth-ca.crt ssl.truststore.type=PEM", "").rstrip(";")
     client_id = props.get("sasl.oauthbearer.client.id") or os.getenv("KAFKA_CLIENT_ID", "")
     client_secret = props.get("sasl.oauthbearer.client.secret") or os.getenv("KAFKA_CLIENT_SECRET", "")
     return (
         "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required "
-        f'clientId="{client_id}" clientSecret="{client_secret}";'
+        f'clientId="{client_id}" clientSecret="{client_secret}"'
     )
+
+
+def _jaas_config(props: dict[str, str]) -> str:
+    """Flink writes JAAS to java.security.auth.login.config; requires a KafkaClient stanza."""
+    module = _jaas_module_line(props)
+    return f"KafkaClient {{\n  {module};\n}};"
 
 
 def _sql_string(value: str) -> str:
@@ -222,6 +233,8 @@ def build_job_sql(*, kafka_only: bool = False, hms_uri: str | None = None) -> st
     jaas = _sql_string(_jaas_config(props))
     certs = _sql_string(_pem_certificates())
     hms = hms_uri or HMS_URI
+    oauth_client_id = props.get("sasl.oauthbearer.client.id") or os.getenv("KAFKA_CLIENT_ID", "")
+    oauth_client_secret = props.get("sasl.oauthbearer.client.secret") or os.getenv("KAFKA_CLIENT_SECRET", "")
 
     kafka_ddl = f"""
 CREATE TABLE IF NOT EXISTS kafka_datapulse_events (
@@ -249,6 +262,10 @@ CREATE TABLE IF NOT EXISTS kafka_datapulse_events (
   'properties.sasl.mechanism' = 'OAUTHBEARER',
   'properties.sasl.login.callback.handler.class' = '{_sql_string(KAFKA_CALLBACK_HANDLER)}',
   'properties.sasl.jaas.config' = '{jaas}',
+  'properties.sasl.oauthbearer.client.id' = '{_sql_string(oauth_client_id)}',
+  'properties.sasl.oauthbearer.client.secret' = '{_sql_string(oauth_client_secret)}',
+  'properties.sasl.oauthbearer.client.credentials.client.id' = '{_sql_string(oauth_client_id)}',
+  'properties.sasl.oauthbearer.client.credentials.client.secret' = '{_sql_string(oauth_client_secret)}',
   'properties.sasl.oauthbearer.token.endpoint.url' = '{token_url}',
   'properties.ssl.truststore.type' = 'PEM',
   'properties.ssl.truststore.certificates' = '{certs}',
