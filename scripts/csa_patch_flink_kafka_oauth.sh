@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Patch CSA Flink JM/TM pods for Kafka OAuth (unshaded kafka-clients + allowed token URL).
+# Patch CSA Flink JM/TM pods for Kafka OAuth (certs + allowed token URL JVM opt).
 # Run on readygo bastion with KUBECONFIG pointing at cldr-csk-csa-1.
 set -euo pipefail
 
@@ -9,6 +9,7 @@ JAR_NAME="${KAFKA_CLIENTS_JAR:-kafka-clients-3.9.1.7.3.2.0-957.jar}"
 SSB_IMAGE="${SSB_IMAGE:-container.repository.cloudera.com/cloudera/ssb-sse-hadoop:1.20.5-csads1.0.0-b76}"
 PVC="${FLINK_KAFKA_CLIENTS_PVC:-flink-kafka-clients-lib-efs}"
 OP_NS="${FLINK_OPERATOR_NAMESPACE:-flink-kubernetes-operator}"
+CERT_SRC="${KAFKA_CONFIG_DIR:-config/kafka}"
 
 echo "=== Ensure EFS PVC ${PVC} ==="
 kubectl apply -n "$NS" -f - <<YAML
@@ -29,7 +30,17 @@ YAML
 
 kubectl wait -n "$NS" --for=jsonpath='{.status.phase}'=Bound "pvc/${PVC}" --timeout=120s
 
-echo "=== Populate kafka-clients jar on PVC ==="
+echo "=== Publish Kafka TLS certs ConfigMap ==="
+if [[ ! -f "${CERT_SRC}/oauth-ca.crt" || ! -f "${CERT_SRC}/kafka-ca.crt" ]]; then
+  echo "Missing ${CERT_SRC}/oauth-ca.crt or kafka-ca.crt" >&2
+  exit 1
+fi
+kubectl create configmap flink-kafka-oauth-certs -n "$NS" \
+  --from-file=oauth-ca.crt="${CERT_SRC}/oauth-ca.crt" \
+  --from-file=kafka-ca.crt="${CERT_SRC}/kafka-ca.crt" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+echo "=== Populate kafka-clients jar + TLS certs on PVC ==="
 kubectl delete job -n "$NS" flink-kafka-clients-populate-efs --ignore-not-found --wait=true
 kubectl apply -n "$NS" -f - <<YAML
 apiVersion: batch/v1
@@ -48,16 +59,30 @@ spec:
       containers:
         - name: populate
           image: ${SSB_IMAGE}
-          command: ["/bin/sh", "-c", "cp /opt/cloudera/ssb-sse/lib/${JAR_NAME} /data/${JAR_NAME} && chmod 644 /data/${JAR_NAME}"]
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              cp /opt/cloudera/ssb-sse/lib/${JAR_NAME} /data/${JAR_NAME}
+              cp /certs/oauth-ca.crt /data/oauth-ca.crt
+              cp /certs/kafka-ca.crt /data/kafka-ca.crt
+              chmod 644 /data/${JAR_NAME} /data/oauth-ca.crt /data/kafka-ca.crt
           securityContext:
             runAsUser: 0
           volumeMounts:
             - name: lib
               mountPath: /data
+            - name: certs
+              mountPath: /certs
+              readOnly: true
       volumes:
         - name: lib
           persistentVolumeClaim:
             claimName: ${PVC}
+        - name: certs
+          configMap:
+            name: flink-kafka-oauth-certs
 YAML
 kubectl wait -n "$NS" --for=condition=complete job/flink-kafka-clients-populate-efs --timeout=180s
 
@@ -72,6 +97,12 @@ POD_MOUNTS=$(cat <<YAML
 - name: kafka-clients-lib
   mountPath: /opt/flink/lib/${JAR_NAME}
   subPath: ${JAR_NAME}
+- name: kafka-clients-lib
+  mountPath: /opt/flink/certs/oauth-ca.crt
+  subPath: oauth-ca.crt
+- name: kafka-clients-lib
+  mountPath: /opt/flink/certs/kafka-ca.crt
+  subPath: kafka-ca.crt
 YAML
 )
 kubectl patch configmap ssb-config-pod-volumes -n "$NS" --type merge -p "$(python3 -c "import json,sys; print(json.dumps({'data': {'pod-volumes.yaml': sys.stdin.read()}}))" <<< "$POD_VOLUMES")"
@@ -105,4 +136,4 @@ kubectl rollout restart deployment -n "$OP_NS" -l app.kubernetes.io/name=flink-k
 kubectl rollout status deployment -n "$NS" -l app.kubernetes.io/name=ssb --timeout=180s
 kubectl rollout status deployment -n "$OP_NS" -l app.kubernetes.io/name=flink-kubernetes-operator --timeout=180s
 
-echo "Done. Verify with: KAFKA_CALLBACK_HANDLER=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler python3 scripts/csa_flink_kafka_iceberg.py probe-kafka"
+echo "Done. Verify with: python3 scripts/csa_flink_kafka_iceberg.py probe-kafka"

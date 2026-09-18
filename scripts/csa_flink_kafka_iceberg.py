@@ -57,10 +57,18 @@ OZONE_S3_ENDPOINT = os.getenv(
     "OZONE_S3_ENDPOINT",
     "lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work",
 )
+FLINK_SHADED_KAFKA = "org.apache.flink.kafka.shaded.org.apache.kafka"
 KAFKA_CALLBACK_HANDLER = os.getenv(
     "KAFKA_CALLBACK_HANDLER",
-    "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler",
+    f"{FLINK_SHADED_KAFKA}.common.security.oauthbearer.OAuthBearerLoginCallbackHandler",
 )
+KAFKA_LOGIN_MODULE = os.getenv(
+    "KAFKA_LOGIN_MODULE",
+    f"{FLINK_SHADED_KAFKA}.common.security.oauthbearer.OAuthBearerLoginModule",
+)
+# TLS truststores mounted on Flink pods via scripts/csa_patch_flink_kafka_oauth.sh (CAI config/kafka/*.crt).
+KAFKA_OAUTH_CA_PATH = os.getenv("KAFKA_OAUTH_CA_PATH", "/opt/flink/certs/oauth-ca.crt")
+KAFKA_BROKER_CA_PATH = os.getenv("KAFKA_BROKER_CA_PATH", "/opt/flink/certs/kafka-ca.crt")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "datapulse-events")
 POLL_INTERVAL = int(os.getenv("CSA_POLL_INTERVAL", "10"))
 WAIT_TIMEOUT = int(os.getenv("CSA_WAIT_TIMEOUT", "600"))
@@ -127,23 +135,18 @@ def _pem_certificates() -> str:
 
 
 def _jaas_module_line(props: dict[str, str]) -> str:
-    """OAuth login module line aligned with CAI config/kafka/external.properties."""
-    raw = (props.get("sasl.jaas.config") or "").strip()
-    if raw:
-        # CAI template embeds oauth-ca.crt for token-endpoint TLS; Flink pods use inline PEM instead.
-        return raw.replace(" ssl.truststore.location=oauth-ca.crt ssl.truststore.type=PEM", "").rstrip(";")
+    """OAuth login module for Flink's shaded Kafka connector (CAI creds, Flink class names)."""
     client_id = props.get("sasl.oauthbearer.client.id") or os.getenv("KAFKA_CLIENT_ID", "")
     client_secret = props.get("sasl.oauthbearer.client.secret") or os.getenv("KAFKA_CLIENT_SECRET", "")
     return (
-        "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required "
-        f'clientId="{client_id}" clientSecret="{client_secret}"'
+        f'{KAFKA_LOGIN_MODULE} required clientId="{client_id}" clientSecret="{client_secret}" '
+        f'ssl.truststore.location="{KAFKA_OAUTH_CA_PATH}" ssl.truststore.type=PEM'
     )
 
 
 def _jaas_config(props: dict[str, str]) -> str:
-    """Flink writes JAAS to java.security.auth.login.config; requires a KafkaClient stanza."""
-    module = _jaas_module_line(props)
-    return f"KafkaClient {{\n  {module};\n}};"
+    """Module-only JAAS for Kafka sasl.jaas.config (CAI external.properties format)."""
+    return f"{_jaas_module_line(props)};"
 
 
 def _sql_string(value: str) -> str:
@@ -231,13 +234,27 @@ def build_job_sql(*, kafka_only: bool = False, hms_uri: str | None = None) -> st
     bootstrap = props.get("bootstrap.servers", "")
     token_url = props.get("sasl.oauthbearer.token.endpoint.url", "")
     jaas = _sql_string(_jaas_config(props))
-    certs = _sql_string(_pem_certificates())
     hms = hms_uri or HMS_URI
+    broker_truststore = (
+        f"'properties.ssl.truststore.location' = '{_sql_string(KAFKA_BROKER_CA_PATH)}',\n"
+        "  'properties.ssl.truststore.type' = 'PEM'"
+    )
+    if not os.getenv("KAFKA_USE_MOUNTED_CERTS", "1").strip().lower() in {"0", "false", "no"}:
+        truststore_props = broker_truststore
+    else:
+        certs = _sql_string(_pem_certificates())
+        truststore_props = (
+            "  'properties.ssl.truststore.type' = 'PEM',\n"
+            f"  'properties.ssl.truststore.certificates' = '{certs}'"
+        )
     oauth_client_id = props.get("sasl.oauthbearer.client.id") or os.getenv("KAFKA_CLIENT_ID", "")
     oauth_client_secret = props.get("sasl.oauthbearer.client.secret") or os.getenv("KAFKA_CLIENT_SECRET", "")
 
     kafka_ddl = f"""
-CREATE TABLE IF NOT EXISTS kafka_datapulse_events (
+DROP TABLE IF EXISTS bh_sink;
+DROP TABLE IF EXISTS kafka_datapulse_events;
+
+CREATE TABLE kafka_datapulse_events (
   event_id STRING,
   project_id STRING,
   name STRING,
@@ -267,8 +284,7 @@ CREATE TABLE IF NOT EXISTS kafka_datapulse_events (
   'properties.sasl.oauthbearer.client.credentials.client.id' = '{_sql_string(oauth_client_id)}',
   'properties.sasl.oauthbearer.client.credentials.client.secret' = '{_sql_string(oauth_client_secret)}',
   'properties.sasl.oauthbearer.token.endpoint.url' = '{token_url}',
-  'properties.ssl.truststore.type' = 'PEM',
-  'properties.ssl.truststore.certificates' = '{certs}',
+  {truststore_props},
   'properties.ssl.endpoint.identification.algorithm' = ''
 )
 """.strip()
@@ -278,7 +294,7 @@ CREATE TABLE IF NOT EXISTS kafka_datapulse_events (
             kafka_ddl
             + ";\n\n"
             + """
-CREATE TABLE IF NOT EXISTS bh_sink (
+CREATE TABLE bh_sink (
   event_id STRING,
   name STRING
 ) WITH ('connector' = 'blackhole');
@@ -373,6 +389,24 @@ def api_request(method: str, path: str, payload: dict[str, Any] | None = None) -
     except json.JSONDecodeError:
         parsed = {"raw": body}
     return status, parsed
+
+
+def _resolved_job_name(*, kafka_only: bool) -> str:
+    return f"{CSA_JOB_NAME}_probe" if kafka_only else CSA_JOB_NAME
+
+
+def update_job(
+    job_id: int,
+    sql: str,
+    *,
+    job_name: str | None = None,
+    kafka_only: bool = False,
+) -> None:
+    api_request(
+        "PUT",
+        f"/api/v2/projects/{CSA_PROJECT_ID}/jobs/{job_id}",
+        _job_payload(sql, job_name=job_name, kafka_only=kafka_only),
+    )
 
 
 def ensure_job(sql: str, *, job_name: str | None = None, kafka_only: bool = False) -> int:
@@ -488,7 +522,12 @@ def main() -> int:
         return 0 if working_uri else 1
 
     sql = build_job_sql(kafka_only=kafka_only, hms_uri=hms_override)
-    job_id = args.job_id or ensure_job(sql, kafka_only=kafka_only)
+    job_name = _resolved_job_name(kafka_only=kafka_only)
+    if args.job_id:
+        job_id = args.job_id
+        update_job(job_id, sql, job_name=job_name, kafka_only=kafka_only)
+    else:
+        job_id = ensure_job(sql, job_name=job_name, kafka_only=kafka_only)
 
     if args.action == "create":
         print(json.dumps({"job_id": job_id, "job_name": CSA_JOB_NAME, "hms_uri": hms_override or HMS_URI}, indent=2))
@@ -501,7 +540,7 @@ def main() -> int:
         return 0 if kind == "RUNNING" else 1
 
     if args.action in {"execute", "run", "probe-kafka"}:
-        result = execute_job(job_id, sql, kafka_only=kafka_only)
+        result = execute_job(job_id, sql, job_name=job_name, kafka_only=kafka_only)
         print(json.dumps({"execute": result, "job_id": job_id, "hms_uri": hms_override or HMS_URI}, indent=2))
         if args.action == "execute":
             return 0
