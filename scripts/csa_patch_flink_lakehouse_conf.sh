@@ -111,6 +111,33 @@ for plain_key in ("metastore.client.plain.username", "hive.metastore.client.plai
         )
 hive.write_text(text, encoding="utf-8")
 
+# Remote Flink HMS clients must not load Ranger authorizer classes (not on classpath).
+auth_disable = {
+    "hive.security.authorization.enabled": "false",
+}
+auth_strip = (
+    "hive.security.authorization.manager",
+    "hive.metastore.pre.event.listeners",
+    "hive.metastore.filter.hook",
+)
+text = hive.read_text(encoding="utf-8")
+for key, val in auth_disable.items():
+    if key in text:
+        text = re.sub(
+            rf"(<name>{re.escape(key)}</name>\s*<value>)[^<]*(</value>)",
+            rf"\1{val}\2",
+            text,
+            count=1,
+        )
+for key in auth_strip:
+    text = re.sub(
+        rf"\s*<property>\s*<name>{re.escape(key)}</name>\s*<value>[^<]*</value>\s*</property>\s*",
+        "\n",
+        text,
+        count=1,
+    )
+hive.write_text(text, encoding="utf-8")
+
 core = work / "core-site.xml"
 text = core.read_text(encoding="utf-8")
 text = re.sub(
