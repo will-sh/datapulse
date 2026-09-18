@@ -45,6 +45,7 @@ DEFAULT_ACCESSES = [
     "write",
     "refresh",
 ]
+ICEBERG_STORAGE_ACCESSES = ["rwstorage"]
 
 
 def login() -> None:
@@ -104,6 +105,39 @@ def add_users_to_policy(policy_id: int, users: list[str], groups: list[str] | No
     if groups:
         item["groups"] = sorted(set(item.get("groups", []) + groups))
     return ranger_request("PUT", f"/service/public/v2/api/policy/{policy_id}", policy)
+
+
+def ensure_iceberg_storage_policy(users: list[str], groups: list[str]) -> dict[str, Any]:
+    for policy in list_policies():
+        resources = policy.get("resources") or {}
+        storage_type = (resources.get("storage-type") or {}).get("values") or []
+        if storage_type == ["iceberg"]:
+            return add_users_to_policy(int(policy["id"]), users, groups)
+
+    payload = {
+        "service": HIVE_SERVICE,
+        "name": "iceberg storage handler RW storage",
+        "policyType": 0,
+        "policyPriority": 0,
+        "isEnabled": True,
+        "isAuditEnabled": True,
+        "resources": {
+            "storage-type": {"values": ["iceberg"], "isExcludes": False, "isRecursive": False},
+            "storage-url": {"values": ["*"], "isExcludes": False, "isRecursive": False},
+        },
+        "policyItems": [
+            {
+                "accesses": [{"type": access, "isAllowed": True} for access in ICEBERG_STORAGE_ACCESSES],
+                "users": users,
+                "groups": groups,
+                "roles": [],
+                "conditions": [],
+                "delegateAdmin": False,
+            }
+        ],
+        "isDenyAllElse": False,
+    }
+    return ranger_request("POST", "/service/public/v2/api/policy", payload)
 
 
 def ensure_datapulse_policy(users: list[str], groups: list[str]) -> dict[str, Any]:
@@ -170,7 +204,7 @@ def main() -> int:
         return 0
 
     # grant-service-users: update known baseline policies (same pattern as Trino cm_trino fixes)
-    updates = {}
+    updates = {"iceberg storage handler RW storage": ensure_iceberg_storage_policy(users, groups)}
     for policy_id, label in [(21, "datapulse database admin access"), (1, "default database"), (38, "admin all databases")]:
         updates[label] = add_users_to_policy(policy_id, users, groups)
     print(json.dumps(updates, indent=2))
