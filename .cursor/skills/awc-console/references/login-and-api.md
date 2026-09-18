@@ -127,6 +127,16 @@ Re-run: `KAFKA_CONFIG_DIR=config/kafka bash scripts/csa_patch_flink_kafka_oauth.
 
 Verify: `python3 scripts/csa_flink_kafka_iceberg.py probe-kafka --job-id 5210`
 
+**Public HMS entry (Lakehouse platform, 2026-09-18):**
+
+Cross-cluster Thrift uses a dedicated NLB (not Istio :443). On readygo bastion:
+
+```bash
+bash scripts/lakehouse_patch_public_hms.sh
+```
+
+Creates `hivemetastore-public-proxy` DaemonSet (hostNetwork socat :9083), `hivemetastore-public-lb` NLB, Route53 alias for `hivemetastore.cldr-csk-lakehouse.a70735.test.cldr.work`, worker SG :9083, and retargets NLB to instance port 9083 (K8s default NodePort path is broken with Istio waypoint). HMS speaks **HTTP Thrift** — client `hive.metastore.client.thrift.transport.mode` must be `http`. Expect Ranger/HMS auth responses (401) before policies/UGI are correct; that confirms the network path is up.
+
 **Lakehouse HMS conf mount (Flink → Iceberg, 2026-09-18):**
 
 Source ConfigMap on Lakehouse HMS: `lakehouse-bp-310fe0-cfg` in namespace `lakehouse-bp-ccbe9d` (mounted on HMS pods at `/etc/hive/conf`). Sync to CSA via readygo bastion:

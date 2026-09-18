@@ -67,19 +67,18 @@ text = re.sub(
     text,
     count=1,
 )
-# Lakehouse in-cluster HMS uses HTTP thrift; public :9083 is binary — HTTP causes Connection reset
-# before HMS/Ranger sees the request (no flink user in Ranger audit).
+# Lakehouse HMS (in-cluster + public TCPRoute :9083) uses HTTP Thrift — keep client mode http.
 if "hive.metastore.client.thrift.transport.mode" in text:
     text = re.sub(
         r"(<name>hive\\.metastore\\.client\\.thrift\\.transport\\.mode</name>\\s*<value>)[^<]*(</value>)",
-        r"\\1binary\\2",
+        r"\\1http\\2",
         text,
         count=1,
     )
 else:
     text = text.replace(
         "</configuration>",
-        "  <property>\\n    <name>hive.metastore.client.thrift.transport.mode</name>\\n    <value>binary</value>\\n  </property>\\n</configuration>",
+        "  <property>\\n    <name>hive.metastore.client.thrift.transport.mode</name>\\n    <value>http</value>\\n  </property>\\n</configuration>",
         1,
     )
 hive.write_text(text, encoding="utf-8")
