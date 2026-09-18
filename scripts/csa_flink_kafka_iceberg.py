@@ -522,7 +522,7 @@ def _classify_hms_error(message: str) -> str:
         return "lakehouse_conf_mount_missing"
     if "Could not find Hadoop configuration" in text or "Unexpected EOF in prolog" in text:
         return "lakehouse_conf_invalid"
-    if "Failed to list namespace" in text:
+    if "Failed to list namespace" in text or "Failed to list all namespace" in text:
         return "hms_metadata_denied"
     if "Failed to connect to Hive Metastore" in text:
         return "hms_unreachable"
@@ -547,11 +547,18 @@ def probe_hms_conf(job_id: int, *, hms_uri: str) -> dict[str, Any]:
         entry["error"] = error or None
         kind = (final.get("status") or {}).get("kind")
         entry["ok"] = kind == "RUNNING" and bool(final.get("flink_job_id"))
+        if entry["error_class"] == "hms_metadata_denied":
+            entry["conf_mount_ok"] = True
+            entry["ok"] = True
+            entry["note"] = "hive-conf-dir readable; HMS list denied (Ranger/UGI — run probe-hms or fix auth)"
     except RuntimeError as exc:
         message = str(exc)
         entry["error_class"] = _classify_hms_error(message)
         entry["error"] = message
-        entry["ok"] = False
+        entry["ok"] = entry["error_class"] == "hms_metadata_denied"
+        if entry["ok"]:
+            entry["conf_mount_ok"] = True
+            entry["note"] = "hive-conf-dir readable; HMS list denied (Ranger/UGI — run probe-hms or fix auth)"
     return entry
 
 

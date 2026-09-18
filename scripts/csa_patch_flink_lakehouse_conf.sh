@@ -203,6 +203,37 @@ else:
         print(f"patched flink-operator podTemplate HADOOP_USER_NAME={user}")
 PY
 
+echo "=== Patch SSB deployment pod (SQL validation reads hive-conf-dir on SSB, not only Flink pods) ==="
+python3 <<PY
+import json, subprocess
+kube = ["kubectl", "--kubeconfig=${CSA_KUBECONFIG}"]
+ns = "${CSA_NS}"
+dep = "ssb-sse"
+cm = "${CSA_CM}"
+mount = "${MOUNT_PATH}"
+raw = subprocess.check_output(kube + ["get", "deployment", dep, "-n", ns, "-o", "json"], text=True)
+obj = json.loads(raw)
+tpl = obj["spec"]["template"]["spec"]
+vols = tpl.setdefault("volumes", [])
+mounts = tpl["containers"][0].setdefault("volumeMounts", [])
+if not any(v.get("name") == "lakehouse-hive-conf" for v in vols):
+    vols.append({"name": "lakehouse-hive-conf", "configMap": {"name": cm}})
+if not any(m.get("mountPath") == mount for m in mounts):
+    mounts.append({"name": "lakehouse-hive-conf", "mountPath": mount, "readOnly": True})
+patch = {
+    "spec": {
+        "template": {
+            "spec": {
+                "volumes": vols,
+                "containers": [{"name": tpl["containers"][0]["name"], "volumeMounts": mounts}],
+            }
+        }
+    }
+}
+subprocess.check_call(kube + ["patch", "deployment", dep, "-n", ns, "--type", "strategic", "-p", json.dumps(patch)])
+print(f"patched {dep} deployment with {mount}")
+PY
+
 kubectl --kubeconfig="$CSA_KUBECONFIG" rollout restart deployment -n "$CSA_NS" -l app.kubernetes.io/name=ssb
 kubectl --kubeconfig="$CSA_KUBECONFIG" rollout status deployment -n "$CSA_NS" -l app.kubernetes.io/name=ssb --timeout=180s
 
