@@ -93,6 +93,22 @@ if "metastore.client.transport.mode" not in text:
         "  <property>\\n    <name>metastore.client.transport.mode</name>\\n    <value>http</value>\\n  </property>\\n</configuration>",
         1,
     )
+# HTTP Thrift sends x-actor-username from this property (else UGI=default on Flink pods).
+user = "${HADOOP_USER_NAME}"
+for plain_key in ("metastore.client.plain.username", "hive.metastore.client.plain.username"):
+    if plain_key in text:
+        text = re.sub(
+            rf"(<name>{re.escape(plain_key)}</name>\\s*<value>)[^<]*(</value>)",
+            rf"\\1{user}\\2",
+            text,
+            count=1,
+        )
+    else:
+        text = text.replace(
+            "</configuration>",
+            f"  <property>\\n    <name>{plain_key}</name>\\n    <value>{user}</value>\\n  </property>\\n</configuration>",
+            1,
+        )
 hive.write_text(text, encoding="utf-8")
 
 core = work / "core-site.xml"

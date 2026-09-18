@@ -160,9 +160,13 @@ def _lakehouse_conf_props() -> str:
 
 def _iceberg_hms_hadoop_props() -> str:
     """Forward HMS HTTP Thrift + client timeouts to Iceberg's Hadoop Configuration."""
+    user = os.getenv("HADOOP_USER_NAME", "admin")
+    user_sql = _sql_string(user)
     return (
         "  'iceberg.hadoop.hive.metastore.client.thrift.transport.mode' = 'http',\n"
         "  'iceberg.hadoop.hive.metastore.client.socket.timeout' = '1800',\n"
+        f"  'iceberg.hadoop.metastore.client.plain.username' = '{user_sql}',\n"
+        f"  'iceberg.hadoop.hive.metastore.client.plain.username' = '{user_sql}',\n"
     )
 
 
