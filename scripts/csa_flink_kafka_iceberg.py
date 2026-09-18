@@ -508,7 +508,10 @@ def wait_for_job(job_id: int) -> dict[str, Any]:
                 if isinstance(job, dict) and int(job.get("job_id", -1)) == job_id:
                     last = job
                     kind = (job.get("status") or {}).get("kind")
+                    terminal = (job.get("status") or {}).get("terminal_state")
                     if kind == "RUNNING" and job.get("flink_job_id"):
+                        return job
+                    if kind == "FINISHED" and terminal:
                         return job
                     if kind in {"FAILED", "CANCELED"}:
                         return job
