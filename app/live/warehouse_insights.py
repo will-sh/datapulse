@@ -25,8 +25,8 @@ def get_insights_trino_settings() -> TrinoSettings:
         database=os.getenv("INSIGHTS_ICEBERG_DATABASE", "datapulse").strip() or "datapulse",
         table=os.getenv("INSIGHTS_ICEBERG_TABLE", "events").strip() or "events",
         verify_ssl=base.verify_ssl,
-        source=os.getenv("INSIGHTS_TRINO_SOURCE", "datapulse-consumer-insights").strip()
-        or "datapulse-consumer-insights",
+        source=os.getenv("INSIGHTS_TRINO_SOURCE", "datapulse-spark-consumer").strip()
+        or "datapulse-spark-consumer",
     )
 
 
