@@ -218,6 +218,31 @@ else:
         print(f"patched flink-operator podTemplate HADOOP_USER_NAME={user}")
 PY
 
+echo "=== Patch ssb-flink-config (Flink JM/TM container env overrides image HADOOP_USER_NAME=flink) ==="
+python3 <<PY
+import json, subprocess
+kube = ["kubectl", "--kubeconfig=${CSA_KUBECONFIG}"]
+ns = "${CSA_NS}"
+user = "${HADOOP_USER_NAME}"
+cm = "ssb-flink-config"
+raw = subprocess.check_output(kube + ["get", "cm", cm, "-n", ns, "-o", "json"], text=True)
+data = json.loads(raw).get("data") or {}
+conf = data.get("flink-conf.yaml", "")
+lines = [ln for ln in conf.splitlines() if not ln.startswith("containerized.")]
+extra = [
+    "# Lakehouse HMS client UGI (overrides flink-extended-hadoop image default flink)",
+    f"containerized.master.env.HADOOP_USER_NAME: {user}",
+    f"containerized.taskmanager.env.HADOOP_USER_NAME: {user}",
+]
+if f"containerized.master.env.HADOOP_USER_NAME: {user}" not in conf:
+    conf = conf.rstrip() + "\\n" + "\\n".join(extra) + "\\n"
+    patch = {"data": {"flink-conf.yaml": conf}}
+    subprocess.check_call(kube + ["patch", "cm", cm, "-n", ns, "--type", "merge", "-p", json.dumps(patch)])
+    print(f"patched {cm} HADOOP_USER_NAME={user}")
+else:
+    print(f"{cm} already sets HADOOP_USER_NAME={user}")
+PY
+
 echo "=== Patch SSB deployment pod (SQL validation reads hive-conf-dir on SSB, not only Flink pods) ==="
 python3 <<PY
 import json, subprocess
@@ -226,27 +251,32 @@ ns = "${CSA_NS}"
 dep = "ssb-sse"
 cm = "${CSA_CM}"
 mount = "${MOUNT_PATH}"
+user = "${HADOOP_USER_NAME}"
 raw = subprocess.check_output(kube + ["get", "deployment", dep, "-n", ns, "-o", "json"], text=True)
 obj = json.loads(raw)
 tpl = obj["spec"]["template"]["spec"]
+container = tpl["containers"][0]
 vols = tpl.setdefault("volumes", [])
-mounts = tpl["containers"][0].setdefault("volumeMounts", [])
+mounts = container.setdefault("volumeMounts", [])
+env = container.setdefault("env", [])
 if not any(v.get("name") == "lakehouse-hive-conf" for v in vols):
     vols.append({"name": "lakehouse-hive-conf", "configMap": {"name": cm}})
 if not any(m.get("mountPath") == mount for m in mounts):
     mounts.append({"name": "lakehouse-hive-conf", "mountPath": mount, "readOnly": True})
+env = [e for e in env if e.get("name") != "HADOOP_USER_NAME"]
+env.append({"name": "HADOOP_USER_NAME", "value": user})
 patch = {
     "spec": {
         "template": {
             "spec": {
                 "volumes": vols,
-                "containers": [{"name": tpl["containers"][0]["name"], "volumeMounts": mounts}],
+                "containers": [{"name": container["name"], "volumeMounts": mounts, "env": env}],
             }
         }
     }
 }
 subprocess.check_call(kube + ["patch", "deployment", dep, "-n", ns, "--type", "strategic", "-p", json.dumps(patch)])
-print(f"patched {dep} deployment with {mount}")
+print(f"patched {dep}: {mount} + HADOOP_USER_NAME={user}")
 PY
 
 kubectl --kubeconfig="$CSA_KUBECONFIG" rollout restart deployment -n "$CSA_NS" -l app.kubernetes.io/name=ssb
