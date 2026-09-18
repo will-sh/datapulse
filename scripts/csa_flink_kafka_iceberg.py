@@ -172,7 +172,7 @@ def _iceberg_s3_props() -> str:
         "  'iceberg.hadoop.fs.s3a.access.key' = 'ozone',\n"
         "  'iceberg.hadoop.fs.s3a.secret.key' = 'ozone',\n"
         f"  'iceberg.hadoop.fs.s3a.ssl.truststore.location' = '{ca}',\n"
-        "  'iceberg.hadoop.fs.s3a.ssl.truststore.type' = 'PEM',\n"
+        "  'iceberg.hadoop.fs.s3a.ssl.truststore.type' = 'PEM'\n"
     )
 
 
