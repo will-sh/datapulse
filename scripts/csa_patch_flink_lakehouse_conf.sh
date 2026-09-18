@@ -11,6 +11,10 @@ KAFKA_PVC="${FLINK_KAFKA_CLIENTS_PVC:-flink-kafka-clients-lib-efs}"
 KAFKA_JAR="${KAFKA_CLIENTS_JAR:-kafka-clients-3.9.1.7.3.2.0-957.jar}"
 SERVLET_JAR="${HMS_SERVLET_JAR:-javax.servlet-api-4.0.1.jar}"
 SERVLET_URL="${HMS_SERVLET_URL:-https://repo1.maven.org/maven2/javax/servlet/javax.servlet-api/4.0.1/javax.servlet-api-4.0.1.jar}"
+# flink-sql-connector-hive bundles a HiveMetaStoreClient without HTTP Thrift; hive-exec has THttpClient.
+HIVE_EXEC_JAR="${HIVE_EXEC_JAR:-hive-exec-3.1.3000.7.3.2.0-957.jar}"
+HIVE_EXEC_FLINK_LIB="${HIVE_EXEC_FLINK_LIB:-000-${HIVE_EXEC_JAR}}"
+FLINK_IMAGE="${FLINK_IMAGE:-container.repository.cloudera.com/cloudera/flink-extended-hadoop:1.20.5-csads1.0.0-b76}"
 
 CSA_KUBECONFIG="${CSA_KUBECONFIG:-/home/ubuntu/awc_installer_workspace/awc-experience/csa/config/kubeconfig}"
 LH_KUBECONFIG="${LAKEHOUSE_KUBECONFIG:-/home/ubuntu/awc_installer_workspace/awc-experience/lakehouse/config/kubeconfig}"
@@ -166,6 +170,42 @@ spec:
 YAML
 kubectl --kubeconfig="$CSA_KUBECONFIG" wait -n "$CSA_NS" --for=condition=complete job/flink-hms-servlet-populate --timeout=120s
 
+echo "=== Publish hive-exec on EFS (HTTP Thrift HiveMetaStoreClient for Flink JM) ==="
+kubectl --kubeconfig="$CSA_KUBECONFIG" delete job -n "$CSA_NS" flink-hive-exec-populate --ignore-not-found --wait=true
+kubectl --kubeconfig="$CSA_KUBECONFIG" apply -n "$CSA_NS" -f - <<YAML
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flink-hive-exec-populate
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: populate
+        image: ${FLINK_IMAGE}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          src="/opt/hadoop/lib/${HIVE_EXEC_JAR}"
+          dst="/data/${HIVE_EXEC_FLINK_LIB}"
+          test -f "\$src"
+          cp "\$src" "\$dst"
+          chmod 644 "\$dst"
+          ls -la "\$dst"
+        volumeMounts:
+        - name: lib
+          mountPath: /data
+      volumes:
+      - name: lib
+        persistentVolumeClaim:
+          claimName: ${KAFKA_PVC}
+YAML
+kubectl --kubeconfig="$CSA_KUBECONFIG" wait -n "$CSA_NS" --for=condition=complete job/flink-hive-exec-populate --timeout=300s
+
 echo "=== Publish ${CSA_CM} on CSA (${CSA_NS}) ==="
 kubectl --kubeconfig="$CSA_KUBECONFIG" create configmap "$CSA_CM" -n "$CSA_NS" \
   --from-file="${WORKDIR}/core-site.xml" \
@@ -199,6 +239,10 @@ POD_MOUNTS=$(cat <<YAML
 - name: kafka-clients-lib
   mountPath: /opt/hadoop/lib/${SERVLET_JAR}
   subPath: ${SERVLET_JAR}
+- name: kafka-clients-lib
+  mountPath: /opt/flink/lib/${HIVE_EXEC_FLINK_LIB}
+  subPath: ${HIVE_EXEC_FLINK_LIB}
+  readOnly: true
 - name: lakehouse-hive-conf
   mountPath: /opt/flink/lakehouse-conf
   readOnly: true
