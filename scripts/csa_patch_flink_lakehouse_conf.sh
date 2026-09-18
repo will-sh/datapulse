@@ -83,6 +83,12 @@ else:
         "  <property>\\n    <name>hive.metastore.client.thrift.transport.mode</name>\\n    <value>http</value>\\n  </property>\\n</configuration>",
         1,
     )
+if "metastore.client.transport.mode" not in text:
+    text = text.replace(
+        "</configuration>",
+        "  <property>\\n    <name>metastore.client.transport.mode</name>\\n    <value>http</value>\\n  </property>\\n</configuration>",
+        1,
+    )
 hive.write_text(text, encoding="utf-8")
 
 core = work / "core-site.xml"
@@ -196,6 +202,9 @@ POD_MOUNTS=$(cat <<YAML
 - name: lakehouse-hive-conf
   mountPath: /opt/flink/lakehouse-conf
   readOnly: true
+- name: lakehouse-hive-conf
+  mountPath: /etc/hadoop/conf
+  readOnly: true
 YAML
 )
 kubectl --kubeconfig="$CSA_KUBECONFIG" patch configmap ssb-config-pod-volumes -n "$CSA_NS" --type merge \
@@ -265,12 +274,19 @@ raw = subprocess.check_output(kube + ["get", "cm", cm, "-n", ns, "-o", "json"], 
 data = json.loads(raw).get("data") or {}
 conf = data.get("flink-conf.yaml", "")
 lines = [ln for ln in conf.splitlines() if not ln.startswith("containerized.")]
+mount = "${MOUNT_PATH}"
+hadoop_conf = "/etc/hadoop/conf"
 extra = [
+    "# Lakehouse HMS: image defaults HADOOP_CONF_DIR=/etc/hadoop/conf (no HTTP Thrift)",
+    f"containerized.master.env.HADOOP_CONF_DIR: {mount}",
+    f"containerized.taskmanager.env.HADOOP_CONF_DIR: {mount}",
+    f"containerized.master.env.HIVE_CONF_DIR: {hadoop_conf}",
+    f"containerized.taskmanager.env.HIVE_CONF_DIR: {hadoop_conf}",
     "# Lakehouse HMS client UGI (overrides flink-extended-hadoop image default flink)",
     f"containerized.master.env.HADOOP_USER_NAME: {user}",
     f"containerized.taskmanager.env.HADOOP_USER_NAME: {user}",
 ]
-if f"containerized.master.env.HADOOP_USER_NAME: {user}" not in conf:
+if f"containerized.master.env.HADOOP_CONF_DIR: {mount}" not in conf:
     conf = conf.rstrip() + "\\n" + "\\n".join(extra) + "\\n"
     patch = {"data": {"flink-conf.yaml": conf}}
     subprocess.check_call(kube + ["patch", "cm", cm, "-n", ns, "--type", "merge", "-p", json.dumps(patch)])
@@ -320,6 +336,28 @@ patch = {
 }
 subprocess.check_call(kube + ["patch", "deployment", dep, "-n", ns, "--type", "strategic", "-p", json.dumps(patch)])
 print(f"patched {dep}: {mount} + HADOOP_USER_NAME={user}")
+PY
+
+echo "=== Extend SSB FlinkDeployment wait (slow cross-cluster HMS metadata ~10+ min) ==="
+python3 <<PY
+import json, subprocess
+kube = ["kubectl", "--kubeconfig=${CSA_KUBECONFIG}"]
+ns = "${CSA_NS}"
+raw = subprocess.check_output(kube + ["get", "cm", "ssb-config", "-n", ns, "-o", "json"], text=True)
+props = json.loads(raw)["data"]["application.properties"]
+additions = [
+    "# Iceberg/HMS probe: slow cross-cluster HMS metadata (SHOW DATABASES ~10+ min)",
+    "kubernetes.resource.timeout.ms=1800000",
+    "kubernetes.request.timeout=1800000",
+    "kubernetes.deployment.timeout.ms=1800000",
+]
+if "kubernetes.resource.timeout.ms=1800000" not in props:
+    props = props.rstrip() + "\\n" + "\\n".join(additions) + "\\n"
+    patch = {"data": {"application.properties": props}}
+    subprocess.check_call(kube + ["patch", "cm", "ssb-config", "-n", ns, "--type", "merge", "-p", json.dumps(patch)])
+    print("patched ssb-config kubernetes timeouts (30m)")
+else:
+    print("ssb-config kubernetes timeouts already set")
 PY
 
 kubectl --kubeconfig="$CSA_KUBECONFIG" rollout restart deployment -n "$CSA_NS" -l app.kubernetes.io/name=ssb

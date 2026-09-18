@@ -158,6 +158,14 @@ def _lakehouse_conf_props() -> str:
     )
 
 
+def _iceberg_hms_hadoop_props() -> str:
+    """Forward HMS HTTP Thrift + client timeouts to Iceberg's Hadoop Configuration."""
+    return (
+        "  'iceberg.hadoop.hive.metastore.client.thrift.transport.mode' = 'http',\n"
+        "  'iceberg.hadoop.hive.metastore.client.socket.timeout' = '1800',\n"
+    )
+
+
 def _iceberg_sink_ddl(
     *,
     hms_uri: str,
@@ -193,7 +201,7 @@ CREATE TABLE {table_name} (
   'warehouse' = '{_sql_string(ICEBERG_WAREHOUSE)}',
   'catalog-database' = '{_sql_string(db)}',
   'catalog-table' = '{_sql_string(table)}',
-  'iceberg.hadoop.fs.s3a.endpoint' = '{_sql_string(OZONE_S3_ENDPOINT)}',
+{_iceberg_hms_hadoop_props()}  'iceberg.hadoop.fs.s3a.endpoint' = '{_sql_string(OZONE_S3_ENDPOINT)}',
   'iceberg.hadoop.fs.s3a.path.style.access' = 'true',
   'iceberg.hadoop.fs.s3a.connection.ssl.enabled' = 'true',
   'iceberg.hadoop.fs.s3a.impl' = 'org.apache.hadoop.fs.s3a.S3AFileSystem'
@@ -213,7 +221,7 @@ CREATE CATALOG {catalog} WITH (
   'hadoop-conf-dir' = '{conf}',
   'uri' = '{_sql_string(hms_uri)}',
   'warehouse' = '{_sql_string(ICEBERG_WAREHOUSE)}',
-  'iceberg.hadoop.fs.s3a.endpoint' = '{_sql_string(OZONE_S3_ENDPOINT)}',
+{_iceberg_hms_hadoop_props()}  'iceberg.hadoop.fs.s3a.endpoint' = '{_sql_string(OZONE_S3_ENDPOINT)}',
   'iceberg.hadoop.fs.s3a.path.style.access' = 'true',
   'iceberg.hadoop.fs.s3a.connection.ssl.enabled' = 'true',
   'iceberg.hadoop.fs.s3a.impl' = 'org.apache.hadoop.fs.s3a.S3AFileSystem'
@@ -592,13 +600,24 @@ def probe_hms_candidates(job_id: int) -> tuple[str | None, list[dict[str, Any]]]
             entry["status"] = final.get("status")
             entry["flink_job_id"] = final.get("flink_job_id")
             kind = (final.get("status") or {}).get("kind")
-            if kind == "RUNNING" and final.get("flink_job_id"):
-                working_uri = uri
-                results.append(entry)
-                break
+            terminal = (final.get("status") or {}).get("terminal_state")
             error = (final.get("status") or {}).get("error") or ""
             entry["error"] = error or None
             entry["error_class"] = _classify_hms_error(str(error))
+            # Datagen probe (5 rows) may FINISH before we observe RUNNING.
+            sink_ok = (
+                not error
+                and final.get("flink_job_id")
+                and (
+                    (kind == "RUNNING")
+                    or (kind == "FINISHED" and terminal)
+                )
+            )
+            if sink_ok:
+                entry["ok"] = True
+                working_uri = uri
+                results.append(entry)
+                break
         except RuntimeError as exc:
             message = str(exc)
             entry["error"] = message
