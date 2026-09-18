@@ -104,7 +104,23 @@ Knox WebSSO cookie auth, then SSB API on the CSA host. If local DNS for the SSB 
 
 **Job config enums:** `runtime_config.execution_mode` ∈ `APPLICATION` \| `PER_JOB` \| `SESSION`; `runtime_config.runtime_mode` ∈ `STREAMING` \| `BATCH` \| `AUTOMATIC`. Job names must match `[A-Za-z_][A-Za-z0-9_]*` (no hyphens).
 
-**Kafka OAuth in Flink:** avoid `sasl.login.callback.handler.class=OAuthBearerLoginCallbackHandler` (class missing in CSA Flink image). Use `properties.sasl.jaas.config` + embedded `properties.ssl.truststore.certificates` (PEM with literal `\n`, not raw newlines). See `scripts/csa_flink_kafka_iceberg.py`. As of 2026-09-17, Flink’s shaded Kafka connector still auto-resolves the non-shaded `OAuthBearerLoginCallbackHandler` and fails at runtime (`Class ... could not be found`) — requires CSA image / classpath fix (kafka-clients in Flink lib).
+**Kafka OAuth in Flink (classloader issue, not “wrong SQL”):**
+
+Flink’s Kafka SQL connector ships a **relocated (shaded)** copy of `kafka-clients` under `org.apache.flink.kafka.shaded.org.apache.kafka.*`. OAUTHBEARER login still looks up the **canonical** class `org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler` (non-shaded name). That class is **not** on the classloader the connector uses → `Class ... could not be found` before any token fetch. Same failure with shaded handler name, non-shaded name, or omitting the property (Kafka auto-defaults).
+
+This is **not** fixable from Flink SQL alone. CSA SQL job API has no `flinkConfiguration`, pod env (`KAFKA_OPTS`), or jar upload for APPLICATION-mode jobs. **Platform fix:** add a matching `kafka-clients-*.jar` to Flink **`/opt/flink/lib/`** (parent classloader) in the CSA Flink image; then set `KAFKA_OPTS=-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls=<token_url>` on JM/TM pods.
+
+Until then, use CAI Spark or Trino for Kafka ingest. SQL-side OAuth settings (JAAS + PEM certs) in `scripts/csa_flink_kafka_iceberg.py` are correct for when the image is patched.
+
+**Ranger Hive (HMS) policies:** grant via Ranger REST API (Knox WebSSO cookie), same pattern as Trino `cm_trino` fixes:
+
+```bash
+export CONSOLE_PASSWORD=awc-admin-password
+python3 scripts/ranger_grant_hive.py grant-service-users
+python3 scripts/ranger_grant_hive.py list
+```
+
+Ranger Admin: https://ranger.lakehouse-bp-6b4b81.cldr-csk-lakehouse.a70735.test.cldr.work/ — Hive service `udf_hive`. Policies updated for `datapulse` + `default` + `*` databases: users `admin`, `hive`, `flink`, `ssb`, `hadoop`, `anonymous`, Console Access Key UUID; groups `public`, `hive`.
 
 **Iceberg sink (2026-09-17 probes):**
 
