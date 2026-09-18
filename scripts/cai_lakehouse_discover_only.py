@@ -18,8 +18,8 @@ OUT = ROOT / "config" / "lakehouse" / "last-job-run.json"
 SPARK_CONNECT_ZIP = Path("/opt/spark-connect/spark_connect.zip")
 SPARK_CONNECT_NATIVE = Path("/opt/spark-connect/native")
 SPARK_CONNECT_DIR = Path("/tmp/spark-connect-unpack")
-SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"}
-TRINO_MODES = {"trino-probe", "trino-bootstrap", "trino-verify"}
+SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-layout", "spark-pi"}
+TRINO_MODES = {"trino-probe", "trino-bootstrap", "trino-verify", "trino-ingest"}
 
 
 def write_run_log(payload: dict[str, object]) -> None:
@@ -225,13 +225,22 @@ payload: dict[str, object] = {
 
 try:
     if mode in SPARK_MODES:
-        if not os.getenv("LAKEHOUSE_SPARK_MASTER") and not os.getenv("SPARK_MASTER"):
+        if os.getenv("CAI_SPARK_DATA_CONNECTION") or os.getenv("CDSW_DATA_CONNECTION"):
+            from app.spark_connect_env import prepare_spark_connect
+
             prepare_spark_connect()
+            payload["steps"].append("data_connection_spark_ready")
+        elif not os.getenv("LAKEHOUSE_SPARK_MASTER") and not os.getenv("SPARK_MASTER"):
+            prepare_spark_connect()
+            payload["steps"].append("spark_connect_ready")
         else:
             configure_spark_connect_python()
-        payload["steps"].append("spark_connect_ready")
+            payload["steps"].append("local_spark_ready")
         payload["spark_connect_url"] = os.getenv("SPARK_CONNECT_URL", "")
         payload["spark_master"] = os.getenv("LAKEHOUSE_SPARK_MASTER") or os.getenv("SPARK_MASTER", "")
+        payload["cai_spark_data_connection"] = os.getenv("CAI_SPARK_DATA_CONNECTION") or os.getenv(
+            "CDSW_DATA_CONNECTION", ""
+        )
         write_run_log(payload)
     if mode in TRINO_MODES:
         payload["steps"].append("trino_mode")
@@ -267,6 +276,21 @@ except Exception as exc:  # noqa: BLE001
     payload["error"] = str(exc)
     payload["traceback"] = traceback.format_exc()
     write_run_log(payload)
+    try:
+        from scripts.cai_report_last_job_run import _report_via_trino
+
+        payload["trino_failure_report"] = _report_via_trino(
+            {
+                "phase": "lakehouse-job-failure",
+                "mode": mode,
+                "hostname": socket.gethostname(),
+                "reported_at": datetime.now(UTC).isoformat(),
+                "payload": payload,
+            }
+        )
+    except Exception as report_exc:  # noqa: BLE001
+        payload["trino_failure_report"] = {"ok": False, "error": str(report_exc)}
+        write_run_log(payload)
     print(json.dumps(payload, indent=2, default=str))
     raise RuntimeError(str(exc)) from exc
 

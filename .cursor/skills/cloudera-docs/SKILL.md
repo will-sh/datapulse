@@ -114,3 +114,7 @@ When user asks about CAI + Lakehouse:
 2. Prefer **Data Connection + hadoop_config_dir** over bare HMS URI if docs apply to this deployment.
 3. For API/job issues, cross-check beta REST API v2 (browser) and public `ml-creating-a-job-c.html`.
 4. Document new findings back into `references/` — keep SKILL.md as index only.
+
+## AWC Console (deployments, not docs)
+
+For **live Console login**, marketplace sync, experiences, and Knox WebSSO — use the [awc-console](../awc-console/SKILL.md) skill, not this doc skill.

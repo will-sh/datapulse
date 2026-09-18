@@ -18,6 +18,7 @@ from typing import Any
 
 CAI_BASE = os.getenv("CAI_BASE", "https://ray-ml.cldr-csk-cai-readygo.a70735.test.cldr.work").rstrip("/")
 CAI_PID = os.getenv("CAI_PID", "k87h-zej9-dugs-473y")
+CAI_PROJECT_NUMERIC_ID = os.getenv("CAI_PROJECT_NUMERIC_ID", "3")
 CAI_KEY = os.getenv("CAI_KEY", os.getenv("CDSW_APIV2_KEY", ""))
 
 DEFAULT_RUNTIME = (
@@ -26,8 +27,9 @@ DEFAULT_RUNTIME = (
 DEFAULT_ADDONS = ["hadoop-cli-7.3.1.709-1"]
 # sparkconnect354 combined with hadoop-cli breaks CAI Job engine startup; local Spark uses hadoop-cli only.
 SPARK_ADDONS = ["hadoop-cli-7.3.1.709-1"]
-SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-pi"}
-TRINO_MODES = {"trino-probe", "trino-bootstrap", "trino-verify"}
+SPARK_DATA_CONNECTION_ADDONS = ["sparkconnect354-731-26"]
+SPARK_MODES = {"bootstrap", "batch", "stream", "verify", "spark-probe", "spark-layout", "spark-pi"}
+TRINO_MODES = {"trino-probe", "trino-bootstrap", "trino-verify", "trino-ingest"}
 JOB_NAME = "datapulse-lakehouse-kafka-ingest"
 JOB_ID = os.getenv("CAI_LAKEHOUSE_JOB_ID", "4h98-444z-iu1n-5x3m")
 JOB_SCRIPT = "scripts/cai_lakehouse_discover_only.py"
@@ -47,13 +49,38 @@ DEFAULT_ENV = {
     "OZONE_VOLUME": "s3v",
     "OZONE_BUCKET": "warehouse",
     "OZONE_WAREHOUSE_PREFIX": "datapulse",
+    "ICEBERG_WAREHOUSE": "s3a://hive-warehouse/external",
+    "CAI_SPARK_DATA_CONNECTION": "lakehouse-integrated",
+    "CAI_SPARK_DATA_CONNECTION_INFO": json.dumps(
+        {
+            "id": 1,
+            "workspaceConnectionId": "1",
+            "projectId": 3,
+            "name": "lakehouse-integrated",
+            "type": "SPARK",
+            "connectionInfo": {"dataLakeExternalDir": "s3a://hive-warehouse/external"},
+            "availability": True,
+        }
+    ),
+    "CAI_PROJECT_NUMERIC_ID": CAI_PROJECT_NUMERIC_ID,
+    "CAI_BASE": CAI_BASE,
+    "HADOOP_CONF_DIR": "/home/cdsw/hadoop_config_dir",
+    "PYTHONHTTPSVERIFY": "0",
     "LAKEHOUSE_CHECKPOINT_DIR": "config/lakehouse/.checkpoints/kafka-to-iceberg",
-    "LAKEHOUSE_SPARK_MASTER": "local[2]",
     "SPARK_SESSION_TIMEOUT_SEC": "300",
     "TRINO_HOST": "lakehouse-bp-556b64.cldr-csk-lakehouse.a70735.test.cldr.work",
     "TRINO_PORT": "443",
     "TRINO_CATALOG": "iceberg",
     "TRINO_VERIFY_SSL": "false",
+    "TRINO_INGEST_BATCH_SIZE": "50",
+    "TRINO_INGEST_MAX_BATCHES": "10",
+    "TRINO_INGEST_POLL_INTERVAL_SEC": "2",
+    "TRINO_INGEST_TIMEOUT_MS": "10000",
+    "TRINO_INGEST_CHECKPOINT": "config/lakehouse/.checkpoints/trino-ingest-offset.json",
+    "TRINO_INGEST_ENSURE_TABLE": "true",
+    "TRINO_INGEST_STOP_ON_EMPTY": "true",
+    # Use checkpoint on CAI project when present; earliest only for empty checkpoint.
+    "TRINO_INGEST_START_MODE": "checkpoint",
 }
 
 POLL_INTERVAL = int(os.getenv("CAI_JOB_POLL_INTERVAL", "10"))
@@ -148,18 +175,23 @@ def fetch_kafka_env_from_consumer() -> dict[str, str]:
     return {}
 
 
-def addons_for_mode(mode: str) -> list[str]:
+def addons_for_mode(mode: str, environment: dict[str, str] | None = None) -> list[str]:
+    env = environment or DEFAULT_ENV
+    if env.get("CAI_SPARK_DATA_CONNECTION") or env.get("CDSW_DATA_CONNECTION"):
+        return SPARK_DATA_CONNECTION_ADDONS
     return SPARK_ADDONS if mode in SPARK_MODES else DEFAULT_ADDONS
 
 
 def build_job_payload(mode: str, extra_env: dict[str, str] | None = None, *, stringify_env: bool = False) -> dict[str, Any]:
     environment = dict(DEFAULT_ENV)
     environment.update(fetch_kafka_env_from_consumer())
+    if CAI_KEY:
+        environment.setdefault("CDSW_APIV2_KEY", CAI_KEY)
     if extra_env:
         environment.update(extra_env)
     environment["LAKEHOUSE_JOB_MODE"] = mode
     environment["LAKEHOUSE_JOB_ARGS"] = mode
-    addons = addons_for_mode(mode)
+    addons = addons_for_mode(mode, environment)
 
     payload = {
         "name": JOB_NAME,
@@ -271,10 +303,12 @@ def parse_args() -> argparse.Namespace:
             "stream",
             "verify",
             "spark-probe",
+            "spark-layout",
             "spark-pi",
             "trino-probe",
             "trino-bootstrap",
             "trino-verify",
+            "trino-ingest",
         ),
         help="passed to jobs/kafka_to_iceberg.py via LAKEHOUSE_JOB_MODE",
     )

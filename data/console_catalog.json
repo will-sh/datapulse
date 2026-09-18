@@ -1,7 +1,21 @@
 {
-  "synced_at": "2026-09-16T03:13:07Z",
+  "synced_at": "2026-09-17T13:48:55Z",
   "console_url": "https://console.readygo.a70735.test.cldr.work",
   "experiences": [
+    {
+      "id": "deploy-018",
+      "name": "csa-bp",
+      "appName": "Cloudera Streaming Analytics",
+      "clusterId": "cluster-007",
+      "clusterName": "cldr-csk-csa-1",
+      "status": "deployed",
+      "version": "1.6.0",
+      "statusReason": "",
+      "landingPageUrl": "https://csa-bp-csa-ssb-sse.cldr-csk-csa-1.a70735.test.cldr.work/",
+      "cloudCredentialName": "AWS : readygo-aws",
+      "cloudCredentialProvider": "AWS",
+      "createdOn": "2026-09-17T13:11:25Z"
+    },
     {
       "id": "deploy-016",
       "name": "lakehouse-bp-trino",

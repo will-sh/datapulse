@@ -8,9 +8,11 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 from datetime import UTC, datetime
 from pathlib import Path
 
+from app.cai_spark_connection import create_spark_session_from_data_connection, resolve_data_connection_name
 from app.lakehouse_settings import discover_hive_site, get_lakehouse_settings
 from app.spark_stream.kafka_stream import _kafka_options
 from app.trino_lakehouse import bootstrap_via_trino, probe_trino, verify_via_trino
+from app.trino_kafka_ingest import run_trino_ingest
 
 
 def _env(name: str, default: str = "") -> str:
@@ -46,6 +48,7 @@ def discover_environment() -> int:
         },
         "hive_site_source": hive_site.get("source"),
         "hive_site_keys": sorted(k for k in hive_site if k != "source"),
+        "cai_spark_data_connection": resolve_data_connection_name() or None,
     }
     _print_json("discover", summary)
     return 0
@@ -91,6 +94,15 @@ def _spark_packages(include_kafka: bool = True) -> str:
 
 
 def _build_lakehouse_spark_session(*, include_kafka: bool = True):
+    connection_name = resolve_data_connection_name()
+    if connection_name:
+        if include_kafka:
+            print(
+                "Warning: Kafka connector packages cannot be added to a CAI data-connection "
+                "Spark session after creation; batch/stream may require manual Spark config."
+            )
+        return create_spark_session_from_data_connection(connection_name)
+
     settings = get_lakehouse_settings()
     allowed_urls = ""
     dist_files = ""
@@ -358,10 +370,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "stream",
             "verify",
             "spark-probe",
+            "spark-layout",
             "spark-pi",
             "trino-probe",
             "trino-bootstrap",
             "trino-verify",
+            "trino-ingest",
         ),
         help="discover env, create table, batch/stream ingest, verify, spark/trino probes",
     )
@@ -422,16 +436,82 @@ def trino_verify() -> int:
     return 0
 
 
-def spark_probe() -> int:
-    spark, settings = _create_lakehouse_spark_session(include_kafka=False)
-    _print_json(
-        "spark-probe",
-        {
-            "spark_version": spark.version,
-            "spark_connect_url": _env("SPARK_CONNECT_URL"),
-            "qualified_table": settings.qualified_table,
-        },
+def trino_ingest() -> int:
+    _print_json("trino-ingest", run_trino_ingest())
+    return 0
+
+
+def spark_layout_probe() -> int:
+    import socket
+
+    from app.spark_connect_env import (
+        log_runtime_addon_state,
+        prepare_spark_connect,
+        probe_spark_connect_port,
+        resolve_spark_connect_paths,
     )
+
+    log_runtime_addon_state()
+    zip_path, native_dir, root = resolve_spark_connect_paths()
+    payload = {
+        "zip_path": str(zip_path) if zip_path else None,
+        "native_dir": str(native_dir) if native_dir else None,
+        "root": str(root) if root else None,
+        "root_listing": sorted(p.name for p in root.iterdir()) if root and root.is_dir() else [],
+        "spark_home": os.getenv("SPARK_HOME"),
+        "spark_connect_url": os.getenv("SPARK_CONNECT_URL"),
+        "runtime_spark_ports": {
+            key: value
+            for key, value in os.environ.items()
+            if key.endswith("_SERVICE_PORT_SPARK")
+        },
+    }
+    prepare_spark_connect()
+    prepare_spark_connect()
+    payload["spark_connect_url_after_prepare"] = os.getenv("SPARK_CONNECT_URL")
+    payload["spark_home_after_prepare"] = os.getenv("SPARK_HOME")
+    payload["spark_connect_port_probe"] = probe_spark_connect_port("127.0.0.1", "20049")
+    host = socket.gethostname().upper().replace("-", "")
+    port = payload["runtime_spark_ports"].get(f"DS_RUNTIME_{host}_SERVICE_PORT_SPARK")
+    if port:
+        payload["spark_connect_port_probe_hostname"] = probe_spark_connect_port("127.0.0.1", str(port))
+    _print_json("spark-layout", payload)
+    try:
+        from scripts.cai_report_last_job_run import _report_via_trino
+
+        _report_via_trino(
+            {
+                "phase": "spark-layout-probe",
+                "hostname": os.getenv("HOSTNAME", ""),
+                "payload": payload,
+            }
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"trino layout report skipped: {exc}")
+    return 0
+
+
+def spark_probe() -> int:
+    connection_name = resolve_data_connection_name()
+    spark, settings = _create_lakehouse_spark_session(include_kafka=False)
+    probe: dict[str, object] = {
+        "spark_version": spark.version,
+        "spark_connect_url": _env("SPARK_CONNECT_URL"),
+        "spark_master": _env("LAKEHOUSE_SPARK_MASTER") or _env("SPARK_MASTER"),
+        "qualified_table": settings.qualified_table,
+        "cai_spark_data_connection": connection_name or None,
+        "hadoop_conf_dir": _env("HADOOP_CONF_DIR"),
+    }
+    hive_site = Path(_env("HADOOP_CONF_DIR") or "/home/cdsw/hadoop_config_dir") / "hive-site.xml"
+    probe["hive_site_exists"] = hive_site.is_file()
+    if connection_name:
+        try:
+            probe["show_databases"] = [
+                row[0] for row in spark.sql("SHOW DATABASES").collect()
+            ]
+        except Exception as exc:  # noqa: BLE001
+            probe["show_databases_error"] = str(exc)
+    _print_json("spark-probe", probe)
     spark.stop()
     return 0
 
@@ -440,6 +520,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.mode == "discover":
         return discover_environment()
+    if args.mode == "spark-layout":
+        return spark_layout_probe()
     if args.mode == "spark-probe":
         return spark_probe()
     if args.mode == "spark-pi":
@@ -450,6 +532,8 @@ def main(argv: list[str] | None = None) -> int:
         return trino_bootstrap()
     if args.mode == "trino-verify":
         return trino_verify()
+    if args.mode == "trino-ingest":
+        return trino_ingest()
     if args.mode == "bootstrap":
         return bootstrap_table()
     if args.mode == "batch":
