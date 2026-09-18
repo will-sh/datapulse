@@ -1,9 +1,6 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# DataPulse agent notes
 
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+- **Web UI**: FastAPI + Jinja2 (`templates/`, `static/`, `app/live/`). Do not add Next.js.
+- **CAI deploy**: Python only (`scripts/cai_start_application.py`, `scripts/cai_spark_kafka_stream.py`).
+- **Lakehouse ingest**: CSA Flink primary (`scripts/csa_flink_kafka_iceberg.py`); CAI Trino batch fallback (`scripts/ingest_kafka_iceberg.py`).
+- **Sync to CAI**: `python3 scripts/cai_project_sync.py upload` from `main`; Kafka certs are gitignored and uploaded via `CAI_SYNC_EXTRA`.

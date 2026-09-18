@@ -405,7 +405,9 @@ monitoring/                # Prometheus + Grafana + DataPulse exporter
   prometheus.yml
   start.sh
   download.sh
-src/                       # Original Next.js implementation (reference)
+templates/                 # FastAPI Jinja2 site (Producer)
+static/                    # Producer static assets
+app/live/                  # Consumer live dashboard templates + static
 ```
 
 ## Tech stack
@@ -413,7 +415,7 @@ src/                       # Original Next.js implementation (reference)
 - FastAPI + Jinja2 (Producer site + Consumer dashboards)
 - Kafka OAuth (CSM / Strimzi)
 - Spark Connect + Kafka CLI fallback (Consumer)
-- Cloudera Lakehouse + Iceberg + Trino + CDV(Viz) (target analytics path, planned)
+- CSA Flink SQL → Iceberg (verified lakehouse ingest path)
+- Cloudera Lakehouse + Iceberg + Trino + CDV(Viz)
 - Observability: Prometheus + Grafana / Datadog (optional, parallel to main pipeline)
-- PostHog (`posthog-js` CDN, optional, Product Analytics)
-- Original Next.js 16 implementation retained in `src/` for reference
+- PostHog (browser SDK CDN, optional, Product Analytics)
