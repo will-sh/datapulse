@@ -1,4 +1,4 @@
-"""Product analytics computed from the in-memory Kafka consumer buffer."""
+"""Product analytics for Live (buffer) and Insights (Lakehouse via Trino)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ from collections import Counter, defaultdict
 from typing import Any
 
 from app.live.service import pipeline_out
-from app.spark_stream.store import STORE, StreamEvent
+from app.live.warehouse_insights import load_insights_events
+from app.spark_stream.store import StreamEvent
 
 FORM_SUBMIT_EVENTS = frozenset(
     {
@@ -158,9 +159,17 @@ def _build_session_rows(sessions: dict[str, list[StreamEvent]]) -> list[dict[str
     return rows
 
 
-def compute_insights(window_seconds: int | None = None) -> dict[str, Any]:
-    window = window_seconds if window_seconds is not None else _default_window()
-    events = STORE.events_in_window(window)
+def compute_insights(
+    window_seconds: int | None = None,
+    *,
+    source: str = "auto",
+    window_days: int | None = None,
+) -> dict[str, Any]:
+    events, data_source, window, note, warehouse_meta = load_insights_events(
+        source=source,
+        window_seconds=window_seconds,
+        window_days=window_days,
+    )
     sessions = _build_sessions(events)
 
     session_count = len(sessions)
@@ -266,11 +275,14 @@ def compute_insights(window_seconds: int | None = None) -> dict[str, Any]:
     converted_count = sum(1 for row in all_sessions if row["converted"])
     anonymous_only_count = sum(1 for row in all_sessions if not row["user_display"])
 
-    return {
+    window_days_effective = max(1, round(window / 86400)) if window >= 86400 else None
+    payload: dict[str, Any] = {
         "generated_at": time.time(),
         "window_seconds": window,
+        "window_days": window_days_effective,
+        "data_source": data_source,
         "pipeline": pipeline_out().model_dump(),
-        "note": "Insights reflect the in-memory consumer buffer only (not historical warehouse data).",
+        "note": note,
         "kpis": {
             "sessions": session_count,
             "actors": actor_count,
@@ -288,7 +300,9 @@ def compute_insights(window_seconds: int | None = None) -> dict[str, Any]:
         "retention": {
             "multi_page_sessions": multi_page_sessions,
             "engaged_sessions": engaged_sessions,
-            "description": "Proxy metrics within the live buffer window: multi-page = 2+ paths; engaged = 3+ events.",
+            "description": (
+                "Proxy metrics in the selected window: multi-page = 2+ paths; engaged = 3+ events."
+            ),
         },
         "top_pages": [{"path": path, "views": count} for path, count in top_pages],
         "top_events": [{"name": name, "count": count} for name, count in top_events],
@@ -302,3 +316,11 @@ def compute_insights(window_seconds: int | None = None) -> dict[str, Any]:
             "identified": len(all_sessions) - anonymous_only_count,
         },
     }
+    if warehouse_meta is not None:
+        payload["warehouse"] = warehouse_meta
+    return payload
+
+
+def compute_insights_buffer(window_seconds: int | None = None) -> dict[str, Any]:
+    """Backward-compatible buffer-only insights."""
+    return compute_insights(window_seconds, source="buffer")

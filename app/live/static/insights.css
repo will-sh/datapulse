@@ -1,3 +1,26 @@
+.window-select,
+.refresh-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.window-select select,
+.session-filter select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.status-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .consumer-nav {
   display: flex;
   gap: 12px;

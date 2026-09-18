@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const REFRESH_MS = 5000;
+  const REFRESH_MS = 30000;
   let timer = null;
   let cachedSessions = [];
   let cachedSessionSummary = {};
@@ -18,6 +18,7 @@
     pagesPanel: document.getElementById("pages-panel"),
     eventsPanel: document.getElementById("events-panel"),
     autoRefresh: document.getElementById("auto-refresh"),
+    windowDays: document.getElementById("window-days"),
   };
 
   function fmtPct(value) {
@@ -29,14 +30,39 @@
     return new Date(seconds * 1000).toLocaleString("en-US");
   }
 
-  function renderStatus(pipeline, note) {
+  function formatWindow(data) {
+    if (data.window_days) {
+      return `last ${data.window_days} day(s)`;
+    }
+    return `last ${data.window_seconds || 0}s`;
+  }
+
+  function formatSource(data) {
+    if (data.data_source === "trino") {
+      const table = data.warehouse?.qualified_table || "Lakehouse";
+      return `Lakehouse · ${table}`;
+    }
+    return "Live buffer (fallback)";
+  }
+
+  function renderStatus(data) {
+    const pipeline = data.pipeline || {};
     const activeClass = pipeline.stream_active ? "ok" : "err";
-    els.statusBar.innerHTML = `
-      <div>Stream: <span class="${activeClass}">${pipeline.spark_status}</span></div>
-      <div>Buffer: ${pipeline.buffer_used}/${pipeline.buffer_size}</div>
-      <div>Total received: <strong>${pipeline.total_received}</strong></div>
-      <div>${note || ""}</div>
-    `;
+    const warehouse = data.warehouse || {};
+    const rows = [
+      `<div>Data source: <strong>${formatSource(data)}</strong></div>`,
+      `<div>Window: <strong>${formatWindow(data)}</strong></div>`,
+      `<div>Live stream: <span class="${activeClass}">${pipeline.spark_status || "unknown"}</span></div>`,
+    ];
+    if (data.data_source === "trino" && warehouse.events_after_dedupe != null) {
+      rows.push(`<div>Events analyzed: <strong>${warehouse.events_after_dedupe}</strong></div>`);
+    } else {
+      rows.push(`<div>Buffer: ${pipeline.buffer_used || 0}/${pipeline.buffer_size || 0}</div>`);
+    }
+    if (data.note) {
+      rows.push(`<div class="status-note">${data.note}</div>`);
+    }
+    els.statusBar.innerHTML = rows.join("");
   }
 
   function renderKpis(kpis) {
@@ -215,12 +241,21 @@
       .join("");
   }
 
+  function summaryUrl() {
+    const params = new URLSearchParams({ source: "auto" });
+    const days = Number(els.windowDays?.value || 7);
+    if (days > 0) {
+      params.set("window_days", String(days));
+    }
+    return `/api/insights/summary?${params.toString()}`;
+  }
+
   async function refresh() {
     try {
-      const response = await fetch("/api/insights/summary");
+      const response = await fetch(summaryUrl());
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      renderStatus(data.pipeline, `Window: last ${data.window_seconds}s · ${data.note}`);
+      renderStatus(data);
       renderKpis(data.kpis);
       renderFunnel(data.funnel);
       renderRetention(data.kpis, data.retention);
@@ -243,6 +278,10 @@
   }
 
   els.autoRefresh.addEventListener("change", schedule);
+  els.windowDays?.addEventListener("change", () => {
+    refresh();
+    schedule();
+  });
   els.sessionFilter?.addEventListener("change", () => {
     renderSessions(cachedSessions, cachedSessionSummary);
   });

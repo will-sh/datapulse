@@ -12,16 +12,24 @@
     <div>
       <p class="eyebrow">DataPulse · Internal Analytics</p>
       <h1>Insights</h1>
-      <p class="subtitle">Conversion, funnel, and retention proxies within the Kafka consumer buffer · Topic <strong>{{ topic }}</strong></p>
+      <p class="subtitle">Conversion, funnel, and retention from Lakehouse history · Topic <strong>{{ topic }}</strong></p>
     </div>
     <div class="topbar-actions">
       <nav class="consumer-nav">
         <a href="/live" class="link-muted">Live Events</a>
         <a href="/insights" class="link-muted is-active">Insights</a>
       </nav>
+      <label class="window-select">
+        <span>Window</span>
+        <select id="window-days">
+          <option value="1">Last 24 hours</option>
+          <option value="7" selected>Last 7 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+      </label>
       <label class="refresh-toggle">
         <input type="checkbox" id="auto-refresh" checked>
-        Auto-refresh (5s)
+        Auto-refresh (30s)
       </label>
     </div>
   </header>
@@ -35,7 +43,7 @@
       <section class="panel">
         <div class="panel-head">
           <h2>Lead form conversion funnel</h2>
-          <p class="hint">Session-level progression within the buffer window</p>
+          <p class="hint">Session-level progression in the selected Lakehouse window</p>
         </div>
         <div id="funnel-panel" class="funnel-panel"></div>
       </section>
@@ -43,7 +51,7 @@
       <section class="panel">
         <div class="panel-head">
           <h2>Engagement & retention proxies</h2>
-          <p class="hint">Short-window signals before warehouse analytics</p>
+          <p class="hint">Engagement signals from historical warehouse events</p>
         </div>
         <div id="retention-panel" class="retention-panel"></div>
       </section>
@@ -52,7 +60,7 @@
         <div class="panel-head panel-head--toolbar">
           <div>
             <h2>All sessions</h2>
-            <p class="hint">Every visitor session in the buffer · anonymous until form identify</p>
+            <p class="hint">Visitor sessions in the selected window · anonymous until form identify</p>
           </div>
           <div class="session-toolbar">
             <label class="session-filter">

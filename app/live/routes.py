@@ -49,8 +49,14 @@ async def insights_page(request: Request) -> HTMLResponse:
 @router.get("/api/insights/summary")
 async def insights_summary(
     window_seconds: int | None = Query(default=None, ge=60, le=3600),
+    window_days: int | None = Query(default=None, ge=1, le=30),
+    source: str = Query(default="auto", pattern="^(auto|trino|buffer)$"),
 ):
-    return compute_insights(window_seconds=window_seconds)
+    return compute_insights(
+        window_seconds=window_seconds,
+        window_days=window_days,
+        source=source,
+    )
 
 
 @router.get("/live/legacy", response_class=HTMLResponse, include_in_schema=False)
