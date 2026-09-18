@@ -17,6 +17,9 @@ HIVE_EXEC_FLINK_LIB="${HIVE_EXEC_FLINK_LIB:-000-${HIVE_EXEC_JAR}}"
 HADOOP_AWS_JAR="${HADOOP_AWS_JAR:-hadoop-aws-3.4.2.7.3.2.0-957.jar}"
 HADOOP_AWS_FLINK_LIB="${HADOOP_AWS_FLINK_LIB:-001-${HADOOP_AWS_JAR}}"
 HADOOP_AWS_SRC="${HADOOP_AWS_SRC:-/usr/lib/hadoop/${HADOOP_AWS_JAR}}"
+S3A_AWS_SDK_JAR="${S3A_AWS_SDK_JAR:-impala-minimal-s3a-aws-sdk-4.5.0.7.3.2.0-957.jar}"
+S3A_AWS_SDK_FLINK_LIB="${S3A_AWS_SDK_FLINK_LIB:-002-${S3A_AWS_SDK_JAR}}"
+S3A_AWS_SDK_SRC="${S3A_AWS_SDK_SRC:-/usr/lib/hive/lib/${S3A_AWS_SDK_JAR}}"
 LAKEHOUSE_HMS_IMAGE="${LAKEHOUSE_HMS_IMAGE:-container.repository.cloudera.com/cloudera/hive:3.1.3000.7320957-26}"
 FLINK_IMAGE="${FLINK_IMAGE:-container.repository.cloudera.com/cloudera/flink-extended-hadoop:1.20.5-csads1.0.0-b76}"
 
@@ -289,6 +292,42 @@ spec:
 YAML
 kubectl --kubeconfig="$CSA_KUBECONFIG" wait -n "$CSA_NS" --for=condition=complete job/flink-hadoop-aws-populate --timeout=300s
 
+echo "=== Publish S3A AWS SDK on EFS (hadoop-aws runtime deps) ==="
+kubectl --kubeconfig="$CSA_KUBECONFIG" delete job -n "$CSA_NS" flink-s3a-aws-sdk-populate --ignore-not-found --wait=true
+kubectl --kubeconfig="$CSA_KUBECONFIG" apply -n "$CSA_NS" -f - <<YAML
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flink-s3a-aws-sdk-populate
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: populate
+        image: ${LAKEHOUSE_HMS_IMAGE}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          src="${S3A_AWS_SDK_SRC}"
+          dst="/data/${S3A_AWS_SDK_FLINK_LIB}"
+          test -f "\$src"
+          cp "\$src" "\$dst"
+          chmod 644 "\$dst"
+          ls -la "\$dst"
+        volumeMounts:
+        - name: lib
+          mountPath: /data
+      volumes:
+      - name: lib
+        persistentVolumeClaim:
+          claimName: ${KAFKA_PVC}
+YAML
+kubectl --kubeconfig="$CSA_KUBECONFIG" wait -n "$CSA_NS" --for=condition=complete job/flink-s3a-aws-sdk-populate --timeout=300s
+
 echo "=== Publish ${CSA_CM} on CSA (${CSA_NS}) ==="
 kubectl --kubeconfig="$CSA_KUBECONFIG" create configmap "$CSA_CM" -n "$CSA_NS" \
   --from-file="${WORKDIR}/core-site.xml" \
@@ -329,6 +368,10 @@ POD_MOUNTS=$(cat <<YAML
 - name: kafka-clients-lib
   mountPath: /opt/flink/lib/${HADOOP_AWS_FLINK_LIB}
   subPath: ${HADOOP_AWS_FLINK_LIB}
+  readOnly: true
+- name: kafka-clients-lib
+  mountPath: /opt/flink/lib/${S3A_AWS_SDK_FLINK_LIB}
+  subPath: ${S3A_AWS_SDK_FLINK_LIB}
   readOnly: true
 - name: lakehouse-hive-conf
   mountPath: /opt/flink/lakehouse-conf
