@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import time
 from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from typing import Any
 
 from app.live.service import pipeline_out
@@ -29,7 +30,44 @@ MARKETPLACE_EVENTS = frozenset(
     }
 )
 
+MARKETPLACE_BROWSE_EVENTS = MARKETPLACE_EVENTS | frozenset(
+    {
+        "marketplace_view_all_clicked",
+        "blueprint_card_clicked",
+        "hero_secondary_clicked",
+        "blueprint_evaluated",
+    }
+)
+
+BLUEPRINT_INTERACTION_EVENTS = frozenset(
+    {
+        "marketplace_details_clicked",
+        "blueprint_card_clicked",
+        "blueprint_evaluated",
+        "marketplace_doc_viewed",
+        "marketplace_preview_clicked",
+        "marketplace_item_doc_opened",
+    }
+)
+
+DOC_VIEW_EVENTS = frozenset(
+    {
+        "marketplace_doc_viewed",
+        "marketplace_item_doc_opened",
+    }
+)
+
+CTA_EVENTS = frozenset(
+    {
+        "hero_cta_clicked",
+        "awc_lead_form_submit_clicked",
+        "cta_header_clicked",
+    }
+)
+
 IDENTIFY_EVENTS = frozenset({"user_identified"})
+
+BLUEPRINT_PROP_KEYS = ("blueprint", "blueprint_name", "title", "service")
 
 
 def _default_window() -> int:
@@ -159,6 +197,195 @@ def _build_session_rows(sessions: dict[str, list[StreamEvent]]) -> list[dict[str
     return rows
 
 
+def _session_has_event(
+    session_events: list[StreamEvent],
+    names: frozenset[str],
+) -> bool:
+    return any(event.name in names for event in session_events)
+
+
+def _session_marketplace_browse(session_events: list[StreamEvent]) -> bool:
+    if _session_has_event(session_events, MARKETPLACE_BROWSE_EVENTS):
+        return True
+    return any(
+        event.name == "nav_link_clicked"
+        and str((event.properties or {}).get("href", "")).startswith("/features")
+        for event in session_events
+    ) or any(event.page_path == "/features" for event in session_events)
+
+
+def _blueprint_label(event: StreamEvent) -> str | None:
+    props = event.properties or {}
+    for key in BLUEPRINT_PROP_KEYS:
+        value = props.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
+def _build_enhanced_funnel(
+    sessions: dict[str, list[StreamEvent]],
+    *,
+    session_count: int,
+) -> list[dict[str, Any]]:
+    pageview_sessions = {
+        sid
+        for sid, session_events in sessions.items()
+        if any(event.name == "$pageview" for event in session_events)
+    }
+    browse_sessions = {
+        sid
+        for sid, session_events in sessions.items()
+        if _session_marketplace_browse(session_events)
+    }
+    detail_sessions = {
+        sid
+        for sid, session_events in sessions.items()
+        if _session_has_event(session_events, frozenset({"marketplace_details_clicked"}))
+    }
+    doc_sessions = {
+        sid
+        for sid, session_events in sessions.items()
+        if _session_has_event(session_events, DOC_VIEW_EVENTS)
+    }
+    cta_sessions = {
+        sid
+        for sid, session_events in sessions.items()
+        if _session_has_event(session_events, CTA_EVENTS)
+    }
+    form_sessions = {
+        sid
+        for sid, session_events in sessions.items()
+        if _session_has_event(session_events, FORM_SUBMIT_EVENTS)
+    }
+
+    steps = [
+        ("pageview", "Visited site ($pageview)", pageview_sessions),
+        ("marketplace_browse", "Browsed Marketplace", browse_sessions),
+        ("blueprint_detail", "Opened Blueprint detail", detail_sessions),
+        ("doc_read", "Read Blueprint doc", doc_sessions),
+        ("cta_click", "Clicked lead/demo CTA", cta_sessions),
+        ("form_submit", "Submitted lead form", form_sessions),
+    ]
+    funnel: list[dict[str, Any]] = []
+    previous = session_count or 1
+    for step, label, matched in steps:
+        count = len(matched)
+        base = previous if step != "pageview" else (session_count or 1)
+        funnel.append(
+            {
+                "step": step,
+                "label": label,
+                "sessions": count,
+                "rate_pct": _pct(count, base),
+            }
+        )
+        if count > 0:
+            previous = count
+    return funnel
+
+
+def _bucket_key(received_at: float, *, hourly: bool) -> str:
+    dt = datetime.fromtimestamp(received_at, tz=timezone.utc)
+    if hourly:
+        return dt.strftime("%Y-%m-%d %H:00")
+    return dt.strftime("%Y-%m-%d")
+
+
+def _build_activity_trends(
+    events: list[StreamEvent],
+    sessions: dict[str, list[StreamEvent]],
+    *,
+    window_seconds: int,
+) -> dict[str, Any]:
+    hourly = window_seconds < 86400
+    event_buckets: Counter[str] = Counter()
+    session_buckets: Counter[str] = Counter()
+    form_buckets: Counter[str] = Counter()
+
+    for event in events:
+        key = _bucket_key(event.received_at, hourly=hourly)
+        event_buckets[key] += 1
+        if event.name in FORM_SUBMIT_EVENTS:
+            form_buckets[key] += 1
+
+    for session_events in sessions.values():
+        if not session_events:
+            continue
+        key = _bucket_key(session_events[0].received_at, hourly=hourly)
+        session_buckets[key] += 1
+
+    labels = sorted(set(event_buckets) | set(session_buckets) | set(form_buckets))
+    return {
+        "granularity": "hour" if hourly else "day",
+        "labels": labels,
+        "events": [event_buckets[label] for label in labels],
+        "sessions": [session_buckets[label] for label in labels],
+        "form_submissions": [form_buckets[label] for label in labels],
+    }
+
+
+def _build_blueprint_leaderboard(events: list[StreamEvent]) -> list[dict[str, Any]]:
+    counts: Counter[str] = Counter()
+    for event in events:
+        if event.name not in BLUEPRINT_INTERACTION_EVENTS:
+            continue
+        label = _blueprint_label(event)
+        if label:
+            counts[label] += 1
+    return [{"blueprint": name, "interactions": count} for name, count in counts.most_common(8)]
+
+
+def _session_pageview_paths(session_events: list[StreamEvent]) -> list[str]:
+    paths: list[str] = []
+    seen: set[str] = set()
+    for event in sorted(session_events, key=lambda item: item.received_at):
+        if event.name != "$pageview":
+            continue
+        path = event.page_path or (event.properties or {}).get("path")
+        if path is None:
+            continue
+        text = str(path).strip()
+        if text and text not in seen:
+            seen.add(text)
+            paths.append(text)
+    return paths
+
+
+def _build_top_paths(
+    sessions: dict[str, list[StreamEvent]],
+    *,
+    max_hops: int = 3,
+    limit: int = 8,
+) -> list[dict[str, Any]]:
+    path_stats: dict[str, dict[str, int]] = {}
+    for session_events in sessions.values():
+        paths = _session_pageview_paths(session_events)[:max_hops]
+        if not paths:
+            continue
+        signature = " → ".join(paths)
+        converted = _session_has_event(session_events, FORM_SUBMIT_EVENTS)
+        stats = path_stats.setdefault(signature, {"sessions": 0, "converted": 0})
+        stats["sessions"] += 1
+        if converted:
+            stats["converted"] += 1
+
+    rows = [
+        {
+            "path": signature,
+            "sessions": stats["sessions"],
+            "converted": stats["converted"],
+            "conversion_rate_pct": _pct(stats["converted"], stats["sessions"]),
+        }
+        for signature, stats in path_stats.items()
+    ]
+    rows.sort(key=lambda row: (row["sessions"], row["converted"]), reverse=True)
+    return rows[:limit]
+
+
 def compute_insights(
     window_seconds: int | None = None,
     *,
@@ -210,26 +437,10 @@ def compute_insights(
         if len(session_events) >= 3:
             engaged_sessions += 1
 
-    funnel = [
-        {
-            "step": "pageview",
-            "label": "Visited site ($pageview)",
-            "sessions": len(pageview_sessions),
-            "rate_pct": _pct(len(pageview_sessions), session_count or 1),
-        },
-        {
-            "step": "marketplace",
-            "label": "Engaged Marketplace",
-            "sessions": len(marketplace_sessions),
-            "rate_pct": _pct(len(marketplace_sessions), len(pageview_sessions) or 1),
-        },
-        {
-            "step": "form_submit",
-            "label": "Submitted lead form",
-            "sessions": len(form_sessions),
-            "rate_pct": _pct(len(form_sessions), len(pageview_sessions) or 1),
-        },
-    ]
+    funnel = _build_enhanced_funnel(sessions, session_count=session_count)
+    activity_trends = _build_activity_trends(events, sessions, window_seconds=window)
+    blueprint_leaderboard = _build_blueprint_leaderboard(events)
+    top_paths = _build_top_paths(sessions)
 
     converters: list[dict[str, Any]] = []
     for sid, session_events in sessions.items():
@@ -297,13 +508,9 @@ def compute_insights(
             "engaged_session_rate_pct": _pct(engaged_sessions, session_count or 1),
         },
         "funnel": funnel,
-        "retention": {
-            "multi_page_sessions": multi_page_sessions,
-            "engaged_sessions": engaged_sessions,
-            "description": (
-                "Proxy metrics in the selected window: multi-page = 2+ paths; engaged = 3+ events."
-            ),
-        },
+        "activity_trends": activity_trends,
+        "blueprint_leaderboard": blueprint_leaderboard,
+        "top_paths": top_paths,
         "top_pages": [{"path": path, "views": count} for path, count in top_pages],
         "top_events": [{"name": name, "count": count} for name, count in top_events],
         "recent_converters": converters[:20],

@@ -2,23 +2,38 @@
   "use strict";
 
   const REFRESH_MS = 30000;
+  const CHART_COLORS = {
+    events: "#60a5fa",
+    sessions: "#34d399",
+    forms: "#fbbf24",
+    blueprint: "#818cf8",
+    pages: "#38bdf8",
+    eventsBar: "#a78bfa",
+    grid: "rgba(148, 163, 184, 0.12)",
+    text: "#94a3b8",
+  };
+
   let timer = null;
   let cachedSessions = [];
   let cachedSessionSummary = {};
+  let activeTab = "sessions";
+  const charts = {};
 
   const els = {
     statusBar: document.getElementById("status-bar"),
     kpiGrid: document.getElementById("kpi-grid"),
     funnelPanel: document.getElementById("funnel-panel"),
-    retentionPanel: document.getElementById("retention-panel"),
     sessionsPanel: document.getElementById("sessions-panel"),
     sessionFilter: document.getElementById("session-filter"),
     sessionCountLabel: document.getElementById("session-count-label"),
     convertersPanel: document.getElementById("converters-panel"),
-    pagesPanel: document.getElementById("pages-panel"),
-    eventsPanel: document.getElementById("events-panel"),
+    pathsPanel: document.getElementById("paths-panel"),
     autoRefresh: document.getElementById("auto-refresh"),
     windowDays: document.getElementById("window-days"),
+    blueprintEmpty: document.getElementById("blueprint-empty"),
+    pagesEmpty: document.getElementById("pages-empty"),
+    eventsEmpty: document.getElementById("events-empty"),
+    trendEmpty: document.getElementById("trend-empty"),
   };
 
   function fmtPct(value) {
@@ -43,6 +58,41 @@
       return `Lakehouse · ${table}`;
     }
     return "Live buffer (fallback)";
+  }
+
+  function chartDefaults() {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: { color: CHART_COLORS.text, boxWidth: 12 },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: CHART_COLORS.text, maxRotation: 45, minRotation: 0 },
+          grid: { color: CHART_COLORS.grid },
+        },
+        y: {
+          ticks: { color: CHART_COLORS.text },
+          grid: { color: CHART_COLORS.grid },
+        },
+      },
+    };
+  }
+
+  function destroyChart(key) {
+    if (charts[key]) {
+      charts[key].destroy();
+      delete charts[key];
+    }
+  }
+
+  function setEmptyState(canvasId, emptyEl, hasData) {
+    const canvas = document.getElementById(canvasId);
+    if (canvas) canvas.style.display = hasData ? "block" : "none";
+    if (emptyEl) emptyEl.classList.toggle("hidden", hasData);
   }
 
   function renderStatus(data) {
@@ -110,22 +160,102 @@
       .join("");
   }
 
-  function renderRetention(kpis, retention) {
-    els.retentionPanel.innerHTML = `
-      <div class="retention-row">
-        <span>Multi-page sessions</span>
-        <strong>${retention.multi_page_sessions} · ${fmtPct(kpis.multi_page_session_rate_pct)}</strong>
-      </div>
-      <div class="retention-row">
-        <span>Engaged sessions (3+ events)</span>
-        <strong>${retention.engaged_sessions} · ${fmtPct(kpis.engaged_session_rate_pct)}</strong>
-      </div>
-      <div class="retention-row">
-        <span>Identified users</span>
-        <strong>${kpis.identified_users}</strong>
-      </div>
-      <p class="hint">${retention.description}</p>
-    `;
+  function renderTrendChart(trends) {
+    const canvas = document.getElementById("trend-chart");
+    if (!canvas || typeof Chart === "undefined") return;
+
+    destroyChart("trend");
+    const hasData = Boolean(trends?.labels?.length);
+    setEmptyState("trend-chart", els.trendEmpty, hasData);
+    if (!hasData) return;
+
+    charts.trend = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: trends.labels,
+        datasets: [
+          {
+            label: "Events",
+            data: trends.events,
+            borderColor: CHART_COLORS.events,
+            backgroundColor: "rgba(96, 165, 250, 0.15)",
+            fill: true,
+            tension: 0.3,
+          },
+          {
+            label: "Sessions",
+            data: trends.sessions,
+            borderColor: CHART_COLORS.sessions,
+            backgroundColor: "rgba(52, 211, 153, 0.08)",
+            fill: true,
+            tension: 0.3,
+          },
+          {
+            label: "Form submissions",
+            data: trends.form_submissions,
+            borderColor: CHART_COLORS.forms,
+            backgroundColor: "rgba(251, 191, 36, 0.08)",
+            fill: true,
+            tension: 0.3,
+          },
+        ],
+      },
+      options: {
+        ...chartDefaults(),
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          ...chartDefaults().plugins,
+          title: {
+            display: false,
+          },
+        },
+      },
+    });
+  }
+
+  function renderHorizontalBarChart(key, canvasId, emptyEl, rows, labelKey, valueKey, color) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || typeof Chart === "undefined") return;
+
+    destroyChart(key);
+    const hasData = rows.length > 0;
+    setEmptyState(canvasId, emptyEl, hasData);
+    if (!hasData) return;
+
+    const labels = rows.map((row) => row[labelKey]).reverse();
+    const values = rows.map((row) => row[valueKey]).reverse();
+
+    charts[key] = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            data: values,
+            backgroundColor: color,
+            borderRadius: 6,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          x: {
+            ticks: { color: CHART_COLORS.text },
+            grid: { color: CHART_COLORS.grid },
+          },
+          y: {
+            ticks: { color: CHART_COLORS.text },
+            grid: { display: false },
+          },
+        },
+      },
+    });
   }
 
   function filterSessions(rows) {
@@ -225,20 +355,58 @@
     `;
   }
 
-  function renderSimpleStats(target, rows, labelKey, valueKey, emptyText) {
+  function renderPaths(rows) {
     if (!rows.length) {
-      target.innerHTML = `<p class="empty">${emptyText}</p>`;
+      els.pathsPanel.innerHTML =
+        '<p class="empty">No multi-step navigation paths yet. Pageview journeys appear after users browse multiple pages.</p>';
       return;
     }
-    target.innerHTML = rows
-      .map(
-        (row) => `
-        <div class="stat-row">
-          <span>${row[labelKey]}</span>
-          <strong>${row[valueKey]}</strong>
-        </div>`,
-      )
-      .join("");
+
+    els.pathsPanel.innerHTML = `
+      <table class="converters-table">
+        <thead>
+          <tr>
+            <th>Path (up to 3 pageviews)</th>
+            <th>Sessions</th>
+            <th>Converted</th>
+            <th>Conv. rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (row) => `
+            <tr>
+              <td>${(row.path || "")
+                .split(" → ")
+                .map((segment) => `<span class="path-chip">${segment}</span>`)
+                .join('<span class="path-arrow">→</span>')}</td>
+              <td>${row.sessions}</td>
+              <td>${row.converted}</td>
+              <td>${fmtPct(row.conversion_rate_pct)}</td>
+            </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function setActiveTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      const isActive = btn.dataset.tab === tab;
+      btn.classList.toggle("is-active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+    document.querySelectorAll(".tab-content").forEach((panel) => {
+      const isActive = panel.id === `tab-${tab}`;
+      panel.classList.toggle("is-active", isActive);
+      panel.hidden = !isActive;
+    });
+    document.querySelectorAll(".tab-panel").forEach((el) => {
+      el.classList.toggle("tab-panel--sessions", tab === "sessions");
+    });
   }
 
   function summaryUrl() {
@@ -258,13 +426,39 @@
       renderStatus(data);
       renderKpis(data.kpis);
       renderFunnel(data.funnel);
-      renderRetention(data.kpis, data.retention);
+      renderTrendChart(data.activity_trends);
+      renderHorizontalBarChart(
+        "blueprint",
+        "blueprint-chart",
+        els.blueprintEmpty,
+        data.blueprint_leaderboard || [],
+        "blueprint",
+        "interactions",
+        CHART_COLORS.blueprint,
+      );
+      renderHorizontalBarChart(
+        "pages",
+        "pages-chart",
+        els.pagesEmpty,
+        data.top_pages || [],
+        "path",
+        "views",
+        CHART_COLORS.pages,
+      );
+      renderHorizontalBarChart(
+        "events",
+        "events-chart",
+        els.eventsEmpty,
+        data.top_events || [],
+        "name",
+        "count",
+        CHART_COLORS.eventsBar,
+      );
       cachedSessions = data.all_sessions || [];
       cachedSessionSummary = data.session_summary || {};
       renderSessions(cachedSessions, cachedSessionSummary);
-      renderConverters(data.recent_converters);
-      renderSimpleStats(els.pagesPanel, data.top_pages, "path", "views", "No page views yet");
-      renderSimpleStats(els.eventsPanel, data.top_events, "name", "count", "No events yet");
+      renderConverters(data.recent_converters || []);
+      renderPaths(data.top_paths || []);
     } catch (error) {
       els.statusBar.innerHTML = `<span class="err">Load failed: ${error.message}</span>`;
     }
@@ -277,6 +471,10 @@
     }
   }
 
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setActiveTab(btn.dataset.tab || "sessions"));
+  });
+
   els.autoRefresh.addEventListener("change", schedule);
   els.windowDays?.addEventListener("change", () => {
     refresh();
@@ -285,6 +483,15 @@
   els.sessionFilter?.addEventListener("change", () => {
     renderSessions(cachedSessions, cachedSessionSummary);
   });
-  refresh();
-  schedule();
+
+  function initWhenReady() {
+    if (typeof Chart === "undefined") {
+      window.setTimeout(initWhenReady, 50);
+      return;
+    }
+    refresh();
+    schedule();
+  }
+
+  initWhenReady();
 })();

@@ -233,8 +233,83 @@
   color: var(--accent);
 }
 
+.panel-chart {
+  margin-bottom: 16px;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 220px;
+}
+
+.chart-wrap--tall {
+  height: 280px;
+}
+
+.chart-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.panel-tabs {
+  margin-top: 0;
+}
+
+.tab-bar {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #0f172a;
+}
+
+.tab-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tab-btn.is-active {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.tab-content {
+  margin-top: 12px;
+}
+
+.tab-panel:not(.tab-panel--sessions) {
+  display: none;
+}
+
+.path-arrow {
+  display: inline-block;
+  margin: 0 4px;
+  color: var(--muted);
+}
+
 @media (max-width: 900px) {
   .insights-grid {
     grid-template-columns: 1fr;
+  }
+
+  .session-toolbar {
+    width: 100%;
+  }
+
+  .tab-bar {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }
