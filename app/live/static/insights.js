@@ -37,6 +37,7 @@
     pathsPanel: document.getElementById("paths-panel"),
     autoRefresh: document.getElementById("auto-refresh"),
     windowDays: document.getElementById("window-days"),
+    blueprintTreemap: document.getElementById("blueprint-treemap"),
     blueprintEmpty: document.getElementById("blueprint-empty"),
     pagesEmpty: document.getElementById("pages-empty"),
     eventsEmpty: document.getElementById("events-empty"),
@@ -289,6 +290,71 @@
     const ratio = intensity / maxCount;
     const alpha = 0.12 + ratio * 0.88;
     return `rgba(96, 165, 250, ${alpha.toFixed(2)})`;
+  }
+
+  const TREEMAP_PALETTE = [
+    "#6366f1",
+    "#8b5cf6",
+    "#06b6d4",
+    "#10b981",
+    "#f59e0b",
+    "#ec4899",
+    "#3b82f6",
+    "#14b8a6",
+  ];
+
+  function treemapColor(index, alpha) {
+    const base = TREEMAP_PALETTE[index % TREEMAP_PALETTE.length];
+    if (alpha == null || alpha >= 1) return base;
+    const rgb = base.replace("#", "");
+    const r = parseInt(rgb.slice(0, 2), 16);
+    const g = parseInt(rgb.slice(2, 4), 16);
+    const b = parseInt(rgb.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function renderBlueprintTreemap(treemap) {
+    if (!els.blueprintTreemap) return;
+    const items = treemap?.items || [];
+    const total = treemap?.total || 0;
+    const hasData = total > 0 && items.length > 0;
+    els.blueprintTreemap.classList.toggle("hidden", !hasData);
+    if (els.blueprintEmpty) els.blueprintEmpty.classList.toggle("hidden", hasData);
+    if (!hasData) {
+      els.blueprintTreemap.innerHTML = "";
+      return;
+    }
+
+    els.blueprintTreemap.innerHTML = items
+      .map((item, index) => {
+        const share = ((item.value / total) * 100).toFixed(1);
+        const eventTiles = (item.events || [])
+          .map(
+            (event) => `
+            <div
+              class="treemap-event"
+              style="flex-grow:${event.value}"
+              title="${event.name}: ${event.value}"
+            >
+              <span class="treemap-event-label">${event.label}</span>
+              <span class="treemap-event-value">${event.value}</span>
+            </div>`,
+          )
+          .join("");
+        return `
+          <article
+            class="treemap-blueprint"
+            style="flex-grow:${item.value}; background:${treemapColor(index, 0.22)}; border-color:${treemapColor(index, 0.55)}"
+            title="${item.blueprint}: ${item.value} interactions (${share}%)"
+          >
+            <header class="treemap-blueprint-head">
+              <strong>${item.blueprint}</strong>
+              <span>${item.value} · ${share}%</span>
+            </header>
+            <div class="treemap-events">${eventTiles}</div>
+          </article>`;
+      })
+      .join("");
   }
 
   function renderHeatmap(heatmap) {
@@ -570,15 +636,7 @@
       renderHeatmap(data.activity_heatmap);
       renderTimeToConvert(data.time_to_convert);
       renderVisitorMix(data.visitor_mix);
-      renderHorizontalBarChart(
-        "blueprint",
-        "blueprint-chart",
-        els.blueprintEmpty,
-        data.blueprint_leaderboard || [],
-        "blueprint",
-        "interactions",
-        CHART_COLORS.blueprint,
-      );
+      renderBlueprintTreemap(data.blueprint_treemap);
       renderHorizontalBarChart(
         "pages",
         "pages-chart",

@@ -352,6 +352,14 @@ def _build_activity_trends(
     }
 
 
+def _short_event_name(name: str) -> str:
+    text = name.strip()
+    for prefix in ("marketplace_", "blueprint_"):
+        if text.startswith(prefix):
+            return text[len(prefix) :]
+    return text
+
+
 def _build_blueprint_leaderboard(events: list[StreamEvent]) -> list[dict[str, Any]]:
     counts: Counter[str] = Counter()
     for event in events:
@@ -361,6 +369,44 @@ def _build_blueprint_leaderboard(events: list[StreamEvent]) -> list[dict[str, An
         if label:
             counts[label] += 1
     return [{"blueprint": name, "interactions": count} for name, count in counts.most_common(8)]
+
+
+def _build_blueprint_treemap(events: list[StreamEvent]) -> dict[str, Any]:
+    by_blueprint: dict[str, Counter[str]] = defaultdict(Counter)
+    for event in events:
+        if event.name not in BLUEPRINT_INTERACTION_EVENTS:
+            continue
+        label = _blueprint_label(event)
+        if not label:
+            continue
+        by_blueprint[label][event.name] += 1
+
+    items: list[dict[str, Any]] = []
+    for blueprint, event_counts in sorted(
+        by_blueprint.items(),
+        key=lambda item: sum(item[1].values()),
+        reverse=True,
+    ):
+        total = sum(event_counts.values())
+        items.append(
+            {
+                "blueprint": blueprint,
+                "value": total,
+                "events": [
+                    {
+                        "name": event_name,
+                        "label": _short_event_name(event_name),
+                        "value": count,
+                    }
+                    for event_name, count in event_counts.most_common()
+                ],
+            }
+        )
+
+    return {
+        "total": sum(item["value"] for item in items),
+        "items": items[:12],
+    }
 
 
 def _session_pageview_paths(session_events: list[StreamEvent]) -> list[str]:
@@ -700,6 +746,7 @@ def compute_insights(
     funnel = _build_enhanced_funnel(sessions, session_count=session_count)
     activity_trends = _build_activity_trends(current_events, sessions, window_seconds=window)
     blueprint_leaderboard = _build_blueprint_leaderboard(current_events)
+    blueprint_treemap = _build_blueprint_treemap(current_events)
     top_paths = _build_top_paths(sessions)
     time_to_convert = _build_time_to_convert(sessions)
     activity_heatmap = _build_activity_heatmap(current_events)
@@ -779,6 +826,7 @@ def compute_insights(
         "engine_leaderboard": engine_leaderboard,
         "visitor_mix": visitor_mix,
         "blueprint_leaderboard": blueprint_leaderboard,
+        "blueprint_treemap": blueprint_treemap,
         "top_paths": top_paths,
         "top_pages": [{"path": path, "views": count} for path, count in top_pages],
         "top_events": [{"name": name, "count": count} for name, count in top_events],

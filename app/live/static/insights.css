@@ -371,6 +371,77 @@
   justify-content: flex-start;
 }
 
+.treemap-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 220px;
+  align-content: stretch;
+}
+
+.treemap-blueprint {
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+  min-height: 110px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.treemap-blueprint-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.treemap-blueprint-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treemap-blueprint-head span {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.treemap-events {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-content: flex-start;
+}
+
+.treemap-event {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 56px;
+  min-height: 44px;
+  padding: 6px;
+  border-radius: 8px;
+  background: rgb(15 23 42 / 0.72);
+  border: 1px solid rgb(148 163 184 / 0.16);
+}
+
+.treemap-event-label {
+  font-size: 10px;
+  color: var(--accent);
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.treemap-event-value {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 @media (max-width: 900px) {
   .insights-grid {
     grid-template-columns: 1fr;
