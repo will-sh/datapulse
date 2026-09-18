@@ -79,7 +79,8 @@ DEFAULT_ENV = {
     "TRINO_INGEST_CHECKPOINT": "config/lakehouse/.checkpoints/trino-ingest-offset.json",
     "TRINO_INGEST_ENSURE_TABLE": "true",
     "TRINO_INGEST_STOP_ON_EMPTY": "true",
-    "TRINO_INGEST_START_MODE": "latest",
+    # Use checkpoint on CAI project when present; earliest only for empty checkpoint.
+    "TRINO_INGEST_START_MODE": "checkpoint",
 }
 
 POLL_INTERVAL = int(os.getenv("CAI_JOB_POLL_INTERVAL", "10"))

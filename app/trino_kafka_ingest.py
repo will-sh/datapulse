@@ -216,6 +216,10 @@ def initialize_checkpoint_offsets(checkpoint: dict[str, Any], topic: str) -> dic
 
     start_mode = _env("TRINO_INGEST_START_MODE", "earliest").lower()
     partitions = list_topic_partitions(topic)
+    if start_mode == "checkpoint":
+        # Resume from saved offsets when present; otherwise behave like earliest.
+        if not checkpoint.get("partitions"):
+            start_mode = "earliest"
     if start_mode == "latest":
         end_offsets = list_topic_end_offsets(topic)
         for partition in partitions:
