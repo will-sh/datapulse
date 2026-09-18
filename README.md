@@ -4,7 +4,7 @@ A PostHog-based user behavior analytics demo. Clicks, page views, and form submi
 
 ## Target architecture
 
-DataPulse on Cloudera: **real-time event pipeline** (implemented) + **lakehouse persistence and analytics** (planned). Kafka is the unified event bus; stream-to-lake can follow either **CDE (Spark)** or **CSA (Flink)**.
+DataPulse on Cloudera: **real-time event pipeline** and **lakehouse persistence** (both implemented). Kafka is the unified event bus; stream-to-lake uses **CSA (Flink SQL)** in the verified path below, with **CDE (Spark)** as an alternate route.
 
 ```mermaid
 flowchart LR
@@ -21,12 +21,12 @@ flowchart LR
         Kafka[("CSM(Kafka)<br/>datapulse-events")]
     end
 
-    subgraph Ingest["Stream Ingest · Route Choice · Planned"]
+    subgraph Ingest["Stream Ingest"]
         CDE["CDE(Spark)<br/>Structured Streaming"]
-        CSA["CSA(Flink)<br/>Flink SQL"]
+        CSA["CSA(Flink)<br/>Flink SQL · verified"]
     end
 
-    subgraph Lakehouse["Cloudera Lakehouse · Planned"]
+    subgraph Lakehouse["Cloudera Lakehouse"]
         Table[("Iceberg Table<br/>datapulse.events")]
         Trino["Trino<br/>SQL Analytics"]
         CDV["CDV(Viz)<br/>Funnels · Trends"]
@@ -78,10 +78,10 @@ flowchart LR
 | Event production | datapulse-app (CAI Application) | CAI Application | ✅ Verified |
 | Message bus | CSM(Kafka) | `csm` | ✅ Verified |
 | Real-time consumption | datapulse-spark-consumer (CAI Application) | CAI Application | ✅ Verified |
-| Stream ingest A | CDE(Spark) | `cde-udf` | 📋 Planned |
-| Stream ingest B | CSA(Flink) | `csa` | 📋 Planned (choose one with CDE) |
-| Lakehouse storage | Iceberg table | `cloudera-lakehouse-engine-governed` | 📋 Planned |
-| SQL analytics | Trino | Lakehouse Engine | 📋 Planned |
+| Stream ingest A | CDE(Spark) | `cde-udf` | 📋 Planned (alternate) |
+| Stream ingest B | CSA(Flink) | `csa` | ✅ Verified (`datapulse_kafka_iceberg`) |
+| Lakehouse storage | Iceberg table | `cloudera-lakehouse-engine-governed` | ✅ Verified (`iceberg.datapulse.events`) |
+| SQL analytics | Trino | Lakehouse Engine | ✅ Verified |
 | Visualization | CDV(Viz) | `cdv` | 📋 Planned (optional) |
 | Observability | Observability | Prometheus + Grafana / Datadog, etc. | 📋 Planned (optional) |
 
@@ -287,6 +287,44 @@ LIMIT 20;
 ```
 
 > Iceberg **Structured Streaming sink** is still Technical Preview on some CDE versions. This job uses **`foreachBatch` + `writeTo(...).append()`**, matching the Consumer Spark path for easier incremental validation on CAI.
+
+### Lakehouse: Kafka → Iceberg (CSA Flink SQL — verified path)
+
+Production stream ingest runs on **CSA (SSB)** as a long-lived Flink SQL job, not the CAI Trino cron job:
+
+```
+Kafka(datapulse-events) → CSA Flink SQL → Iceberg(datapulse.events) → Trino SQL
+```
+
+| Item | Value |
+|------|-------|
+| CSA job | `datapulse_kafka_iceberg` (SSB job id **5195**) |
+| Iceberg table | `iceberg.datapulse.events` |
+| Scripts | `scripts/csa_flink_kafka_iceberg.py`, `scripts/csa_patch_flink_lakehouse_conf.sh`, `scripts/csa_patch_flink_kafka_oauth.sh` |
+
+Cluster prep (run once on bastion with kubeconfigs):
+
+```bash
+bash scripts/csa_patch_flink_kafka_oauth.sh
+bash scripts/csa_patch_flink_lakehouse_conf.sh   # HMS conf, Ozone S3 TLS, checkpoint dir
+python3 scripts/ranger_grant_hive.py             # Iceberg RWSTORAGE for HMS commits
+```
+
+Run / status:
+
+```bash
+CSA_ICEBERG_DATABASE=datapulse CSA_ICEBERG_TABLE=events \
+  python3 scripts/csa_flink_kafka_iceberg.py run --job-id 5195
+python3 scripts/csa_flink_kafka_iceberg.py status --job-id 5195
+```
+
+Trino validation:
+
+```sql
+SELECT count(*), max(ingested_at) FROM iceberg.datapulse.events;
+```
+
+The CAI Job `datapulse-lakehouse-kafka-ingest` (`trino-ingest` mode) remains available for micro-batch fallback; pause its cron when Flink streaming is active.
 
 ### Monitoring Application (Prometheus + Grafana)
 

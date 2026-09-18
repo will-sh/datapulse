@@ -108,9 +108,51 @@ Knox WebSSO cookie auth, then SSB API on the CSA host. If local DNS for the SSB 
 
 Flink’s Kafka SQL connector ships a **relocated (shaded)** copy of `kafka-clients` under `org.apache.flink.kafka.shaded.org.apache.kafka.*`. OAUTHBEARER login still looks up the **canonical** class `org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler` (non-shaded name). That class is **not** on the classloader the connector uses → `Class ... could not be found` before any token fetch. Same failure with shaded handler name, non-shaded name, or omitting the property (Kafka auto-defaults).
 
-This is **not** fixable from Flink SQL alone. CSA SQL job API has no `flinkConfiguration`, pod env (`KAFKA_OPTS`), or jar upload for APPLICATION-mode jobs. **Platform fix:** add a matching `kafka-clients-*.jar` to Flink **`/opt/flink/lib/`** (parent classloader) in the CSA Flink image; then set `KAFKA_OPTS=-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls=<token_url>` on JM/TM pods.
+This is **not** fixable from Flink SQL alone. CSA SQL job API has no `flinkConfiguration`, pod env (`KAFKA_OPTS`), or jar upload for APPLICATION-mode jobs.
 
-Until then, use CAI Spark or Trino for Kafka ingest. SQL-side OAuth settings (JAAS + PEM certs) in `scripts/csa_flink_kafka_iceberg.py` are correct for when the image is patched.
+**Platform fix (applied on `cldr-csk-csa-1` via readygo bastion, 2026-09-18):**
+
+1. EFS PVC `flink-kafka-clients-lib-efs` holds `kafka-clients-*.jar` plus `kafka-ca.crt` / `oauth-ca.crt` (from `config/kafka/`).
+2. SSB `ssb-config-pod-volumes` / `ssb-config-pod-volume-mounts` mount jar + certs on JM/TM (`CustomVolumesResourceDecorator`).
+3. `flink-operator-config` appends `-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls=<token_url>` to `env.java.default-opts.all`.
+
+Re-run: `KAFKA_CONFIG_DIR=config/kafka bash scripts/csa_patch_flink_kafka_oauth.sh` on bastion (`KUBECONFIG=.../csa/config/kubeconfig`).
+
+**Flink SQL (aligned with CAI `config/kafka/external.properties`, 2026-09-18 verified RUNNING):**
+
+- Shaded OAuth classes: `org.apache.flink.kafka.shaded.org.apache.kafka.common.security.oauthbearer.*`
+- `DROP TABLE` before `CREATE` so Kafka connector props refresh (avoid stale `IF NOT EXISTS` catalog).
+- JAAS module-only `sasl.jaas.config` with quoted `ssl.truststore.location="/opt/flink/certs/oauth-ca.crt"`.
+- Broker TLS: `properties.ssl.truststore.location=/opt/flink/certs/kafka-ca.crt` (PEM file, not inline `\n` PEM in SQL).
+
+Verify: `python3 scripts/csa_flink_kafka_iceberg.py probe-kafka --job-id 5210`
+
+**Public HMS entry (Lakehouse platform, 2026-09-18):**
+
+Cross-cluster Thrift uses a dedicated NLB (not Istio :443). On readygo bastion:
+
+```bash
+bash scripts/lakehouse_patch_public_hms.sh
+```
+
+Creates `hivemetastore-public-proxy` DaemonSet (socat + **hostPort** :9083, `istio.io/dataplane-mode: ambient` + `ambient.istio.io/bypass-inbound-capture: "true"`), `hivemetastore-public-lb` NLB, Route53 alias (public **and** private zone) for `hivemetastore.cldr-csk-lakehouse.a70735.test.cldr.work`, worker SG :9083, and retargets NLB to instance port 9083 (K8s default NodePort target is wrong; plain hostNetwork cannot reach in-mesh HMS). HMS speaks **HTTP Thrift** — client `hive.metastore.client.thrift.transport.mode` must be `http` and send `x-actor-username` (via `HADOOP_USER_NAME=admin`). HTTP 500 on GET/curl is OK (Thrift expects POST); connection reset/empty reply means Istio inbound capture not bypassed.
+
+**Lakehouse HMS conf mount (Flink → Iceberg, 2026-09-18):**
+
+Source ConfigMap on Lakehouse HMS: `lakehouse-bp-310fe0-cfg` in namespace `lakehouse-bp-ccbe9d` (mounted on HMS pods at `/etc/hive/conf`). Sync to CSA via readygo bastion:
+
+```bash
+bash scripts/csa_patch_flink_lakehouse_conf.sh
+```
+
+This exports/patches XML for cross-cluster use (public HMS thrift URI, Ozone S3 endpoint, Ranger REST URL, minimal `hdfs-site.xml`), publishes CSA ConfigMap `flink-lakehouse-hive-conf`, and merges SSB `ssb-config-pod-volumes` / `ssb-config-pod-volume-mounts` so **Flink job pods** (not the SSB deployment pod) mount conf at `/opt/flink/lakehouse-conf`. Flink SQL uses `'hive-conf-dir'` + `'hadoop-conf-dir'` pointing at that path.
+
+| Probe | Command | Pass criteria |
+|-------|---------|---------------|
+| Conf mount | `python3 scripts/csa_flink_kafka_iceberg.py probe-hms-conf` | `CREATE CATALOG` + `SHOW DATABASES` succeeds (no `hive-site.xml` missing error) |
+| Iceberg sink | `python3 scripts/csa_flink_kafka_iceberg.py probe-hms` | Runs conf probe first, then datagen → Iceberg sink on `datapulse.flink_hms_probe` |
+
+If conf probe fails with `There should be a hive-site.xml file under .../lakehouse-conf`, re-run the patch script on bastion. If SSB returns `NoClassDefFoundError: javax/servlet/Servlet` / `Could not initialize class ... HMSHandler`, re-run the patch script — it publishes `javax.servlet-api-4.0.1.jar` on the Kafka EFS PVC and mounts it on SSB `loader.path` (`/opt/cloudera/ssb-sse/lib/`). Hive 3 `hive-exec` still references **javax** servlet; SSB/Tomcat 11 only ships **jakarta** servlet. If conf probe passes but sink fails with `Failed to list namespace`, check Ranger (`python3 scripts/ranger_grant_hive.py grant-service-users`) and `HADOOP_USER_NAME` on Flink pods (patch script sets operator podTemplate default `admin`).
 
 **Ranger Hive (HMS) policies:** grant via Ranger REST API (Knox WebSSO cookie), same pattern as Trino `cm_trino` fixes:
 
@@ -126,10 +168,10 @@ Ranger Admin: https://ranger.lakehouse-bp-6b4b81.cldr-csk-lakehouse.a70735.test.
 
 | HMS URI | Result from CSA Flink pods |
 |---------|----------------------------|
-| `thrift://hivemetastore.cldr-csk-lakehouse...:9083` (public) | TCP/HMS connect OK; sink fails: `Failed to list namespace under namespace: datapulse` (also `default`) — typical Ranger `USE` denial for the Flink HMS principal |
+| `thrift://hivemetastore.cldr-csk-lakehouse...:9083` (public) | Thrift connects; `SHOW DATABASES` / sink fail: `Failed to list namespace...` even after Ranger `udf_hive` grants for `admin`, `hive`, `flink`, `ssb`, etc. Likely missing cross-cluster HMS auth / `HADOOP_CONF_DIR` (CAI uses datalake binding; CSA Flink does not) |
 | `thrift://metastore-service.lakehouse-bp-*.svc.cluster.local:9083` | `Failed to connect to Hive Metastore` (cross-cluster; CSA `cldr-csk-csa-1` cannot reach Lakehouse in-cluster services) |
 
-Trino on `:443` works (`iceberg.datapulse.events` has data). Flink Iceberg connector needs HMS Thrift **plus** Ranger policies for the CSA Flink service user on target databases, or a platform-provided Lakehouse catalog/data connection (like CAI `lakehouse-integrated`). Until fixed, use CAI/Trino ingest (`python3 scripts/cai_submit_lakehouse_job.py --mode trino-ingest`).
+Trino on `:443` + OAuth works (`iceberg.datapulse.events` has data). Flink needs a **platform Lakehouse catalog/data connection** on CSA (like CAI `lakehouse-integrated`), not just Ranger + raw Thrift URI. Until fixed, use CAI/Trino ingest (`python3 scripts/cai_submit_lakehouse_job.py --mode trino-ingest`).
 
 ## Troubleshooting
 
