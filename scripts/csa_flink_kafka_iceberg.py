@@ -59,7 +59,7 @@ OZONE_S3_ENDPOINT = os.getenv(
 )
 KAFKA_CALLBACK_HANDLER = os.getenv(
     "KAFKA_CALLBACK_HANDLER",
-    "org.apache.flink.kafka.shaded.org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler",
+    "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler",
 )
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "datapulse-events")
 POLL_INTERVAL = int(os.getenv("CSA_POLL_INTERVAL", "10"))

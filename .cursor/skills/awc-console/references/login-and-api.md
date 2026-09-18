@@ -108,9 +108,17 @@ Knox WebSSO cookie auth, then SSB API on the CSA host. If local DNS for the SSB 
 
 Flink’s Kafka SQL connector ships a **relocated (shaded)** copy of `kafka-clients` under `org.apache.flink.kafka.shaded.org.apache.kafka.*`. OAUTHBEARER login still looks up the **canonical** class `org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler` (non-shaded name). That class is **not** on the classloader the connector uses → `Class ... could not be found` before any token fetch. Same failure with shaded handler name, non-shaded name, or omitting the property (Kafka auto-defaults).
 
-This is **not** fixable from Flink SQL alone. CSA SQL job API has no `flinkConfiguration`, pod env (`KAFKA_OPTS`), or jar upload for APPLICATION-mode jobs. **Platform fix:** add a matching `kafka-clients-*.jar` to Flink **`/opt/flink/lib/`** (parent classloader) in the CSA Flink image; then set `KAFKA_OPTS=-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls=<token_url>` on JM/TM pods.
+This is **not** fixable from Flink SQL alone. CSA SQL job API has no `flinkConfiguration`, pod env (`KAFKA_OPTS`), or jar upload for APPLICATION-mode jobs.
 
-Until then, use CAI Spark or Trino for Kafka ingest. SQL-side OAuth settings (JAAS + PEM certs) in `scripts/csa_flink_kafka_iceberg.py` are correct for when the image is patched.
+**Platform fix (applied on `cldr-csk-csa-1` via readygo bastion, 2026-09-18):**
+
+1. EFS PVC `flink-kafka-clients-lib-efs` holds `kafka-clients-3.9.1.7.3.2.0-957.jar` (copied from SSB image).
+2. SSB `ssb-config-pod-volumes` / `ssb-config-pod-volume-mounts` mount the jar at `/opt/flink/lib/kafka-clients-*.jar` on JM/TM (`CustomVolumesResourceDecorator`).
+3. `flink-operator-config` appends `-Dorg.apache.kafka.sasl.oauthbearer.allowed.urls=<token_url>` to `env.java.default-opts.all` (Java 17 opens preserved).
+
+Re-run: `scripts/csa_patch_flink_kafka_oauth.sh` on bastion (`KUBECONFIG=.../csa/config/kubeconfig`). Verify: `KAFKA_CALLBACK_HANDLER=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler python3 scripts/csa_flink_kafka_iceberg.py probe-kafka`.
+
+After the classloader fix, remaining Kafka failures may be JAAS (`KafkaClient` entry) or broker TLS — not `OAuthBearerLoginCallbackHandler could not be found`.
 
 **Ranger Hive (HMS) policies:** grant via Ranger REST API (Knox WebSSO cookie), same pattern as Trino `cm_trino` fixes:
 
@@ -126,10 +134,10 @@ Ranger Admin: https://ranger.lakehouse-bp-6b4b81.cldr-csk-lakehouse.a70735.test.
 
 | HMS URI | Result from CSA Flink pods |
 |---------|----------------------------|
-| `thrift://hivemetastore.cldr-csk-lakehouse...:9083` (public) | TCP/HMS connect OK; sink fails: `Failed to list namespace under namespace: datapulse` (also `default`) — typical Ranger `USE` denial for the Flink HMS principal |
+| `thrift://hivemetastore.cldr-csk-lakehouse...:9083` (public) | Thrift connects; `SHOW DATABASES` / sink fail: `Failed to list namespace...` even after Ranger `udf_hive` grants for `admin`, `hive`, `flink`, `ssb`, etc. Likely missing cross-cluster HMS auth / `HADOOP_CONF_DIR` (CAI uses datalake binding; CSA Flink does not) |
 | `thrift://metastore-service.lakehouse-bp-*.svc.cluster.local:9083` | `Failed to connect to Hive Metastore` (cross-cluster; CSA `cldr-csk-csa-1` cannot reach Lakehouse in-cluster services) |
 
-Trino on `:443` works (`iceberg.datapulse.events` has data). Flink Iceberg connector needs HMS Thrift **plus** Ranger policies for the CSA Flink service user on target databases, or a platform-provided Lakehouse catalog/data connection (like CAI `lakehouse-integrated`). Until fixed, use CAI/Trino ingest (`python3 scripts/cai_submit_lakehouse_job.py --mode trino-ingest`).
+Trino on `:443` + OAuth works (`iceberg.datapulse.events` has data). Flink needs a **platform Lakehouse catalog/data connection** on CSA (like CAI `lakehouse-integrated`), not just Ranger + raw Thrift URI. Until fixed, use CAI/Trino ingest (`python3 scripts/cai_submit_lakehouse_job.py --mode trino-ingest`).
 
 ## Troubleshooting
 
