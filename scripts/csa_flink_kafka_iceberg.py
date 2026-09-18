@@ -51,6 +51,7 @@ OZONE_S3_ENDPOINT = os.getenv(
     "OZONE_S3_ENDPOINT",
     "https://lakehouse-bp-ozone-s3.cldr-csk-lakehouse.a70735.test.cldr.work",
 )
+OZONE_S3_CA_PATH = os.getenv("OZONE_S3_CA_PATH", "/opt/flink/certs/ozone-s3-ca.crt")
 FLINK_SHADED_KAFKA = "org.apache.flink.kafka.shaded.org.apache.kafka"
 KAFKA_CALLBACK_HANDLER = os.getenv(
     "KAFKA_CALLBACK_HANDLER",
@@ -158,6 +159,23 @@ def _lakehouse_conf_props() -> str:
     )
 
 
+def _iceberg_s3_props() -> str:
+    """Forward Ozone S3A settings (incl. TLS truststore) into Iceberg Hadoop conf."""
+    ca = _sql_string(OZONE_S3_CA_PATH)
+    endpoint = _sql_string(OZONE_S3_ENDPOINT)
+    return (
+        f"  'iceberg.hadoop.fs.s3a.endpoint' = '{endpoint}',\n"
+        "  'iceberg.hadoop.fs.s3a.path.style.access' = 'true',\n"
+        "  'iceberg.hadoop.fs.s3a.connection.ssl.enabled' = 'true',\n"
+        "  'iceberg.hadoop.fs.s3a.impl' = 'org.apache.hadoop.fs.s3a.S3AFileSystem',\n"
+        "  'iceberg.hadoop.fs.s3a.aws.credentials.provider' = 'org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider',\n"
+        "  'iceberg.hadoop.fs.s3a.access.key' = 'ozone',\n"
+        "  'iceberg.hadoop.fs.s3a.secret.key' = 'ozone',\n"
+        f"  'iceberg.hadoop.fs.s3a.ssl.truststore.location' = '{ca}',\n"
+        "  'iceberg.hadoop.fs.s3a.ssl.truststore.type' = 'PEM',\n"
+    )
+
+
 def _iceberg_hms_hadoop_props() -> str:
     """Forward HMS HTTP Thrift + client timeouts to Iceberg's Hadoop Configuration."""
     user = os.getenv("HADOOP_USER_NAME", "admin")
@@ -205,11 +223,7 @@ CREATE TABLE {table_name} (
   'warehouse' = '{_sql_string(ICEBERG_WAREHOUSE)}',
   'catalog-database' = '{_sql_string(db)}',
   'catalog-table' = '{_sql_string(table)}',
-{_iceberg_hms_hadoop_props()}  'iceberg.hadoop.fs.s3a.endpoint' = '{_sql_string(OZONE_S3_ENDPOINT)}',
-  'iceberg.hadoop.fs.s3a.path.style.access' = 'true',
-  'iceberg.hadoop.fs.s3a.connection.ssl.enabled' = 'true',
-  'iceberg.hadoop.fs.s3a.impl' = 'org.apache.hadoop.fs.s3a.S3AFileSystem'
-)
+{_iceberg_hms_hadoop_props()}{_iceberg_s3_props()})
 """.strip()
 
 
@@ -225,11 +239,7 @@ CREATE CATALOG {catalog} WITH (
   'hadoop-conf-dir' = '{conf}',
   'uri' = '{_sql_string(hms_uri)}',
   'warehouse' = '{_sql_string(ICEBERG_WAREHOUSE)}',
-{_iceberg_hms_hadoop_props()}  'iceberg.hadoop.fs.s3a.endpoint' = '{_sql_string(OZONE_S3_ENDPOINT)}',
-  'iceberg.hadoop.fs.s3a.path.style.access' = 'true',
-  'iceberg.hadoop.fs.s3a.connection.ssl.enabled' = 'true',
-  'iceberg.hadoop.fs.s3a.impl' = 'org.apache.hadoop.fs.s3a.S3AFileSystem'
-);
+{_iceberg_hms_hadoop_props()}{_iceberg_s3_props()});
 USE CATALOG {catalog};
 SHOW DATABASES
 """.strip()
