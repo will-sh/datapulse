@@ -122,7 +122,7 @@ Separate from Observability: focuses on **user behavior and business KPIs**, not
 
 | Type | Products | Integration | Data | Relationship to main pipeline |
 |------|----------|--------|----------|--------------|
-| **Product analytics** | PostHog, Mixpanel, Amplitude | ① User browser (`analytics.js` SDK)<br/>② datapulse-app server | Clicks, views, conversions | **Parallel** to CSM(Kafka); SaaS only, Kafka only, or dual-write |
+| **Product analytics** | PostHog, Mixpanel, Amplitude | ① User browser (`datapulse-sdk.js`; demo wrapper `analytics.js`)<br/>② datapulse-app server | Clicks, views, conversions | **Parallel** to CSM(Kafka); SaaS only, Kafka only, or dual-write |
 
 **Design principles:**
 
@@ -137,6 +137,93 @@ Separate from Observability: focuses on **user behavior and business KPIs**, not
 - **Form submission** — simulated subscription conversion events
 - **User identification** — PostHog `identify` demo
 - **Local event panel** — full demo without PostHog configured
+
+## Browser SDK
+
+The embeddable SDK is one file: [`static/js/datapulse-sdk.js`](static/js/datapulse-sdk.js). Loading it sets `window.DataPulse`. It is not the PostHog SDK.
+
+[`static/js/analytics.js`](static/js/analytics.js) is only the demo site's wrapper. It auto-sends `$pageview`, binds `[data-track]` clicks, fills the on-page event panel, and optionally mirrors events to PostHog. Another website does not need that file.
+
+Events POST to `POST /v1/capture` (same handler as `POST /api/events`). The producer accepts them only when Kafka is enabled and configured (`KAFKA_ENABLED=true`); otherwise the endpoint returns 503.
+
+### This app (same origin)
+
+`templates/base.html` loads the SDK, then `analytics.js` calls `init` from `window.DATAPULSE_CONFIG`. To send events yourself:
+
+```html
+<script src="/static/js/datapulse-sdk.js"></script>
+<script>
+  DataPulse.init({
+    projectId: "awc-demo",
+    endpoint: "/v1/capture",
+    pagePath: location.pathname,
+    superProperties: { product: "anywhere_cloud" },
+  });
+
+  DataPulse.capture("$pageview", { path: location.pathname });
+  DataPulse.capture("button_clicked", { button: "signup" });
+  DataPulse.identify("user-123", { plan: "pro" });
+</script>
+```
+
+`projectId` defaults to the `DATAPULSE_PROJECT_ID` env var (`awc-demo` if unset). `endpoint` defaults to `DATAPULSE_CAPTURE_ENDPOINT` (`/v1/capture`).
+
+### Other websites
+
+Copy `static/js/datapulse-sdk.js` onto that site, or load it from the producer, then point `endpoint` at the producer:
+
+```html
+<script src="https://<datapulse-app-host>/static/js/datapulse-sdk.js"></script>
+<script>
+  DataPulse.init({
+    projectId: "other-site",
+    endpoint: "https://<datapulse-app-host>/v1/capture",
+    pagePath: location.pathname,
+    superProperties: { site: "other-site" },
+  });
+
+  DataPulse.capture("$pageview", { path: location.pathname });
+  DataPulse.capture("button_clicked", { button: "signup" });
+  DataPulse.identify("user-123", { plan: "pro" });
+</script>
+```
+
+Call `capture` from your own click handlers. The SDK does not scan the DOM. `analytics.js` is what binds `[data-track]` on the demo site, and only for elements present at `DOMContentLoaded`.
+
+Anonymous id, user id, and session id are stored in the **embedding site's** `localStorage` / `sessionStorage` (`datapulse_anonymous_id`, `datapulse_user_id`, `datapulse_session_id`). They are not shared with the DataPulse demo origin. A session rotates after 30 minutes of idle time.
+
+Cross-origin pages cannot POST to `/v1/capture` today. The SDK uses `sendBeacon`, then `fetch` with `credentials: "same-origin"`, and the producer does not send CORS headers. Keep the relative endpoint `/v1/capture` on the demo origin. For another origin, either enable CORS on `/v1/capture` or proxy the POST through that site's backend.
+
+### API
+
+| Method | What it does |
+|--------|----------------|
+| `DataPulse.init(options)` | Configure the client. Returns the API object. |
+| `DataPulse.capture(name, properties)` | Build and send one event. Returns the event, or `null` if `name` is empty. |
+| `DataPulse.identify(userId, traits)` | Save the user id and send `user_identified`. |
+| `DataPulse.register(properties)` | Merge properties onto every later event. |
+| `DataPulse.trackEvent(name, properties)` | Alias of `capture`. |
+| `DataPulse.identifyUser(userId, traits)` | Alias of `identify`. |
+| `DataPulse.getAnonymousId()` | Read or create the anonymous id. |
+| `DataPulse.getSessionId()` | Read or rotate the session id. |
+| `DataPulse.getUserId()` | Identified user id, or `null`. |
+| `DataPulse.getSuperProperties()` | Copy of the registered super properties. |
+
+`init` options:
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `projectId` | `"default"` | Sent as `project_id`. |
+| `endpoint` | `"/v1/capture"` | Use an absolute URL on another origin. |
+| `transportEnabled` | `true` | When `false`, events are built but not sent. The demo sets this from `kafkaEnabled`. |
+| `pagePath` | current pathname | Overrides `page_path`. |
+| `sessionTimeoutMs` | `1800000` | Idle time before a new session id. |
+| `superProperties` | `{}` | Merged into every event's `properties`. |
+| `onCapture` | `null` | Called with the event before it is sent. The demo uses this for the local panel. |
+
+`capture` always adds `source: "datapulse-sdk"` and a `context` object (`browser`, `locale`, `referrer`, `pathname`, and `utm` when the URL has `utm_*` params). UTM keys are stored without the `utm_` prefix.
+
+PostHog is optional and is not inside the SDK file. `analytics.js` dual-writes to PostHog only when `POSTHOG_KEY` is set.
 
 ## Quick start (FastAPI)
 
@@ -376,7 +463,7 @@ app/
   main.py                  # Producer FastAPI routes
   config.py                # Environment configuration
   kafka_settings.py        # Kafka OAuth settings
-  api/events.py            # POST /api/events
+  api/events.py            # POST /v1/capture and POST /api/events
   services/kafka_producer.py
   spark_stream/            # Consumer Application
     kafka_stream.py        # Spark Connect probe + Kafka CLI consumer
@@ -386,7 +473,8 @@ config/kafka/              # Surveyor certs and client properties
 templates/                 # Producer Jinja2 page templates
 static/
   css/styles.css
-  js/analytics.js          # Event capture and PostHog integration
+  js/datapulse-sdk.js      # Embeddable browser SDK (window.DataPulse)
+  js/analytics.js          # Demo auto-tracking, event panel, optional PostHog
 scripts/
   cai_deploy.py                 # upload + recreate one-shot deploy
   cai_upload_files.py             # Upload project files to Workbench
